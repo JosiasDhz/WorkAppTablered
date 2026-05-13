@@ -3,14 +3,18 @@ import {
   ActivityIndicator,
   Animated,
   PanResponder,
+  Platform,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { ArrowRight2 } from "iconsax-react-native";
 
 const THUMB = 58;
 const H_PAD = 4;
+const HINT_GAP = 10;
+const HINT_LEFT = H_PAD + THUMB + HINT_GAP;
 const THRESHOLD = 0.78;
 
 const COLORS = {
@@ -25,6 +29,7 @@ type SlideToStartAuditProps = {
   busy: boolean;
   errorToken?: string | null;
   inDock?: boolean;
+  hintText?: string;
 };
 
 export function SlideToStartAudit({
@@ -32,12 +37,15 @@ export function SlideToStartAudit({
   busy,
   errorToken,
   inDock,
+  hintText,
 }: SlideToStartAuditProps) {
   const panX = useRef(new Animated.Value(0)).current;
   const trackW = useRef(0);
   const maxSlide = useRef(0);
   const startOffset = useRef(0);
   const completing = useRef(false);
+  const lastHapticAt = useRef(0);
+  const lastEmitProg = useRef(0);
 
   const maxForWidth = useCallback((w: number) => Math.max(0, w - H_PAD * 2 - THUMB), []);
 
@@ -72,6 +80,7 @@ export function SlideToStartAudit({
     completing.current = true;
     const m = maxSlide.current;
     try {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await new Promise<void>((r) => {
         Animated.timing(panX, {
           toValue: m,
@@ -92,14 +101,39 @@ export function SlideToStartAudit({
         onStartShouldSetPanResponder: () => !busy,
         onMoveShouldSetPanResponder: (_, g) => !busy && Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 4,
         onPanResponderGrant: () => {
+          lastHapticAt.current = 0;
           panX.stopAnimation((v) => {
             startOffset.current = v;
+            const mx = maxSlide.current;
+            lastEmitProg.current = mx > 0 ? v / mx : 0;
           });
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         },
         onPanResponderMove: (_, g) => {
           const m = maxSlide.current;
           const next = Math.min(Math.max(0, startOffset.current + g.dx), m);
           panX.setValue(next);
+          if (m <= 0 || busy) return;
+          const prog = next / m;
+          if (prog < lastEmitProg.current) {
+            lastEmitProg.current = prog;
+            return;
+          }
+          if (prog - lastEmitProg.current < 0.055) return;
+          const now = Date.now();
+          const minGap = prog > 0.82 ? 26 : prog > 0.58 ? 36 : prog > 0.32 ? 48 : 62;
+          if (now - lastHapticAt.current < minGap) return;
+          lastHapticAt.current = now;
+          lastEmitProg.current = prog;
+          const style =
+            prog < 0.34
+              ? Haptics.ImpactFeedbackStyle.Light
+              : prog < 0.58
+                ? Haptics.ImpactFeedbackStyle.Medium
+                : prog < 0.8
+                  ? Haptics.ImpactFeedbackStyle.Heavy
+                  : Haptics.ImpactFeedbackStyle.Rigid;
+          void Haptics.impactAsync(style);
         },
         onPanResponderRelease: () => {
           if (busy) return;
@@ -134,27 +168,34 @@ export function SlideToStartAudit({
 
   return (
     <View style={[styles.wrap, inDock && styles.wrapInDock]}>
-      <View style={styles.track} onLayout={onTrackLayout}>
-        <Animated.Text style={[styles.hint, { opacity: hintOpacity }]} pointerEvents="none">
-          Desliza para iniciar
-        </Animated.Text>
-        <Animated.View
-          style={[
-            styles.thumb,
-            {
-              transform: [{ translateX: panX }],
-            },
-          ]}
-          {...panResponder.panHandlers}
-        >
-          <View style={styles.thumbInner}>
-            {busy ? (
-              <ActivityIndicator color={COLORS.thumbIcon} size="small" />
-            ) : (
-              <ArrowRight2 size={22} color={COLORS.thumbIcon} variant="Linear" />
-            )}
-          </View>
-        </Animated.View>
+      <View style={styles.trackOuter}>
+        <View style={styles.track} onLayout={onTrackLayout}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.hintBox, { opacity: hintOpacity }]}
+          >
+            <Text style={styles.hintTxt} numberOfLines={2}>
+              {hintText ?? "Desliza para iniciar"}
+            </Text>
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.thumb,
+              {
+                transform: [{ translateX: panX }],
+              },
+            ]}
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.thumbInner}>
+              {busy ? (
+                <ActivityIndicator color={COLORS.thumbIcon} size="small" />
+              ) : (
+                <ArrowRight2 size={22} color={COLORS.thumbIcon} variant="Linear" />
+              )}
+            </View>
+          </Animated.View>
+        </View>
       </View>
     </View>
   );
@@ -163,6 +204,18 @@ export function SlideToStartAudit({
 const styles = StyleSheet.create({
   wrap: { marginTop: 14, width: "100%" },
   wrapInDock: { marginTop: 0 },
+  trackOuter: {
+    borderRadius: 999,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.22,
+        shadowRadius: 12,
+      },
+      android: { elevation: 10 },
+    }),
+  },
   track: {
     height: THUMB + H_PAD * 2,
     borderRadius: 999,
@@ -170,15 +223,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  hint: {
-    ...StyleSheet.absoluteFillObject,
+  hintBox: {
+    position: "absolute",
+    top: H_PAD,
+    bottom: H_PAD,
+    left: HINT_LEFT,
+    right: H_PAD + 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  hintTxt: {
+    width: "100%",
     textAlign: "center",
-    textAlignVertical: "center",
-    lineHeight: THUMB + H_PAD * 2 - 4,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
     color: COLORS.hint,
     letterSpacing: 0.2,
+    lineHeight: 18,
   },
   thumb: {
     position: "absolute",

@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "./RootStackParamList";
 import QRCodeNavigator from "./navigators/QRCodeNavigator";
 import ProfileNavigator from "./navigators/ProfileNavigator";
 import UserProfileNavigator from "./navigators/UserProfileNavigator";
@@ -25,9 +26,12 @@ import InventoryAuditDetail from "../pages/profile/InventoryAuditDetail";
 import InventoryAuditFamilyProducts from "../pages/profile/InventoryAuditFamilyProducts";
 import AuditLossDocuments from "../pages/profile/AuditLossDocuments";
 import AuditLossDocumentDetail from "../pages/profile/AuditLossDocumentDetail";
+import DriverRouteDetailScreen from "../pages/profile/DriverRouteDetailScreen";
+import DriverRouteProductPickupScreen from "../pages/profile/DriverRouteProductPickupScreen";
+import DriverRouteNavFirstStopScreen from "../pages/profile/DriverRouteNavFirstStopScreen";
 
 const Tabs = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const tabNavTheme = {
   ...DefaultTheme,
@@ -175,6 +179,21 @@ const AppNavigator = () => {
             <Stack.Screen
               name="InventoryAuditLossDocumentDetail"
               component={AuditLossDocumentDetail}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DriverRouteDetail"
+              component={DriverRouteDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DriverRouteProductPickup"
+              component={DriverRouteProductPickupScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DriverRouteNavFirstStop"
+              component={DriverRouteNavFirstStopScreen}
               options={{ headerShown: false }}
             />
           </React.Fragment>

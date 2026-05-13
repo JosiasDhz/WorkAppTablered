@@ -2,6 +2,7 @@ const API_ROLE_TO_ES: Record<string, string> = {
   WarehouseKeeper: "Almacenista",
   Seller: "Vendedor",
   Supervisor: "Supervisor",
+  Driver: "Chofer",
   Cashier: "Cajero",
   Directivo: "Directivo",
 };

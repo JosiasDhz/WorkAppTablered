@@ -1,0 +1,135 @@
+{
+  "route": {
+    "id": "ad692dc8-13d4-43f6-a968-755acb3fa8ef",
+    "folio": "RUTA-bMBQD38O",
+    "status": "GUARDADA",
+    "notes": null,
+    "createdAtCdmx": "2026-05-12T20:29:32.390Z",
+    "originWarehouseId": "9826c701-171a-4c84-85e8-803d5581bd3b",
+    "originWarehouseName": "Xoxo 1",
+    "lastUpdatedByWorkerId": "a2a391a2-440c-4a5d-afa7-122ece960a6c",
+    "lastUpdatedByWorkerName": "Pedro Hernandez",
+    "lastUpdatedAtCdmx": "2026-05-12T21:16:33.616Z",
+    "savedDirectionsPolylinesByVehicleId": {
+      "998ffc36-6396-46c3-be6f-be92ecac6fca": "y`}fB~slmQ}@jDaB}By@qA}@kAe@m@w@uAIIJQ\\oA|@{DfByGyL{DwDkAiFaB]KXkBR_BsCIgCQ}AGUMUYMg@EUGSK_AlAQbASx@Y`Ac@nAw@lBiAz@q@Va@Vs@v@{BLk@xAyEf@yBj@kCtCyMDg@?mDEi@GMaA_A{AuAOGYCaBR_AVw@LgDCy@@f@wFA_@\\iEFuAO[\\W~FwDGQRKtEyC~GmE@]PkF@eBGeAi@}Ca@iBQm@SOTg@\\{@kB_AoB{@aBi@iCm@aLqBaCe@_BYwAe@g@A}@KkASu@M{@E_ADgAN}A\\{N`DqB^y@Dq@?y@IkMwAaKiAwASm@WiBaA{GoDF[FSH]VuBj@sEf@uEr@kGZmCnAPlATjCh@tDbAnAVdBf@j@Zr@RdAN`BT[tDZuDaBUeAOs@Sk@[eBg@oAWuDcAkCi@mAUoAQ[lCY`CYhCg@tEk@rEWtBI\\GRGZIDe@fA_@|@a@n@_@\\gDlByEfCmC~A_Ap@sGhEcGbD_Aj@y@`@OV|@p@zAlA~BlBrAfAJ?TN`B~AVZV\\pAvBh@hAb@rAv@|Dl@zD@RAFd@dDrAhJbAjGhB|Kl@rDVnAZjBhAjH^lD\\hBn@nCDlAC|@UpAEPa@f@{@v@[PoBl@WBAFADEBMD_APQPk@j@m@d@aBpAw@`Aq@nA]hAKl@YrBStBaAbJKn@Ob@]`As@nAyAlBc@d@}@t@wAdA_@N_AP[BcBF{A@q@EcDa@iAGy@@{@LcAT{Ax@kB`AsBl@GFsAVgA\\aDrAoJ~D{H`DiGpCoKlEkH|C{CpA{Ar@wHpDyDhByEfCaBv@mEvBSHLVLPr@lB|@|BxEpMtAbEbF~M\\nAP|@VfDLdBZdARZb@`@APEZWf@{DdBc@RNZ"
+    }
+  },
+  "destinations": [
+    {
+      "id": "fbd08f37-2789-422c-88c4-2fb9e87fff9f",
+      "visitOrder": 2,
+      "pinColorHex": "#eab308",
+      "vehicle": {
+        "id": "998ffc36-6396-46c3-be6f-be92ecac6fca",
+        "status": "activo",
+        "serialNumber": "a1",
+        "model": "np300",
+        "year": 2010,
+        "plateNumber": "2212",
+        "description": "test",
+        "capacityM3": "6.000",
+        "maxLoadTons": "1.400",
+        "maxLoadKg": "1400.000",
+        "type": "camioneta",
+        "warehouse": {
+          "id": "9826c701-171a-4c84-85e8-803d5581bd3b",
+          "name": "Xoxo 1"
+        },
+        "createdAt": "2026-04-24T22:57:39.240Z"
+      },
+      "assignedDriver": {
+        "id": "ad29b925-3c7c-4007-8457-3039cf144b00",
+        "code": "chofer",
+        "name": "Jose Maria",
+        "lastName": "Guadalupe",
+        "secondLastName": "Rodriguez"
+      },
+      "records": [
+        {
+          "id": "8cddf034-776f-46a5-882f-bbe9abc60208",
+          "saleId": "fa2ed361-3f9c-4220-9d93-075f1093d97a",
+          "saleFolio": "VENTA-C1w7sBTA",
+          "saleCreatedAtCdmx": "2026-05-12T20:47:39.035Z",
+          "saleStatusName": "Pendiente Cobro",
+          "saleStatusCode": "PENDIENTE_COBRO",
+          "productName": "ARAUCO MDF ROBLE TABACO LABRADO 15X1220X2440 (TOLEDO) *DESCONTINUADO*",
+          "productImageFileId": "a3a8de2e-e258-4390-947e-912f6ff0a3d2",
+          "quantity": 3,
+          "volumeM3": "0.63000000",
+          "weightKg": "30.00000000",
+          "deliveryStatus": "ASIGNADO_A_RUTA",
+          "originWarehouseId": "9826c701-171a-4c84-85e8-803d5581bd3b",
+          "street": "Carr. a Atzompa",
+          "neighborhood": "Agencia de Policia Montoya",
+          "externalNumber": "333",
+          "internalNumber": null,
+          "zipCode": "68143",
+          "city": "Oaxaca",
+          "state": "Oaxaca",
+          "country": "México",
+          "latitude": 17.0755813,
+          "longitude": -96.7579736,
+          "mapSearchQuery": "Carr. a Atzompa, Agencia de Policia Montoya, 68143 Oaxaca de Juárez, Oax., México"
+        }
+      ]
+    },
+    {
+      "id": "4fd1c44a-da69-4d48-b44d-3acbea5b1375",
+      "visitOrder": 3,
+      "pinColorHex": "#22c55e",
+      "vehicle": {
+        "id": "998ffc36-6396-46c3-be6f-be92ecac6fca",
+        "status": "activo",
+        "serialNumber": "a1",
+        "model": "np300",
+        "year": 2010,
+        "plateNumber": "2212",
+        "description": "test",
+        "capacityM3": "6.000",
+        "maxLoadTons": "1.400",
+        "maxLoadKg": "1400.000",
+        "type": "camioneta",
+        "warehouse": {
+          "id": "9826c701-171a-4c84-85e8-803d5581bd3b",
+          "name": "Xoxo 1"
+        },
+        "createdAt": "2026-04-24T22:57:39.240Z"
+      },
+      "assignedDriver": {
+        "id": "ad29b925-3c7c-4007-8457-3039cf144b00",
+        "code": "chofer",
+        "name": "Jose Maria",
+        "lastName": "Guadalupe",
+        "secondLastName": "Rodriguez"
+      },
+      "records": [
+        {
+          "id": "f3b93641-0ff4-4563-a4c9-0bca7241d5c0",
+          "saleId": "cb7f1893-d9d4-4ed3-a1c7-89eb94a73c45",
+          "saleFolio": "VENTA-1bI3HA4H",
+          "saleCreatedAtCdmx": "2026-05-12T20:24:45.612Z",
+          "saleStatusName": "Pendiente Cobro",
+          "saleStatusCode": "PENDIENTE_COBRO",
+          "productName": "ARAUCO MDF ROBLE TABACO LABRADO 15X1220X2440 (TOLEDO) *DESCONTINUADO*",
+          "productImageFileId": "a3a8de2e-e258-4390-947e-912f6ff0a3d2",
+          "quantity": 2,
+          "volumeM3": "0.42000000",
+          "weightKg": "20.00000000",
+          "deliveryStatus": "ASIGNADO_A_RUTA",
+          "originWarehouseId": "9826c701-171a-4c84-85e8-803d5581bd3b",
+          "street": "Calle Cedros",
+          "neighborhood": "Alamos",
+          "externalNumber": "117",
+          "internalNumber": null,
+          "zipCode": "68130",
+          "city": "Oaxaca",
+          "state": "Oaxaca",
+          "country": "México",
+          "latitude": 17.04499854818112,
+          "longitude": -96.70161006441802,
+          "mapSearchQuery": "Calle Cedros, Santa Lucía del Camino, Oaxaca, 68130, México"
+        }
+      ]
+    }
+  ]
+}

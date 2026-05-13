@@ -12,7 +12,10 @@
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["comgooglemaps", "googlemaps"]
+      }
     },
     "android": {
       "adaptiveIcon": {
