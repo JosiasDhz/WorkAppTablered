@@ -21,6 +21,7 @@ import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { driverRouteStatusLabelEs } from "../../domain/driverRoutePending";
 import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
 import { tripMapModelFromAssignment } from "./driverRoute/tripMapModelFromAssignment";
+import type { MapFitPadding } from "./driverRoute/driverRouteTripGoogleMapHtml";
 import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
 import { DriverRouteStopsList } from "./driverRoute/DriverRouteStopsList";
 import { destinationsInRouteTravelOrder } from "./driverRoute/driverRouteDestinationsTravelOrder";
@@ -126,6 +127,15 @@ export default function DriverRouteDetailScreen() {
   const sheetMaxH = Math.round(winH * 0.48);
   const scrollMaxH = Math.max(200, sheetMaxH);
 
+  const detailMapFitPadding = useMemo((): MapFitPadding => {
+    return {
+      top: Math.round(insets.top) + 112,
+      right: 16,
+      bottom: sheetMaxH + Math.round(swipeDockH * 0.45),
+      left: 14,
+    };
+  }, [insets.top, sheetMaxH, swipeDockH]);
+
   const scrollPadBottom = swipeDockH + 12;
 
   const scrollYRef = useRef(0);
@@ -172,10 +182,19 @@ export default function DriverRouteDetailScreen() {
   return (
     <View style={styles.screenRoot}>
       <View style={styles.mapLayer} accessibilityLabel="Mapa del recorrido">
-        <DriverRouteTripMapWebView model={mapModel} fill />
+        <DriverRouteTripMapWebView
+          model={mapModel}
+          fill
+          fitPadding={detailMapFitPadding}
+        />
       </View>
       <View style={styles.overlayColumn} pointerEvents="box-none">
         <View style={[styles.headerBar, { paddingTop: insets.top }]}>
+          <LinearGradient
+            colors={["rgba(248,250,252,0.98)", "rgba(248,250,252,0.72)", "rgba(248,250,252,0)"]}
+            style={styles.headerGradient}
+            pointerEvents="none"
+          />
           <HeaderTitle
             title={route.folio}
             subtitle={`Origen · ${route.originWarehouseName}`}
@@ -305,6 +324,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingBottom: 8,
     backgroundColor: "transparent",
+  },
+  headerGradient: {
+    ...StyleSheet.absoluteFillObject,
   },
   flexSpacer: {
     flex: 1,

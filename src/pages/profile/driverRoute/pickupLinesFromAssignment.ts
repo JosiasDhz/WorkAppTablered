@@ -28,14 +28,10 @@ function formatStopTitle(
 export function buildPickupLinesLifoFromAssignment(
   assignment: DriverRouteAssignmentDemo,
 ): PickupLineView[] {
-  const byVisitDesc = [...sortedDriverRouteDestinations(assignment.destinations)].sort(
-    (a, b) => {
-      if (b.visitOrder !== a.visitOrder) return b.visitOrder - a.visitOrder;
-      return String(b.id).localeCompare(String(a.id));
-    },
-  );
+  const deliveryOrder = sortedDriverRouteDestinations(assignment.destinations);
+  const loadOrder = [...deliveryOrder].reverse();
   const out: PickupLineView[] = [];
-  for (const dest of byVisitDesc) {
+  for (const dest of loadOrder) {
     for (const rec of dest.records) {
       out.push({
         recordId: rec.id,
@@ -53,7 +49,13 @@ export function buildPickupLinesLifoFromAssignment(
 
 export function groupPickupLinesByDestinationInOrder(
   lines: PickupLineView[],
-): { destinationId: string; visitOrder: number; stopTitle: string; lines: PickupLineView[] }[] {
+): {
+  destinationId: string;
+  visitOrder: number;
+  loadSequence: number;
+  stopTitle: string;
+  lines: PickupLineView[];
+}[] {
   const seen = new Set<string>();
   const order: string[] = [];
   for (const line of lines) {
@@ -68,11 +70,12 @@ export function groupPickupLinesByDestinationInOrder(
     arr.push(line);
     byDest.set(line.destinationId, arr);
   }
-  return order.map((destinationId) => {
+  return order.map((destinationId, index) => {
     const first = byDest.get(destinationId)![0];
     return {
       destinationId,
       visitOrder: first.visitOrder,
+      loadSequence: index + 1,
       stopTitle: first.stopTitle,
       lines: byDest.get(destinationId)!,
     };

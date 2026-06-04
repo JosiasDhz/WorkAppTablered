@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 import type { TripMapModel } from "./tripMapModelFromAssignment";
@@ -6,15 +6,15 @@ import { buildDriverRouteNavLiveGoogleMapHtml } from "./buildDriverRouteNavLiveG
 import type { MapFitPadding } from "./driverRouteTripGoogleMapHtml";
 
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-const DEFAULT_VECTOR_MAP_ID = "e1de796ceeb39e97dfe80867";
-const GOOGLE_MAP_ID = (process.env.EXPO_PUBLIC_GOOGLE_MAP_ID ?? DEFAULT_VECTOR_MAP_ID).trim();
+const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 export type DriverRouteNavLiveMapWebViewRef = {
   setDriverPose(lat: number, lng: number, headingDeg: number | null): void;
   updateNavigation(lat: number, lng: number, headingDeg: number | null): void;
-  centerOnUser(lat: number, lng: number): void;
+  centerOnUser(lat: number, lng: number, headingDeg?: number | null): void;
   fitRouteOverview(): void;
   bootstrapUserPose(lat: number, lng: number, headingDeg: number | null): void;
+  updateRoutePath(path: TripMapModel["path"]): void;
 };
 
 export type DriverRouteNavLiveMapWebViewProps = {
@@ -28,16 +28,17 @@ export const DriverRouteNavLiveMapWebView = forwardRef<
   DriverRouteNavLiveMapWebViewProps
 >(function DriverRouteNavLiveMapWebView({ model, fitPadding, onMapLoaded }, ref) {
   const webRef = useRef<WebView>(null);
+  const pathRef = useRef(model.path);
 
   const html = useMemo(
     () =>
       buildDriverRouteNavLiveGoogleMapHtml(
         GOOGLE_MAPS_KEY,
-        model,
+        { path: [], stops: model.stops },
         fitPadding,
-        GOOGLE_MAP_ID,
+        GOOGLE_MAPS_MAP_ID,
       ),
-    [model, fitPadding],
+    [model.stops, fitPadding],
   );
 
   const source = useMemo(
@@ -62,8 +63,10 @@ export const DriverRouteNavLiveMapWebView = forwardRef<
     webRef.current?.injectJavaScript(js);
   }, []);
 
-  const centerOnUser = useCallback((lat: number, lng: number) => {
-    const js = `try{window.centerOnDriverLocation&&window.centerOnDriverLocation(${Number(lat)},${Number(lng)});}catch(e){};true;`;
+  const centerOnUser = useCallback((lat: number, lng: number, headingDeg: number | null = null) => {
+    const rot =
+      headingDeg != null && Number.isFinite(headingDeg) ? Number(headingDeg).toFixed(1) : "null";
+    const js = `try{window.centerOnDriverLocation&&window.centerOnDriverLocation(${Number(lat)},${Number(lng)},false,${rot});}catch(e){};true;`;
     webRef.current?.injectJavaScript(js);
   }, []);
 
@@ -79,10 +82,38 @@ export const DriverRouteNavLiveMapWebView = forwardRef<
     webRef.current?.injectJavaScript(js);
   }, []);
 
+  const updateRoutePath = useCallback((path: TripMapModel["path"]) => {
+    if (path.length < 2) return;
+    const payload = encodeURIComponent(
+      JSON.stringify(
+        path.map((p) => ({
+          latitude: p.latitude,
+          longitude: p.longitude,
+        })),
+      ),
+    );
+    const js = `try{window.__setLiveRoutePath&&window.__setLiveRoutePath(JSON.parse(decodeURIComponent("${payload}")));}catch(e){};true;`;
+    webRef.current?.injectJavaScript(js);
+  }, []);
+
+  useEffect(() => {
+    if (model.path.length < 2) return;
+    if (pathRef.current === model.path) return;
+    pathRef.current = model.path;
+    updateRoutePath(model.path);
+  }, [model.path, updateRoutePath]);
+
   useImperativeHandle(
     ref,
-    () => ({ setDriverPose, updateNavigation, centerOnUser, fitRouteOverview, bootstrapUserPose }),
-    [setDriverPose, updateNavigation, centerOnUser, fitRouteOverview, bootstrapUserPose],
+    () => ({
+      setDriverPose,
+      updateNavigation,
+      centerOnUser,
+      fitRouteOverview,
+      bootstrapUserPose,
+      updateRoutePath,
+    }),
+    [setDriverPose, updateNavigation, centerOnUser, fitRouteOverview, bootstrapUserPose, updateRoutePath],
   );
 
   return (
@@ -97,7 +128,13 @@ export const DriverRouteNavLiveMapWebView = forwardRef<
         setSupportMultipleWindows={false}
         allowsInlineMediaPlayback
         mixedContentMode="compatibility"
-        onLoadEnd={() => onMapLoaded?.()}
+        onLoadEnd={() => {
+          pathRef.current = model.path;
+          if (model.path.length >= 2) {
+            updateRoutePath(model.path);
+          }
+          onMapLoaded?.();
+        }}
         {...(Platform.OS === "android" ? { androidLayerType: "hardware" as const } : {})}
       />
     </View>

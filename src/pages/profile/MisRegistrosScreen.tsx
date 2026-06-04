@@ -46,6 +46,7 @@ type DayRecord = {
   checkOut: string;
   total: string;
   warehouseLine: string;
+  checkDetails: Array<{ label: string; time: string }>;
 };
 
 type WeekBlock = {
@@ -173,6 +174,14 @@ function buildWeeksFromEvents(
         checkOut: sorted.length > 1 ? formatHm(t1) : "—",
         total: sorted.length > 1 ? diffHhMm(t0, t1) : "—",
         warehouseLine,
+        checkDetails: sorted.map((record, index) => {
+          const base = record.checkType?.name ?? `Check ${index + 1}`;
+          const label = record.isExtra ? `${base} (extra)` : base;
+          return {
+            label,
+            time: formatHm(new Date(record.registeredAt)),
+          };
+        }),
       };
     });
     blocks.push({
@@ -362,6 +371,21 @@ export default function MisRegistrosScreen() {
                       <Text style={styles.warehouseLine} numberOfLines={2}>
                         {d.warehouseLine}
                       </Text>
+                    ) : null}
+                    {d.checkDetails.length > 0 ? (
+                      <View style={styles.checkDetailsWrap}>
+                        {d.checkDetails.map((check, checkIdx) => (
+                          <View
+                            key={`${week.id}-${d.dayNum}-check-${checkIdx}`}
+                            style={styles.checkDetailRow}
+                          >
+                            <Text style={styles.checkDetailLabel} numberOfLines={1}>
+                              {check.label}
+                            </Text>
+                            <Text style={styles.checkDetailTime}>{formatAmPm(check.time)}</Text>
+                          </View>
+                        ))}
+                      </View>
                     ) : null}
                   </View>
                 </View>
@@ -596,6 +620,31 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     fontSize: 11,
     fontWeight: "600",
+    color: COLORS.muted,
+  },
+  checkDetailsWrap: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    gap: 6,
+  },
+  checkDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 6,
+  },
+  checkDetailLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  checkDetailTime: {
+    fontSize: 11,
+    fontWeight: "800",
     color: COLORS.muted,
   },
 });

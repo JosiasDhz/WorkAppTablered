@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { TripMapModel } from "./tripMapModelFromAssignment";
-import { buildDriverRouteTripGoogleMapHtml, type MapFitPadding } from "./driverRouteTripGoogleMapHtml";
+import { buildDriverRouteTripGoogleMapHtml, type MapFitOptions, type MapFitPadding } from "./driverRouteTripGoogleMapHtml";
 
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -12,6 +12,7 @@ export type DriverRouteTripMapWebViewProps = {
   height?: number;
   fill?: boolean;
   fitPadding?: MapFitPadding;
+  mapFitOptions?: MapFitOptions;
 };
 
 export function DriverRouteTripMapWebView({
@@ -19,15 +20,16 @@ export function DriverRouteTripMapWebView({
   height = 240,
   fill = false,
   fitPadding: fitPaddingProp,
+  mapFitOptions,
 }: DriverRouteTripMapWebViewProps) {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const fitPaddingAuto = useMemo((): MapFitPadding | undefined => {
     if (!fill) return undefined;
     const sheetRatio = 0.48;
-    const swipeReserve = 96;
+    const swipeReserve = 88;
     return {
-      top: Math.max(44, Math.round(insets.top) + 72),
+      top: Math.max(56, Math.round(insets.top) + 104),
       right: 16,
       bottom: Math.round(winH * sheetRatio + swipeReserve),
       left: 14,
@@ -35,8 +37,8 @@ export function DriverRouteTripMapWebView({
   }, [fill, winH, insets.top]);
   const fitPadding = fill ? (fitPaddingProp ?? fitPaddingAuto) : fitPaddingProp;
   const html = useMemo(
-    () => buildDriverRouteTripGoogleMapHtml(GOOGLE_MAPS_KEY, model, fitPadding),
-    [model, fitPadding],
+    () => buildDriverRouteTripGoogleMapHtml(GOOGLE_MAPS_KEY, model, fitPadding, mapFitOptions),
+    [model, fitPadding, mapFitOptions],
   );
   const source = useMemo(
     () => ({

@@ -11,9 +11,15 @@ export type TripMapStopMarker = {
   label: string;
 };
 
+export type TripMapOrigin = {
+  latitude: number;
+  longitude: number;
+};
+
 export type TripMapModel = {
   path: LatLng[];
   stops: TripMapStopMarker[];
+  origin?: TripMapOrigin;
 };
 
 function firstPolylineEncoded(route: DriverRouteAssignmentDemo["route"]): string {

@@ -36,6 +36,7 @@ export function useLiveLegNavigation(
   destLat: number,
   destLng: number,
   fallbackPath: LatLng[],
+  enabled = true,
 ): LiveLegNavigationState & {
   primaryLine: string;
   secondaryLine: string;
@@ -68,6 +69,15 @@ export function useLiveLegNavigation(
     let alive = true;
     const subRef = { current: null as Location.LocationSubscription | null };
 
+    if (!enabled) {
+      setLoadingDirections(false);
+      subRef.current?.remove();
+      return () => {
+        alive = false;
+        subRef.current?.remove();
+      };
+    }
+
     if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) {
       setLoadingDirections(false);
       setPermissionDenied(false);
@@ -76,6 +86,15 @@ export function useLiveLegNavigation(
         alive = false;
       };
     }
+
+    setLoadingDirections(true);
+    setPermissionDenied(false);
+    setDirectionsFailed(false);
+    setLegPath([]);
+    setSteps([]);
+    stepsRef.current = [];
+    setStepIndex(0);
+    prevPos.current = null;
 
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -155,7 +174,7 @@ export function useLiveLegNavigation(
       alive = false;
       subRef.current?.remove();
     };
-  }, [apiKey, destLat, destLng]);
+  }, [apiKey, destLat, destLng, enabled]);
 
   const arrived = useMemo(() => {
     if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) return false;

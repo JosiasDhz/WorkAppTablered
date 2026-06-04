@@ -9,6 +9,12 @@ export type MyAttendanceEventDto = {
   id: string;
   registeredAt: string;
   warehouseName: string;
+  isExtra: boolean;
+  checkType: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 };
 
 export async function fetchWorkerAttendanceQr(rotate: boolean) {

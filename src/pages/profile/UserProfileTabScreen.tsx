@@ -22,6 +22,8 @@ import {
   CodeCircle,
   Coin,
   DocumentText1,
+  FolderOpen,
+  Health,
   Edit2,
   Logout,
   Notification,
@@ -295,6 +297,45 @@ export default function UserProfileTabScreen() {
                       <Calendar1 size={16} color={COLORS.text} variant="Linear" />
                     </View>
                     <Text style={styles.menuLabel}>Mis registros</Text>
+                  </View>
+                  <Text style={styles.menuChevron}>›</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.menuRow}
+                  onPress={() => navigation.navigate("MisPermisos" as never)}
+                >
+                  <View style={styles.menuInner}>
+                    <View style={styles.menuIconWrap}>
+                      <DocumentText1 size={16} color={COLORS.text} variant="Linear" />
+                    </View>
+                    <Text style={styles.menuLabel}>Mis permisos</Text>
+                  </View>
+                  <Text style={styles.menuChevron}>›</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.menuRow}
+                  onPress={() => navigation.navigate("MisIncapacidades" as never)}
+                >
+                  <View style={styles.menuInner}>
+                    <View style={styles.menuIconWrap}>
+                      <Health size={16} color={COLORS.text} variant="Linear" />
+                    </View>
+                    <Text style={styles.menuLabel}>Mis incapacidades</Text>
+                  </View>
+                  <Text style={styles.menuChevron}>›</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.menuRow}
+                  onPress={() => navigation.navigate("MisExpediente" as never)}
+                >
+                  <View style={styles.menuInner}>
+                    <View style={styles.menuIconWrap}>
+                      <FolderOpen size={16} color={COLORS.text} variant="Linear" />
+                    </View>
+                    <Text style={styles.menuLabel}>Mi expediente</Text>
                   </View>
                   <Text style={styles.menuChevron}>›</Text>
                 </TouchableOpacity>

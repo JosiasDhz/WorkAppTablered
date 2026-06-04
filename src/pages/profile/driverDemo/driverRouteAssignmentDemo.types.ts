@@ -49,6 +49,11 @@ export type DriverRouteAssignmentDemoDriver = {
   secondLastName: string | null;
 };
 
+export type DriverRouteAssignmentDemoDestinationPayment = {
+  status: "PENDING" | "PAID";
+  amountToCollectMxn: number;
+};
+
 export type DriverRouteAssignmentDemoDestination = {
   id: string;
   visitOrder: number;
@@ -56,6 +61,7 @@ export type DriverRouteAssignmentDemoDestination = {
   vehicle: DriverRouteAssignmentDemoVehicle;
   assignedDriver: DriverRouteAssignmentDemoDriver;
   records: DriverRouteAssignmentDemoRecord[];
+  payment?: DriverRouteAssignmentDemoDestinationPayment;
 };
 
 export type DriverRouteAssignmentDemoRoute = {

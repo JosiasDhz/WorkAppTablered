@@ -7,6 +7,10 @@ export type MapFitPadding = {
   left: number;
 };
 
+export type MapFitOptions = {
+  zoomBoost?: boolean;
+};
+
 export const MAP_STYLES_FOR_EMBED: object[] = [
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "poi.park", stylers: [{ visibility: "off" }] },
@@ -66,6 +70,14 @@ map.setCenter(pathPts[0]);map.setZoom(14);
 }
 var bounds=new G.LatLngBounds();
 pathPts.forEach(function(pt){bounds.extend(pt);});
+if(p.origin&&typeof p.origin.latitude==="number"&&typeof p.origin.longitude==="number"){
+var opt={lat:Number(p.origin.latitude),lng:Number(p.origin.longitude)};
+bounds.extend(opt);
+new G.Marker({
+position:opt,map:map,
+icon:{path:G.SymbolPath.CIRCLE,scale:11,fillColor:"#2563EB",fillOpacity:1,strokeColor:"#ffffff",strokeWeight:3}
+});
+}
 (p.stops||[]).forEach(function(s){
 var pt={lat:Number(s.latitude),lng:Number(s.longitude)};
 bounds.extend(pt);
@@ -80,7 +92,14 @@ var pad=p.fit;
 if(pad&&typeof pad.top==="number"&&typeof pad.bottom==="number"){
 map.fitBounds(bounds,{top:pad.top,right:pad.right||44,bottom:pad.bottom,left:pad.left||16});
 }else{map.fitBounds(bounds,48);}
-G.event.addListenerOnce(map,"bounds_changed",function(){if(map.getZoom()>15)map.setZoom(15);});
+G.event.addListenerOnce(map,"bounds_changed",function(){
+var z=map.getZoom();
+var boost=p.fitOpts&&p.fitOpts.zoomBoost;
+if(boost){
+if(z>17)map.setZoom(17);
+else try{map.setZoom(Math.min(z+1,17));}catch(e){}
+}else if(z>15)map.setZoom(15);
+});
 }
 else if((p.stops||[]).length){var s0=p.stops[0];map.setCenter({lat:Number(s0.latitude),lng:Number(s0.longitude)});map.setZoom(14);}
 else{map.setCenter(center);map.setZoom(11);}
@@ -94,14 +113,23 @@ export function buildDriverRouteTripGoogleMapHtml(
   apiKey: string,
   model: TripMapModel,
   fitPadding?: MapFitPadding,
+  fitOptions?: MapFitOptions,
 ): string {
   const key = apiKey.trim();
   if (!key) return NO_KEY_HTML;
-  const body: { path: TripMapModel["path"]; stops: TripMapModel["stops"]; fit?: MapFitPadding } = {
+  const body: {
+    path: TripMapModel["path"];
+    stops: TripMapModel["stops"];
+    origin?: TripMapModel["origin"];
+    fit?: MapFitPadding;
+    fitOpts?: MapFitOptions;
+  } = {
     path: model.path,
     stops: model.stops,
+    origin: model.origin,
   };
   if (fitPadding) body.fit = fitPadding;
+  if (fitOptions) body.fitOpts = fitOptions;
   const enc = encodeURIComponent(JSON.stringify(body));
   const styles = JSON.stringify(MAP_STYLES_FOR_EMBED);
   return SHELL.replace("___PAYLOAD___", enc)

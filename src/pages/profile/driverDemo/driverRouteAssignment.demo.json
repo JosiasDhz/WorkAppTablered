@@ -71,7 +71,11 @@
           "longitude": -96.7579736,
           "mapSearchQuery": "Carr. a Atzompa, Agencia de Policia Montoya, 68143 Oaxaca de Juárez, Oax., México"
         }
-      ]
+      ],
+      "payment": {
+        "status": "PAID",
+        "amountToCollectMxn": 0
+      }
     },
     {
       "id": "4fd1c44a-da69-4d48-b44d-3acbea5b1375",
@@ -129,7 +133,11 @@
           "longitude": -96.70161006441802,
           "mapSearchQuery": "Calle Cedros, Santa Lucía del Camino, Oaxaca, 68130, México"
         }
-      ]
+      ],
+      "payment": {
+        "status": "PENDING",
+        "amountToCollectMxn": 2450.75
+      }
     }
   ]
 }

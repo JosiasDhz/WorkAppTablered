@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -10,7 +10,15 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { Location, Map1, ArrowLeft3, ArrowRight3, ArrowUp2, ArrowRotateLeft, ArrowRotateRight } from "iconsax-react-native";
+import {
+  ArrowLeft3,
+  ArrowRight3,
+  ArrowRotateLeft,
+  ArrowRotateRight,
+  ArrowUp2,
+  Gps,
+  Routing2,
+} from "iconsax-react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,21 +30,36 @@ import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
 import { destinationsInRouteTravelOrder } from "./driverRoute/driverRouteDestinationsTravelOrder";
 import type { MapFitPadding } from "./driverRoute/driverRouteTripGoogleMapHtml";
-import { tripMapModelLegToStopAtIndex } from "./driverRoute/tripMapModelLegToStopAtIndex";
 import {
   DriverRouteNavLiveMapWebView,
   type DriverRouteNavLiveMapWebViewRef,
 } from "./driverRoute/DriverRouteNavLiveMapWebView";
-import { useLiveLegNavigation } from "./driverRoute/useLiveLegNavigation";
+import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
+import { openGoogleMapsDrivingDirections } from "./driverRoute/openGoogleMapsDrivingDirections";
 import type { NavTurnKind } from "./driverRoute/resolveNavTurnKind";
+import { tripMapModelLegToStopAtIndex } from "./driverRoute/tripMapModelLegToStopAtIndex";
+import type { TripMapStopMarker } from "./driverRoute/tripMapModelFromAssignment";
+import { useLiveLegNavigation } from "./driverRoute/useLiveLegNavigation";
+import { useStaticLegRouteMap } from "./driverRoute/useStaticLegRouteMap";
+import { DriverRouteDeliveryCountPanel } from "./driverRoute/DriverRouteDeliveryCountPanel";
+import {
+  type DriverRouteDeliveryEvidencePhotosState,
+} from "./driverRoute/DriverRouteDeliveryEvidencePhotos";
+import {
+  buildDeliveryLinesFromDestination,
+  buildDeliveryPaymentFromDestination,
+  emptyRouteQtyMap,
+} from "./driverRoute/deliveryLinesFromDestination";
 
 const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-
 const signatureWebStyle = `.m-signature-pad--footer {display: none; margin: 0;} .m-signature-pad {box-shadow: none; border: none;}`;
 
+type DeliveryFlow = "start_slide" | "delivery_count" | "signature";
+type MapMode = "route" | "live";
+
 function NavTurnGlyph({ kind }: { kind: NavTurnKind }) {
-  const color = "#ffffff";
-  const size = 42;
+  const color = "#0F172A";
+  const size = 28;
   switch (kind) {
     case "left":
       return <ArrowLeft3 size={size} color={color} variant="Bold" />;
@@ -55,31 +78,27 @@ function NavTurnGlyph({ kind }: { kind: NavTurnKind }) {
         </View>
       );
     case "straight":
-    case "merge":
       return <ArrowUp2 size={size} color={color} variant="Bold" />;
     case "uturn":
       return <ArrowRotateLeft size={size} color={color} variant="Bold" />;
-    case "roundabout-left":
-      return <ArrowRotateLeft size={size} color={color} variant="Bold" />;
-    case "roundabout-right":
+    case "merge":
       return <ArrowRotateRight size={size} color={color} variant="Bold" />;
     default:
-      return null;
+      return <ArrowUp2 size={size} color={color} variant="Bold" />;
   }
 }
 
 const navTurnStyles = StyleSheet.create({
-  tiltLeft: { transform: [{ rotate: "-26deg" }] },
-  tiltRight: { transform: [{ rotate: "26deg" }] },
+  tiltLeft: { transform: [{ rotate: "-18deg" }] },
+  tiltRight: { transform: [{ rotate: "18deg" }] },
 });
-
-type DeliveryFlow = "start_slide" | "signature" | "finalize_slide";
 
 export default function DriverRouteNavFirstStopScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { height: winH } = useWindowDimensions();
-  const mapRef = useRef<DriverRouteNavLiveMapWebViewRef>(null);
+  const liveMapRef = useRef<DriverRouteNavLiveMapWebViewRef | null>(null);
+  const liveNavCameraStartedRef = useRef(false);
   const sigRef = useRef<SignatureViewRef | null>(null);
   const { params } = useRoute<RouteProp<RootStackParamList, "DriverRouteNavFirstStop">>();
   const routeId = params?.routeId ?? "";
@@ -90,111 +109,226 @@ export default function DriverRouteNavFirstStopScreen() {
     [detail],
   );
   const [stopIdx, setStopIdx] = useState(0);
+  const [mapMode, setMapMode] = useState<MapMode>("route");
+  const [liveMapReady, setLiveMapReady] = useState(false);
   const [flow, setFlow] = useState<DeliveryFlow>("start_slide");
-  const [finalizeSlideBusy, setFinalizeSlideBusy] = useState(false);
+  const [signatureBusy, setSignatureBusy] = useState(false);
+  const [deliveredByRecordId, setDeliveredByRecordId] = useState<Record<string, string>>({});
+  const [deliveryEvidencePhotos, setDeliveryEvidencePhotos] =
+    useState<DriverRouteDeliveryEvidencePhotosState>([]);
 
   const current = ordered[stopIdx];
   const currentRec = current?.records[0];
 
-  const navModel = useMemo(
+  const deliveryLines = useMemo(
+    () => (current ? buildDeliveryLinesFromDestination(current) : []),
+    [current],
+  );
+
+  const deliveryPayment = useMemo(
+    () => (current ? buildDeliveryPaymentFromDestination(current) : null),
+    [current],
+  );
+
+  const [amountReceivedRaw, setAmountReceivedRaw] = useState("");
+
+  const fallbackLeg = useMemo(
     () => (detail ? tripMapModelLegToStopAtIndex(detail, stopIdx) : { path: [], stops: [] }),
     [detail, stopIdx],
   );
 
-  const live = useLiveLegNavigation(
+  const stopMarker = useMemo((): TripMapStopMarker | null => {
+    if (!current || !currentRec) return null;
+    const addr =
+      [currentRec.street, currentRec.externalNumber, currentRec.neighborhood, currentRec.city]
+        .filter(Boolean)
+        .join(", ") || currentRec.mapSearchQuery;
+    return {
+      latitude: currentRec.latitude,
+      longitude: currentRec.longitude,
+      color: current.pinColorHex || "#EA7600",
+      visitOrder: current.visitOrder,
+      label: addr || `Parada ${current.visitOrder}`,
+    };
+  }, [current, currentRec]);
+
+  const staticRoute = useStaticLegRouteMap(
     GOOGLE_KEY,
-    currentRec?.latitude ?? Number.NaN,
-    currentRec?.longitude ?? Number.NaN,
-    navModel.path,
+    stopMarker,
+    fallbackLeg.path,
+    mapMode === "route" && !!stopMarker,
+    stopIdx,
   );
 
-  const mapModel = useMemo(
-    () => ({ path: live.effectivePath, stops: navModel.stops }),
-    [live.effectivePath, navModel.stops],
+  const liveNav = useLiveLegNavigation(
+    GOOGLE_KEY,
+    currentRec?.latitude ?? NaN,
+    currentRec?.longitude ?? NaN,
+    fallbackLeg.path,
+    mapMode === "live" && !!currentRec,
   );
+
+  const liveMapModel = useMemo(
+    () => ({
+      path: liveNav.effectivePath,
+      stops: stopMarker ? [stopMarker] : [],
+    }),
+    [liveNav.effectivePath, stopMarker],
+  );
+
+  const isDeliveryFocus = flow !== "start_slide";
+
+  const deliveryFocusScrollMaxH = useMemo(() => {
+    const headerReserve = 88;
+    const sigActionsReserve = flow === "signature" ? 170 : 0;
+    return Math.max(
+      winH -
+        insets.top -
+        Math.max(insets.bottom, 14) -
+        headerReserve -
+        sigActionsReserve -
+        24,
+      160,
+    );
+  }, [winH, insets.top, insets.bottom, flow]);
 
   const fitPadding = useMemo((): MapFitPadding => {
-    const navBannerTop = Math.round(insets.top) + 10;
-    const navBannerBlock = 182;
-    const topReserve = navBannerTop + navBannerBlock + 30;
-    const bottomReserve = Math.round(winH * 0.44) + 96;
+    const bottomSheetRatio = 0.34;
+    const topReserve = Math.round(insets.top) + 10 + (mapMode === "live" ? 238 : 198);
+    const bottomReserve = Math.max(insets.bottom, 14) + Math.round(winH * bottomSheetRatio) + 28;
     return {
       top: topReserve,
       right: 18,
-      bottom: Math.max(bottomReserve - 34, 318),
+      bottom: Math.max(bottomReserve - 118, 200),
       left: 42,
     };
-  }, [insets.top, winH]);
+  }, [insets.top, insets.bottom, winH, mapMode]);
 
-  const liveRef = useRef(live);
-  liveRef.current = live;
+  useEffect(() => {
+    setMapMode("route");
+    setLiveMapReady(false);
+  }, [stopIdx]);
 
-  const mapVisualKey = useMemo(
-    () => `${live.legPath.length >= 2 ? "dir" : "fb"}-${stopIdx}`,
-    [live.legPath.length, stopIdx],
-  );
+  useEffect(() => {
+    setDeliveredByRecordId(emptyRouteQtyMap(deliveryLines.map((l) => l.recordId)));
+    setDeliveryEvidencePhotos([]);
+    setAmountReceivedRaw("");
+    setFlow("start_slide");
+  }, [stopIdx, deliveryLines]);
 
-  const hasUserFix = live.userLat != null && live.userLng != null;
+  useEffect(() => {
+    setLiveMapReady(false);
+  }, [mapMode]);
 
-  const pushPose = useCallback(() => {
-    if (live.userLat == null || live.userLng == null) return;
-    mapRef.current?.updateNavigation(live.userLat, live.userLng, live.headingDeg);
-  }, [live.userLat, live.userLng, live.headingDeg]);
+  const onToggleMapMode = useCallback(() => {
+    if (mapMode === "route") {
+      setMapMode("live");
+      return;
+    }
+    if (liveNav.userLat == null || liveNav.userLng == null) return;
+    liveMapRef.current?.centerOnUser(
+      liveNav.userLat,
+      liveNav.userLng,
+      liveNav.headingDeg,
+    );
+  }, [mapMode, liveNav.userLat, liveNav.userLng, liveNav.headingDeg]);
 
-  const onCenterMyLocation = useCallback(() => {
-    if (live.userLat == null || live.userLng == null) return;
-    mapRef.current?.centerOnUser(live.userLat, live.userLng);
-  }, [live.userLat, live.userLng]);
+  const onOpenGoogleMaps = useCallback(async () => {
+    if (!currentRec) return;
+    try {
+      await openGoogleMapsDrivingDirections(currentRec.latitude, currentRec.longitude);
+    } catch {
+      Toast.show({
+        type: "error",
+        text1: "No se pudo abrir Google Maps",
+        text2: "Verifica que la app esté instalada.",
+      });
+    }
+  }, [currentRec]);
 
-  const onFitRoute = useCallback(() => {
-    mapRef.current?.fitRouteOverview();
+  useEffect(() => {
+    liveNavCameraStartedRef.current = false;
+  }, [stopIdx, mapMode]);
+
+  useEffect(() => {
+    if (!liveMapReady) {
+      liveNavCameraStartedRef.current = false;
+    }
+  }, [liveMapReady]);
+
+  const onLiveMapLoaded = useCallback(() => {
+    setLiveMapReady(true);
   }, []);
 
-  const applyUserBootstrap = useCallback(() => {
-    const L = liveRef.current;
-    if (L.userLat == null || L.userLng == null) return;
-    mapRef.current?.bootstrapUserPose(L.userLat, L.userLng, L.headingDeg);
-  }, []);
+  useEffect(() => {
+    if (mapMode !== "live" || !liveMapReady) return;
+    if (liveNav.effectivePath.length >= 2) {
+      liveMapRef.current?.updateRoutePath(liveNav.effectivePath);
+      if (liveNav.userLat != null && liveNav.userLng != null) {
+        liveMapRef.current?.bootstrapUserPose(
+          liveNav.userLat,
+          liveNav.userLng,
+          liveNav.headingDeg,
+        );
+      }
+    }
+  }, [
+    mapMode,
+    liveMapReady,
+    liveNav.effectivePath,
+    liveNav.userLat,
+    liveNav.userLng,
+    liveNav.headingDeg,
+  ]);
 
-  const onMapWebViewLoadEnd = useCallback(() => {
-    applyUserBootstrap();
-  }, [applyUserBootstrap]);
+  useEffect(() => {
+    if (mapMode !== "live" || !liveMapReady) return;
+    if (liveNav.userLat == null || liveNav.userLng == null) return;
+    liveMapRef.current?.updateNavigation(
+      liveNav.userLat,
+      liveNav.userLng,
+      liveNav.headingDeg,
+    );
+    if (!liveNavCameraStartedRef.current) {
+      liveNavCameraStartedRef.current = true;
+      liveMapRef.current?.bootstrapUserPose(
+        liveNav.userLat,
+        liveNav.userLng,
+        liveNav.headingDeg,
+      );
+    }
+  }, [mapMode, liveMapReady, liveNav.userLat, liveNav.userLng, liveNav.headingDeg]);
 
   const onSwipeRealizarEntrega = useCallback(async () => {
+    setDeliveredByRecordId(emptyRouteQtyMap(deliveryLines.map((l) => l.recordId)));
+    setDeliveryEvidencePhotos([]);
+    setAmountReceivedRaw("");
+    setFlow("delivery_count");
+  }, [deliveryLines]);
+
+  const onCancelDeliveryCount = useCallback(() => {
+    setFlow("start_slide");
+  }, []);
+
+  const onContinueToSignature = useCallback(() => {
     setFlow("signature");
+  }, []);
+
+  const setDeliveredQty = useCallback((recordId: string, text: string) => {
+    setDeliveredByRecordId((prev) => ({ ...prev, [recordId]: text }));
   }, []);
 
   const closeSignatureModal = useCallback(() => {
     sigRef.current?.clearSignature?.();
-    setFlow("start_slide");
+    setFlow("delivery_count");
   }, []);
 
   const requestReadSignature = useCallback(() => {
     sigRef.current?.readSignature?.();
   }, []);
 
-  const onSignatureOk = useCallback((signature: string) => {
-    if (!signature || signature.length < 120) {
-      Toast.show({
-        type: "error",
-        text1: "Firma requerida",
-        text2: "Pide al cliente que firme en el recuadro.",
-      });
-      return;
-    }
-    setFlow("finalize_slide");
-  }, []);
-
-  const onSignatureEmpty = useCallback(() => {
-    Toast.show({
-      type: "error",
-      text1: "Firma vacía",
-      text2: "Dibuja la firma antes de confirmar.",
-    });
-  }, []);
-
-  const onSwipeFinalizarEntrega = useCallback(async () => {
-    setFinalizeSlideBusy(true);
+  const finalizeDelivery = useCallback(async () => {
+    setSignatureBusy(true);
     try {
       const last = stopIdx >= ordered.length - 1;
       if (last) {
@@ -212,35 +346,39 @@ export default function DriverRouteNavFirstStopScreen() {
         return;
       }
       setStopIdx((i) => i + 1);
-      setFlow("start_slide");
       sigRef.current?.clearSignature?.();
       Toast.show({
         type: "success",
         text1: "Entrega registrada",
-        text2: "Continúa hacia la siguiente parada.",
+        text2: "Continúa con la siguiente parada.",
       });
     } finally {
-      setFinalizeSlideBusy(false);
+      setSignatureBusy(false);
     }
   }, [navigation, ordered.length, stopIdx]);
 
-  useEffect(() => {
-    pushPose();
-  }, [pushPose]);
+  const onSignatureOk = useCallback(
+    (signature: string) => {
+      if (!signature || signature.length < 120) {
+        Toast.show({
+          type: "error",
+          text1: "Firma requerida",
+          text2: "Pide al cliente que firme en el recuadro.",
+        });
+        return;
+      }
+      void finalizeDelivery();
+    },
+    [finalizeDelivery],
+  );
 
-  useEffect(() => {
-    if (!detail) return;
-    const cur = ordered[stopIdx];
-    if (!cur?.records[0]) return;
-    if (!hasUserFix) return;
-    applyUserBootstrap();
-    const t1 = setTimeout(applyUserBootstrap, 120);
-    const t2 = setTimeout(applyUserBootstrap, 420);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [detail, ordered, stopIdx, mapVisualKey, hasUserFix, applyUserBootstrap]);
+  const onSignatureEmpty = useCallback(() => {
+    Toast.show({
+      type: "error",
+      text1: "Firma vacía",
+      text2: "Dibuja la firma antes de confirmar.",
+    });
+  }, []);
 
   if (!detail || !current || !currentRec) {
     return (
@@ -255,62 +393,188 @@ export default function DriverRouteNavFirstStopScreen() {
       .filter(Boolean)
       .join(", ") || currentRec.mapSearchQuery;
 
-  const mapKey = mapVisualKey;
-
   const stopSummary =
     ordered.length > 1
       ? `Parada ${current.visitOrder} · ${stopIdx + 1}/${ordered.length}`
       : `Parada ${current.visitOrder}`;
 
-  return (
-    <View style={styles.screenRoot}>
-      <DriverRouteNavLiveMapWebView
-        key={mapKey}
-        ref={mapRef}
-        model={mapModel}
-        fitPadding={fitPadding}
-        onMapLoaded={onMapWebViewLoadEnd}
-      />
-      {live.loadingDirections ? (
-        <View style={styles.loadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" color="#EA580C" />
-        </View>
-      ) : null}
-      <View style={styles.overlayColumn} pointerEvents="box-none">
-        <View style={[styles.navBanner, { marginTop: Math.round(insets.top) + 10 }]}>
-          <View style={styles.navBannerRow}>
-            {!live.arrived && (live.navTurnKind !== "unknown" || live.steps.length > 0) ? (
-              <View
-                style={styles.navTurnIconWrap}
-                importantForAccessibility="no-hide-descendants"
-                accessibilityElementsHidden
-              >
-                <NavTurnGlyph
-                  kind={live.navTurnKind === "unknown" && live.steps.length > 0 ? "straight" : live.navTurnKind}
-                />
+  const mapLoading =
+    mapMode === "route" ? staticRoute.loading : liveNav.loadingDirections;
+
+  if (isDeliveryFocus) {
+    return (
+      <SafeAreaView style={styles.deliveryFocusRoot} edges={["top", "left", "right"]}>
+        {flow === "delivery_count" ? (
+          <HeaderTitle
+            title="Conteo de entrega"
+            subtitle={stopSummary}
+            tone="light"
+            onBack={onCancelDeliveryCount}
+          />
+        ) : null}
+        {flow === "signature" ? (
+          <HeaderTitle
+            title="Firma del cliente"
+            subtitle={`${stopSummary} · ${addrLine}`}
+            tone="light"
+            onBack={closeSignatureModal}
+          />
+        ) : null}
+        <KeyboardAvoidingView
+          style={styles.deliveryFocusShell}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+        >
+          <View
+            style={[
+              styles.deliveryFocusBody,
+              { paddingBottom: Math.max(insets.bottom, 14) },
+            ]}
+          >
+            {flow === "delivery_count" ? (
+              <DriverRouteDeliveryCountPanel
+                addressLine={addrLine}
+                lines={deliveryLines}
+                payment={deliveryPayment}
+                deliveredByRecordId={deliveredByRecordId}
+                amountReceivedRaw={amountReceivedRaw}
+                evidencePhotos={deliveryEvidencePhotos}
+                onChangeQty={setDeliveredQty}
+                onChangeAmountReceived={setAmountReceivedRaw}
+                onChangeEvidencePhotos={setDeliveryEvidencePhotos}
+                onContinue={onContinueToSignature}
+              />
+            ) : null}
+            {flow === "signature" ? (
+              <View style={styles.sigPanel}>
+                <View style={styles.sigPanelHead}>
+                  <Text style={styles.sigPanelSub}>
+                    Confirma que la entrega está correcta.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => sigRef.current?.clearSignature()}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Limpiar firma"
+                  >
+                    <Text style={styles.sigLimpiarText}>Limpiar</Text>
+                  </TouchableOpacity>
+                </View>
+                <View
+                  style={[
+                    styles.sigCanvasWrap,
+                    {
+                      height: Math.min(
+                        deliveryFocusScrollMaxH,
+                        Math.max(180, Math.round(winH * 0.34)),
+                      ),
+                    },
+                  ]}
+                >
+                  <SignatureScreen
+                    ref={sigRef}
+                    webStyle={signatureWebStyle}
+                    scrollable={false}
+                    nestedScrollEnabled={false}
+                    webviewProps={
+                      Platform.OS === "ios"
+                        ? { contentInsetAdjustmentBehavior: "never" as const }
+                        : undefined
+                    }
+                    onOK={onSignatureOk}
+                    onEmpty={onSignatureEmpty}
+                    descriptionText="Firma del cliente"
+                    clearText="Limpiar"
+                    confirmText=""
+                    autoClear={false}
+                  />
+                </View>
+                <View style={styles.sigPanelActions}>
+                  <TouchableOpacity
+                    style={styles.sigGhostBtn}
+                    onPress={closeSignatureModal}
+                    activeOpacity={0.85}
+                    disabled={signatureBusy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Volver al conteo"
+                  >
+                    <Text style={styles.sigGhostBtnText}>Volver</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.sigPrimaryBtn, signatureBusy ? styles.sigPrimaryBtnBusy : null]}
+                    onPress={requestReadSignature}
+                    activeOpacity={0.85}
+                    disabled={signatureBusy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirmar firma y finalizar entrega"
+                  >
+                    <Text style={styles.sigPrimaryBtnText}>
+                      {signatureBusy ? "Finalizando…" : "Confirmar firma"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : null}
-            <View style={styles.navBannerTextCol}>
-              <Text style={styles.bannerDist} accessibilityRole="header">
-                {live.secondaryLine}
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <View style={styles.screenRoot}>
+      {mapMode === "route" ? (
+        <DriverRouteTripMapWebView
+          key={`route-${stopIdx}`}
+          model={staticRoute.model}
+          fill
+          fitPadding={fitPadding}
+          mapFitOptions={{ zoomBoost: true }}
+        />
+      ) : (
+        <DriverRouteNavLiveMapWebView
+          key={`live-${stopIdx}`}
+          ref={liveMapRef}
+          model={liveMapModel}
+          fitPadding={fitPadding}
+          onMapLoaded={onLiveMapLoaded}
+        />
+      )}
+
+      {mapLoading ? (
+        <View style={styles.mapLoading} pointerEvents="none">
+          <ActivityIndicator size="large" color="#EA7600" />
+        </View>
+      ) : null}
+
+      <View style={styles.overlayColumn} pointerEvents="box-none">
+        <View style={[styles.routeBanner, { marginTop: Math.round(insets.top) + 10 }]}>
+          <Text style={styles.routeBannerKicker}>{detail.route.folio}</Text>
+          <Text style={styles.routeBannerTitle}>{stopSummary}</Text>
+          <Text style={styles.routeBannerAddr} numberOfLines={2}>
+            {addrLine}
+          </Text>
+          <Text style={styles.routeBannerMode}>
+            {mapMode === "route" ? "Vista de ruta" : "Navegación en tiempo real"}
+          </Text>
+        </View>
+
+        {mapMode === "live" && !liveNav.loadingDirections ? (
+          <View style={styles.liveNavCard}>
+            <View style={styles.liveNavTurn}>
+              <NavTurnGlyph kind={liveNav.navTurnKind} />
+            </View>
+            <View style={styles.liveNavText}>
+              <Text style={styles.liveNavPrimary} numberOfLines={2}>
+                {liveNav.primaryLine}
               </Text>
-              <Text style={styles.bannerInstr} numberOfLines={3}>
-                {live.primaryLine}
+              <Text style={styles.liveNavSecondary}>
+                {liveNav.secondaryLine} · {liveNav.progressLine}
               </Text>
             </View>
           </View>
-          {live.permissionDenied ? (
-            <Text style={styles.bannerWarn}>
-              Activa ubicación para ruta en vivo y el vehículo en el mapa.
-            </Text>
-          ) : null}
-          {live.directionsFailed && !live.permissionDenied ? (
-            <Text style={styles.bannerWarn}>
-              No se obtuvo ruta paso a paso. El mapa muestra el trazo guardado. Revisa la API
-              Directions en Google Cloud.
-            </Text>
-          ) : null}
-        </View>
+        ) : null}
+
         <View style={styles.flexSpacer} pointerEvents="box-none" />
         <View
           style={[
@@ -321,32 +585,35 @@ export default function DriverRouteNavFirstStopScreen() {
         >
           <Pressable
             style={({ pressed }) => [styles.mapFab, pressed && styles.mapFabPressed]}
-            onPress={onFitRoute}
+            onPress={() => void onOpenGoogleMaps()}
             accessibilityRole="button"
-            accessibilityLabel="Ver ruta centrada en el mapa"
+            accessibilityLabel="Abrir ruta en Google Maps"
           >
-            <Map1 size={22} color="#0F172A" variant="Bold" />
+            <Routing2 size={22} color="#0F172A" variant="Bold" />
           </Pressable>
           <Pressable
             style={({ pressed }) => [
               styles.mapFab,
+              mapMode === "live" ? styles.mapFabActive : null,
               pressed && styles.mapFabPressed,
-              (live.userLat == null || live.userLng == null) && styles.mapFabDisabled,
             ]}
-            onPress={onCenterMyLocation}
-            disabled={live.userLat == null || live.userLng == null}
+            onPress={onToggleMapMode}
             accessibilityRole="button"
-            accessibilityLabel="Centrar mapa en mi ubicación"
+            accessibilityLabel={
+              mapMode === "route"
+                ? "Ver navegación en tiempo real"
+                : "Recentrar navegación"
+            }
           >
-            <Location size={22} color="#0F172A" variant="Bold" />
+            <Gps
+              size={22}
+              color={mapMode === "live" ? "#FFFFFF" : "#0F172A"}
+              variant="Bold"
+            />
           </Pressable>
         </View>
+
         <View pointerEvents="box-none">
-          <View style={styles.navStatsBar}>
-            <Text style={styles.navStatsText} numberOfLines={1}>
-              {live.progressLine}
-            </Text>
-          </View>
           <View
             style={[styles.bottomCard, { paddingBottom: Math.max(insets.bottom, 14) }]}
             pointerEvents="auto"
@@ -355,85 +622,16 @@ export default function DriverRouteNavFirstStopScreen() {
             <Text style={styles.addr} numberOfLines={3}>
               {addrLine}
             </Text>
-            {flow === "start_slide" ? (
-              <SlideToStartAudit
-                key={`d-${stopIdx}-s`}
-                inDock
-                busy={false}
-                onSlideComplete={onSwipeRealizarEntrega}
-                hintText="Desliza para realizar entrega"
-              />
-            ) : null}
-            {flow === "finalize_slide" ? (
-              <SlideToStartAudit
-                key={`d-${stopIdx}-f`}
-                inDock
-                busy={finalizeSlideBusy}
-                onSlideComplete={onSwipeFinalizarEntrega}
-                hintText="Desliza para finalizar entrega"
-              />
-            ) : null}
+            <SlideToStartAudit
+              key={`d-${stopIdx}-s`}
+              inDock
+              busy={false}
+              onSlideComplete={onSwipeRealizarEntrega}
+              hintText="Desliza para realizar entrega"
+            />
           </View>
         </View>
       </View>
-
-      <Modal
-        visible={flow === "signature"}
-        animationType="slide"
-        presentationStyle={Platform.OS === "ios" ? "pageSheet" : undefined}
-        onRequestClose={closeSignatureModal}
-      >
-        <SafeAreaView style={styles.sigModalRoot} edges={["top", "left", "right"]}>
-          <View style={styles.sigModalHead}>
-            <View style={styles.sigModalHeadRow}>
-              <Text style={styles.sigModalTitle}>Firma del cliente</Text>
-              <TouchableOpacity
-                onPress={() => sigRef.current?.clearSignature()}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel="Limpiar firma"
-              >
-                <Text style={styles.sigLimpiarText}>Limpiar</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.sigModalSub}>
-              Confirma que la entrega está correcta. El cliente firma en el recuadro.
-            </Text>
-          </View>
-          <View style={styles.sigCanvasWrap}>
-            <SignatureScreen
-              ref={sigRef}
-              webStyle={signatureWebStyle}
-              onOK={onSignatureOk}
-              onEmpty={onSignatureEmpty}
-              descriptionText="Firma del cliente"
-              clearText="Limpiar"
-              confirmText=""
-              autoClear={false}
-            />
-          </View>
-          <View style={[styles.sigModalActions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            <TouchableOpacity
-              style={styles.sigGhostBtn}
-              onPress={closeSignatureModal}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Volver sin firmar"
-            >
-              <Text style={styles.sigGhostBtnText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.sigPrimaryBtn}
-              onPress={requestReadSignature}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Confirmar firma del cliente"
-            >
-              <Text style={styles.sigPrimaryBtnText}>Confirmar firma</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
     </View>
   );
 }
@@ -443,76 +641,125 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F1F5F9",
   },
+  deliveryFocusRoot: {
+    flex: 1,
+    backgroundColor: "#F1F5F9",
+  },
+  deliveryFocusShell: {
+    flex: 1,
+  },
+  deliveryFocusBody: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
   screenRoot: {
     flex: 1,
     position: "relative",
     backgroundColor: "#0f172a",
   },
-  loadingOverlay: {
+  mapLoading: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(15,23,42,0.25)",
     zIndex: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(241,245,249,0.55)",
   },
   overlayColumn: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 6,
     pointerEvents: "box-none",
   },
-  navBanner: {
+  routeBanner: {
     marginHorizontal: 14,
-    backgroundColor: "#000000",
+    backgroundColor: "#0F172A",
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
     zIndex: 11,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "#1E293B",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.28,
         shadowRadius: 12,
       },
       android: { elevation: 8 },
     }),
   },
-  navBannerRow: {
+  routeBannerKicker: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FB923C",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  routeBannerTitle: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: -0.4,
+  },
+  routeBannerAddr: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#CBD5E1",
+    lineHeight: 19,
+  },
+  routeBannerMode: {
+    marginTop: 8,
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#93C5FD",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  liveNavCard: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: { elevation: 6 },
+    }),
   },
-  navTurnIconWrap: {
-    width: 48,
-    height: 48,
+  liveNavTurn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
   },
-  navBannerTextCol: {
+  liveNavText: {
     flex: 1,
-    minWidth: 0,
   },
-  bannerDist: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#f8fafc",
-    letterSpacing: -0.8,
+  liveNavPrimary: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0F172A",
+    lineHeight: 20,
   },
-  bannerInstr: {
-    marginTop: 6,
-    fontSize: 16,
+  liveNavSecondary: {
+    marginTop: 4,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#e2e8f0",
-    lineHeight: 22,
-  },
-  bannerWarn: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#fbbf24",
-    lineHeight: 18,
+    color: "#64748B",
   },
   flexSpacer: {
     flex: 1,
@@ -541,31 +788,16 @@ const styles = StyleSheet.create({
       android: { elevation: 6 },
     }),
   },
+  mapFabActive: {
+    backgroundColor: "#EA7600",
+  },
   mapFabPressed: {
     opacity: 0.88,
   },
-  mapFabDisabled: {
-    opacity: 0.42,
-  },
-  navStatsBar: {
-    marginHorizontal: 0,
-    backgroundColor: "#0a0a0a",
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    zIndex: 10,
-  },
-  navStatsText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#fafafa",
-    letterSpacing: -0.3,
-  },
   bottomCard: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     paddingHorizontal: 18,
     paddingTop: 14,
     zIndex: 10,
@@ -594,59 +826,44 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 4,
   },
-  sigModalRoot: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
+  sigPanel: {
+    marginTop: 2,
   },
-  sigModalHead: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  sigModalHeadRow: {
+  sigPanelHead: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
+    marginBottom: 10,
   },
-  sigModalTitle: {
+  sigPanelSub: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#0F172A",
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+    lineHeight: 18,
+  },
+  sigPanelActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
   },
   sigLimpiarText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
     color: "#EA580C",
   },
-  sigModalSub: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#475569",
-    lineHeight: 20,
-  },
   sigCanvasWrap: {
-    flex: 1,
-    marginHorizontal: 14,
-    marginBottom: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
   },
-  sigModalActions: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
   sigGhostBtn: {
     flex: 1,
-    height: 50,
-    borderRadius: 14,
+    height: 46,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: "#CBD5E1",
     alignItems: "center",
@@ -660,14 +877,17 @@ const styles = StyleSheet.create({
   },
   sigPrimaryBtn: {
     flex: 1,
-    height: 50,
-    borderRadius: 14,
+    height: 46,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#EA580C",
   },
+  sigPrimaryBtnBusy: {
+    opacity: 0.7,
+  },
   sigPrimaryBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
     color: "#FFFFFF",
   },

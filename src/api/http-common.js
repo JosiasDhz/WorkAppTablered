@@ -1,10 +1,13 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const baseURL = "http://192.168.0.227:9005";
+export const apiBaseUrl = (
+  process.env.EXPO_PUBLIC_API_URL?.trim() || "http://192.168.0.227:9005"
+).replace(/\/$/, "");
+const baseURL = apiBaseUrl;
 
 const setupAxiosInterceptors = async () => {
-  let token = await AsyncStorage.getItem("tablered-token");
+  const token = await AsyncStorage.getItem("tablered-token");
   if (token) {
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   } else {
@@ -13,71 +16,76 @@ const setupAxiosInterceptors = async () => {
 };
 
 const http = axios.create({
-  baseURL: baseURL,
+  baseURL,
   timeout: 10000,
   headers: {
     Accept: "application/json",
-    Authorization: "Bearer " + AsyncStorage.getItem("tablered-token"),
-    "Content-type": "application/json",
+    "Content-Type": "application/json",
   },
 });
- 
-// Interceptor para configurar el token de autorización
+
 http.interceptors.request.use(
   async function (config) {
-    let token = await AsyncStorage.getItem("tablered-token");
+    const token = await AsyncStorage.getItem("tablered-token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Ajustar Content-Type si se está enviando FormData
     if (config.data instanceof FormData) {
-      config.headers["Content-Type"] = "multipart/form-data";
+      delete config.headers["Content-Type"];
     }
     return config;
   },
   function (error) {
     return Promise.reject(error);
-  }
+  },
 );
 
-// Interceptor para manejar respuestas de error
 http.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   function (error) {
     if (error.response) {
-      const status = error.response.status;
       return Promise.reject(error.response.data);
-    } else {
-      return Promise.reject({
-        status: 500,
-        message: "Error de conexión con el servidor.",
-      });
     }
-  }
+    return Promise.reject({
+      status: 500,
+      message: "Error de conexión con el servidor.",
+    });
+  },
 );
 
 const httpFormDataClient = axios.create({
   baseURL,
-  headers: {
-    "Content-Type": "multipart/form-data",
-  },
+  timeout: 120000,
 });
 
 httpFormDataClient.interceptors.request.use(
   async function (config) {
-    let token = await AsyncStorage.getItem("tablered-token");
-
-    config.headers["Content-Type"] = "multipart/form-data";
-
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    const token = await AsyncStorage.getItem("tablered-token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
     return config;
   },
   function (error) {
     return Promise.reject(error);
-  }
+  },
+);
+
+httpFormDataClient.interceptors.response.use(
+  (response) => response,
+  function (error) {
+    if (error.response) {
+      return Promise.reject(error.response.data);
+    }
+    return Promise.reject({
+      status: 500,
+      message: "Error de conexión con el servidor.",
+    });
+  },
 );
 
 export default http;
-export { httpFormDataClient };
+export { httpFormDataClient, setupAxiosInterceptors };
