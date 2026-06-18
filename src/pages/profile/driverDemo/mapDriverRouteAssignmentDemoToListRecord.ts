@@ -2,11 +2,15 @@ import type { DeliveryRouteStatusApi } from "../../../domain/driverRoutePending"
 import type { DriverAssignedRouteRecord } from "../../../services/driverRoutesService";
 import type { DriverRouteAssignmentDemo } from "./driverRouteAssignmentDemo.types";
 
-function fullDriverName(d: DriverRouteAssignmentDemo["destinations"][0]["assignedDriver"]) {
+function fullDriverName(
+  d: DriverRouteAssignmentDemo["destinations"][0]["assignedDriver"],
+) {
+  if (!d) return null;
   return [d.name, d.lastName, d.secondLastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }
 
 function vehicleSummary(v: DriverRouteAssignmentDemo["destinations"][0]["vehicle"]) {
+  if (!v) return null;
   const m = v.model?.trim();
   const p = v.plateNumber?.trim();
   if (m && p) return `${m} · ${p}`;
@@ -49,5 +53,10 @@ export function mapDriverRouteAssignmentDemoToListRecord(
     lastUpdatedByWorkerId: route.lastUpdatedByWorkerId,
     lastUpdatedByWorkerName: route.lastUpdatedByWorkerName,
     lastUpdatedAtCdmx: route.lastUpdatedAtCdmx,
+    pendingDriverConfirmationLinesCount: lineCount,
+    pendingDriverConfirmationUnits: unitSum,
+    pendingWarehouseConfirmationLinesCount: 0,
+    pendingWarehouseConfirmationUnits: 0,
+    driverConfirmedLinesCount: 0,
   };
 }

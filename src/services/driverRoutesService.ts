@@ -21,6 +21,11 @@ export type DriverAssignedRouteRecord = {
   lastUpdatedByWorkerId: string | null;
   lastUpdatedByWorkerName: string | null;
   lastUpdatedAtCdmx: string | null;
+  pendingDriverConfirmationLinesCount?: number;
+  pendingDriverConfirmationUnits?: number;
+  pendingWarehouseConfirmationLinesCount?: number;
+  pendingWarehouseConfirmationUnits?: number;
+  driverConfirmedLinesCount?: number;
 };
 
 export type DriverAssignedRoutesResponse = {
@@ -28,11 +33,14 @@ export type DriverAssignedRoutesResponse = {
   totalRecords: number;
 };
 
+export type DriverAssignedRoutesListMode = "confirm" | "map";
+
 export async function fetchDriverAssignedRoutes(params?: {
   limit?: number;
   offset?: number;
   term?: string;
   status?: DeliveryRouteStatusApi;
+  listMode?: DriverAssignedRoutesListMode;
 }) {
   const { data } = await http.get<DriverAssignedRoutesResponse>(
     "/driver-routes/assigned",

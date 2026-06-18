@@ -9,27 +9,86 @@ export type MapFitPadding = {
 
 export type MapFitOptions = {
   zoomBoost?: boolean;
+  zoomOut?: number;
+  maxZoom?: number;
+  panUp?: number;
+  panDown?: number;
+  animateDraw?: boolean;
 };
 
+export const ROUTE_POLYLINE_COLOR = "#EA7600";
+
 export const MAP_STYLES_FOR_EMBED: object[] = [
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.park", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.business", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.attraction", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "simplified" }, { lightness: 18 }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#475569" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
-  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e2e8f0" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#475569" }] },
-  { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#f8fafc" }] },
-  { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#f1f5f9" }] },
-  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#cbd5e1" }] },
-  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#eef2f6" }] },
-  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#e8edf3" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#dbe4ee" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
+  {
+    featureType: "administrative",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "landscape",
+    elementType: "all",
+    stylers: [{ visibility: "on" }],
+  },
+  {
+    featureType: "landscape",
+    elementType: "geometry",
+    stylers: [{ saturation: "0" }, { lightness: "0" }, { gamma: "1.00" }],
+  },
+  {
+    featureType: "landscape",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "all",
+    stylers: [{ visibility: "on" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ visibility: "on" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ visibility: "off" }, { weight: "1.43" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels",
+    stylers: [{ visibility: "on" }],
+  },
+  {
+    featureType: "road.arterial",
+    elementType: "labels.text",
+    stylers: [{ visibility: "on" }],
+  },
+  {
+    featureType: "road.local",
+    elementType: "labels.text",
+    stylers: [{ visibility: "on" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "all",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
 ];
 
 const NO_KEY_HTML = `<!DOCTYPE html>
@@ -47,6 +106,7 @@ const SHELL = `<!DOCTYPE html>
 </head>
 <body>
 <div id="map"></div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script>
 window.initTripRouteMap=function(){
 var G=window.google&&window.google.maps;if(!G)return;
@@ -60,33 +120,38 @@ var map=new G.Map(document.getElementById("map"),{
 center:center,zoom:12,gestureHandling:"greedy",mapTypeControl:false,streetViewControl:false,fullscreenControl:false,zoomControl:false,
 styles:___STYLES___
 });
+var bounds=new G.LatLngBounds();
+pathPts.forEach(function(pt){bounds.extend(pt);});
+var routeLine=null;
 if(pathPts.length>=2){
-new G.Polyline({
-path:pathPts,geodesic:true,strokeColor:"#EA7600",strokeOpacity:1,strokeWeight:5,map:map,
+routeLine=new G.Polyline({
+path:p.animateDraw?[pathPts[0]]:pathPts,geodesic:true,strokeColor:"#EA7600",strokeOpacity:1,strokeWeight:5,map:map,
 icons:[{icon:{path:G.SymbolPath.FORWARD_CLOSED_ARROW,scale:3.2,fillColor:"#ffffff",fillOpacity:1,strokeColor:"#EA7600",strokeWeight:1.5},offset:"18px",repeat:"92px"}]
 });
 }else if(pathPts.length===1){
 map.setCenter(pathPts[0]);map.setZoom(14);
 }
-var bounds=new G.LatLngBounds();
-pathPts.forEach(function(pt){bounds.extend(pt);});
+var originMarker=null;
 if(p.origin&&typeof p.origin.latitude==="number"&&typeof p.origin.longitude==="number"){
 var opt={lat:Number(p.origin.latitude),lng:Number(p.origin.longitude)};
 bounds.extend(opt);
-new G.Marker({
-position:opt,map:map,
-icon:{path:G.SymbolPath.CIRCLE,scale:11,fillColor:"#2563EB",fillOpacity:1,strokeColor:"#ffffff",strokeWeight:3}
+originMarker=new G.Marker({
+position:opt,map:map,opacity:p.animateDraw?0:1,
+icon:{path:G.SymbolPath.CIRCLE,scale:11,fillColor:"#4E6D82",fillOpacity:1,strokeColor:"#ffffff",strokeWeight:3}
 });
 }
+var stopMarkers=[];
 (p.stops||[]).forEach(function(s){
 var pt={lat:Number(s.latitude),lng:Number(s.longitude)};
 bounds.extend(pt);
-new G.Marker({
-position:pt,map:map,
+var m=new G.Marker({
+position:pt,map:map,opacity:p.animateDraw?0:1,
 label:{text:String(s.visitOrder),color:"#ffffff",fontSize:"12px",fontWeight:"bold"},
 icon:{path:G.SymbolPath.CIRCLE,scale:15,fillColor:s.color||"#EA7600",fillOpacity:1,strokeColor:"#ffffff",strokeWeight:2}
 });
+stopMarkers.push(m);
 });
+function fitMap(){
 if(!bounds.isEmpty()){
 var pad=p.fit;
 if(pad&&typeof pad.top==="number"&&typeof pad.bottom==="number"){
@@ -94,15 +159,42 @@ map.fitBounds(bounds,{top:pad.top,right:pad.right||44,bottom:pad.bottom,left:pad
 }else{map.fitBounds(bounds,48);}
 G.event.addListenerOnce(map,"bounds_changed",function(){
 var z=map.getZoom();
-var boost=p.fitOpts&&p.fitOpts.zoomBoost;
+var opts=p.fitOpts||{};
+var boost=opts.zoomBoost;
+var maxZ=typeof opts.maxZoom==="number"?opts.maxZoom:(boost?17:15);
 if(boost){
-if(z>17)map.setZoom(17);
-else try{map.setZoom(Math.min(z+1,17));}catch(e){}
-}else if(z>15)map.setZoom(15);
+if(z>maxZ)map.setZoom(maxZ);
+else try{map.setZoom(Math.min(z+1,maxZ));}catch(e){}
+}else if(z>maxZ)map.setZoom(maxZ);
+if(typeof opts.zoomOut==="number"&&opts.zoomOut>0){
+try{map.setZoom(Math.max(map.getZoom()-opts.zoomOut,4));}catch(e){}
+}
+if(typeof opts.panUp==="number"&&opts.panUp>0){
+try{map.panBy(0,opts.panUp);}catch(e){}
+}
+if(typeof opts.panDown==="number"&&opts.panDown>0){
+try{map.panBy(0,opts.panDown);}catch(e){}
+}
 });
 }
 else if((p.stops||[]).length){var s0=p.stops[0];map.setCenter({lat:Number(s0.latitude),lng:Number(s0.longitude)});map.setZoom(14);}
 else{map.setCenter(center);map.setZoom(11);}
+}
+fitMap();
+if(p.animateDraw&&routeLine&&pathPts.length>=2&&window.gsap){
+var drawState={idx:1};
+var tl=gsap.timeline({defaults:{ease:"power2.out"}});
+tl.to(drawState,{
+idx:pathPts.length,
+duration:Math.min(2.4,Math.max(1.2,pathPts.length*0.014)),
+onUpdate:function(){
+var i=Math.max(2,Math.floor(drawState.idx));
+routeLine.setPath(pathPts.slice(0,i));
+}
+});
+if(originMarker)tl.to(originMarker,{opacity:1,duration:0.3,ease:"back.out(2)"},"-=0.7");
+if(stopMarkers.length)tl.to(stopMarkers,{opacity:1,duration:0.35,stagger:0.08,ease:"back.out(2)"},"-=0.8");
+}
 };
 </script>
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=___API_KEY___&callback=initTripRouteMap"></script>
@@ -123,13 +215,17 @@ export function buildDriverRouteTripGoogleMapHtml(
     origin?: TripMapModel["origin"];
     fit?: MapFitPadding;
     fitOpts?: MapFitOptions;
+    animateDraw?: boolean;
   } = {
     path: model.path,
     stops: model.stops,
     origin: model.origin,
   };
   if (fitPadding) body.fit = fitPadding;
-  if (fitOptions) body.fitOpts = fitOptions;
+  if (fitOptions) {
+    body.fitOpts = fitOptions;
+    if (fitOptions.animateDraw) body.animateDraw = true;
+  }
   const enc = encodeURIComponent(JSON.stringify(body));
   const styles = JSON.stringify(MAP_STYLES_FOR_EMBED);
   return SHELL.replace("___PAYLOAD___", enc)

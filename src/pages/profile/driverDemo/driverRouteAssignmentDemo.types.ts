@@ -1,5 +1,7 @@
 export type DriverRouteAssignmentDemoRecord = {
   id: string;
+  rowKind?: string | null;
+  transferId?: string | null;
   saleId: string;
   saleFolio: string;
   saleCreatedAtCdmx: string;
@@ -11,6 +13,11 @@ export type DriverRouteAssignmentDemoRecord = {
   volumeM3: string;
   weightKg: string;
   deliveryStatus: string;
+  driverDeliveredAtCdmx?: string | null;
+  driverDeliveredByWorkerId?: string | null;
+  deliveryCompletionAtCdmx?: string | null;
+  deliverySignatureDataUrl?: string | null;
+  deliveryEvidenceFileIds?: string[];
   originWarehouseId: string;
   street: string;
   neighborhood: string;
@@ -58,8 +65,8 @@ export type DriverRouteAssignmentDemoDestination = {
   id: string;
   visitOrder: number;
   pinColorHex: string;
-  vehicle: DriverRouteAssignmentDemoVehicle;
-  assignedDriver: DriverRouteAssignmentDemoDriver;
+  vehicle: DriverRouteAssignmentDemoVehicle | null;
+  assignedDriver: DriverRouteAssignmentDemoDriver | null;
   records: DriverRouteAssignmentDemoRecord[];
   payment?: DriverRouteAssignmentDemoDestinationPayment;
 };
@@ -72,10 +79,24 @@ export type DriverRouteAssignmentDemoRoute = {
   createdAtCdmx: string;
   originWarehouseId: string;
   originWarehouseName: string;
-  lastUpdatedByWorkerId: string;
-  lastUpdatedByWorkerName: string;
-  lastUpdatedAtCdmx: string;
-  savedDirectionsPolylinesByVehicleId: Record<string, string>;
+  lastUpdatedByWorkerId: string | null;
+  lastUpdatedByWorkerName: string | null;
+  lastUpdatedAtCdmx: string | null;
+  routeStartedByWorkerId?: string | null;
+  routeStartedByWorkerName?: string | null;
+  routeStartedAtCdmx?: string | null;
+  routePickupStartedByWorkerId?: string | null;
+  routePickupStartedByWorkerName?: string | null;
+  routePickupStartedAtCdmx?: string | null;
+  routeStartOdometerReading?: number | null;
+  routeStartOdometerEvidenceFileId?: string | null;
+  routeCompletedByWorkerId?: string | null;
+  routeCompletedByWorkerName?: string | null;
+  routeCompletedAtCdmx?: string | null;
+  routeEndOdometerReading?: number | null;
+  routeEndOdometerEvidenceFileId?: string | null;
+  routeEndFuelEvidenceFileId?: string | null;
+  savedDirectionsPolylinesByVehicleId: Record<string, string> | null;
 };
 
 export type DriverRouteAssignmentDemo = {

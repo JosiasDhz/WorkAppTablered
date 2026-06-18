@@ -8,7 +8,15 @@ export type WorkerQrTimeSlice = {
   cycle: number;
 };
 
-export function useWorkerAttendanceQr(): WorkerQrTimeSlice {
+type UseWorkerAttendanceQrOptions = {
+  checkTypeCode?: string;
+  enabled?: boolean;
+};
+
+export function useWorkerAttendanceQr({
+  checkTypeCode,
+  enabled = true,
+}: UseWorkerAttendanceQrOptions = {}): WorkerQrTimeSlice {
   const [nonce, setNonce] = useState("");
   const [deadlineMs, setDeadlineMs] = useState<number | null>(null);
   const [cycle, setCycle] = useState(0);
@@ -26,7 +34,7 @@ export function useWorkerAttendanceQr(): WorkerQrTimeSlice {
   const load = useCallback(
     async (rotate: boolean) => {
       try {
-        const data = await fetchWorkerAttendanceQr(rotate);
+        const data = await fetchWorkerAttendanceQr(rotate, checkTypeCode);
         if (data?.nonce && data?.expiresAt) {
           applyTicket(data.nonce, data.expiresAt);
         }
@@ -36,12 +44,17 @@ export function useWorkerAttendanceQr(): WorkerQrTimeSlice {
         setDeadlineMs(null);
       }
     },
-    [applyTicket],
+    [applyTicket, checkTypeCode],
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setNonce("");
+      setDeadlineMs(null);
+      return;
+    }
     void load(true);
-  }, [load]);
+  }, [enabled, load]);
 
   useEffect(() => {
     const tickId = setInterval(() => setNow(Date.now()), 400);
@@ -49,12 +62,12 @@ export function useWorkerAttendanceQr(): WorkerQrTimeSlice {
   }, []);
 
   useEffect(() => {
-    if (deadlineMs == null) return;
+    if (!enabled || deadlineMs == null) return;
     if (now < deadlineMs) return;
     if (refreshAfterExpiryRef.current) return;
     refreshAfterExpiryRef.current = true;
     void load(false);
-  }, [now, deadlineMs, load]);
+  }, [now, deadlineMs, load, enabled]);
 
   const WINDOW_MS = 30_000;
 

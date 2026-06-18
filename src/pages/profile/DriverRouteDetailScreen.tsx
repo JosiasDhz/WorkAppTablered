@@ -1,36 +1,53 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
+  ActivityIndicator,
   Animated,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  Easing,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { LinearGradient } from "expo-linear-gradient";
-import { Car, Clock, Profile2User, Tag } from "iconsax-react-native";
+import { Car, Profile2User } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { driverRouteStatusLabelEs } from "../../domain/driverRoutePending";
-import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
+import {
+  driverRouteConfirmProgress,
+  flattenDriverRouteConfirmLines,
+} from "../../domain/driverRouteConfirmLines";
+import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
+import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
 import { tripMapModelFromAssignment } from "./driverRoute/tripMapModelFromAssignment";
-import type { MapFitPadding } from "./driverRoute/driverRouteTripGoogleMapHtml";
 import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
-import { DriverRouteStopsList } from "./driverRoute/DriverRouteStopsList";
+import { DriverRouteCompletedDetailBadge } from "./driverRoute/DriverRouteCompletedDetailBadge";
+import { DriverRouteConfettiLayer } from "./driverRoute/DriverRouteConfettiLayer";
+import { DriverRouteDetailAuditCards } from "./driverRoute/DriverRouteDetailAuditCards";
+import { DriverRouteInProgressDetailBadge } from "./driverRoute/DriverRouteInProgressDetailBadge";
+import { DriverRouteDetailTripRows } from "./driverRoute/DriverRouteDetailTripRows";
 import { destinationsInRouteTravelOrder } from "./driverRoute/driverRouteDestinationsTravelOrder";
+import { TableRedColors } from "../../theme/tableRedColors";
 
-function formatWhen(iso: string): string {
+const C = TableRedColors;
+
+function formatWhen(iso: string | null | undefined): string {
+  if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString("es-MX", {
-      dateStyle: "medium",
-      timeStyle: "short",
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return iso;
@@ -45,26 +62,120 @@ function driverFullName(d: {
   return [d.name, d.lastName, d.secondLastName].filter(Boolean).join(" ").trim();
 }
 
-function TripFieldRow({
-  icon,
-  label,
-  value,
-  hint,
-  divider,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint?: string | null;
-  divider?: boolean;
-}) {
+function statusBadgeTone(status: string): {
+  borderColor: string;
+  dotColor: string;
+  textColor: string;
+} {
+  if (status === "EN_PROCESO") {
+    return { borderColor: C.naranja, dotColor: C.naranja, textColor: C.naranja };
+  }
+  if (status === "LEVANTAMIENTO") {
+    return { borderColor: C.naranja, dotColor: C.naranja, textColor: C.naranja };
+  }
+  if (status === "CONFIRMADA" || status === "COMPLETA") {
+    return { borderColor: C.verde, dotColor: C.verdeHover, textColor: C.verdeHover };
+  }
+  return { borderColor: C.azul, dotColor: C.azul, textColor: C.azul };
+}
+
+function statusHeadline(status: string): string {
+  if (status === "COMPLETA") return "Ruta completada";
+  if (status === "EN_PROCESO") return "Entregas en curso";
+  if (status === "LEVANTAMIENTO") return "Verificación del vehículo";
+  if (status === "CONFIRMADA") return "Ruta lista para salir";
+  return "Ruta pendiente";
+}
+
+function statusSubline(
+  status: string,
+  stops: number,
+  units: number,
+  when: string,
+): string {
+  const stopsLabel = `${stops} ${stops === 1 ? "parada" : "paradas"}`;
+  const unitsLabel = units > 0 ? ` · ${units} uds.` : "";
+  if (status === "EN_PROCESO") {
+    return `${stopsLabel}${unitsLabel} — sigue el orden de las paradas`;
+  }
+  if (status === "LEVANTAMIENTO") {
+    return `${stopsLabel}${unitsLabel} — desliza abajo para verificar el vehículo`;
+  }
+  if (status === "CONFIRMADA") {
+    return `${stopsLabel}${unitsLabel} — desliza abajo para continuar la salida`;
+  }
+  if (status === "COMPLETA") {
+    return `${stopsLabel}${unitsLabel} — finalizada ${when}`;
+  }
+  return `${stopsLabel}${unitsLabel} — revisa el recorrido antes de salir`;
+}
+
+function canShowPickupDock(status: string): boolean {
   return (
-    <View style={[styles.fieldRow, divider ? styles.fieldRowDivider : null]}>
-      <View style={styles.fieldIconWrap}>{icon}</View>
-      <View style={styles.fieldBody}>
-        <Text style={styles.fieldLbl}>{label}</Text>
-        <Text style={styles.fieldVal}>{value}</Text>
-        {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    status !== "EN_PROCESO" &&
+    status !== "COMPLETA" &&
+    status !== "CANCELADA"
+  );
+}
+
+function statusProgress(status: string): number {
+  if (status === "COMPLETA") return 1;
+  if (status === "EN_PROCESO") return 0.88;
+  if (status === "LEVANTAMIENTO") return 0.75;
+  if (status === "CONFIRMADA") return 0.62;
+  return 0.34;
+}
+
+function isDeliveredStopRecord(status: string): boolean {
+  const s = status.trim().toUpperCase();
+  return s === "ENTREGADO" || s === "ENTREGADO_CHOFER";
+}
+
+function InfoPill(props: { icon: React.ReactNode; text: string }) {
+  return (
+    <View style={styles.infoPill}>
+      {props.icon}
+      <Text style={styles.infoPillTxt} numberOfLines={2}>
+        {props.text}
+      </Text>
+    </View>
+  );
+}
+
+const SHEET_ESTIMATE_HEIGHT = 172;
+const PICKUP_SWIPE_DOCK_HEIGHT = 88;
+
+function RouteGlassCard(props: {
+  children: React.ReactNode;
+  paddingBottom?: number;
+}) {
+  const { children, paddingBottom = 18 } = props;
+  return (
+    <View style={styles.floatingSheetShadow}>
+      <View style={styles.floatingSheetWrap}>
+        <BlurView
+          intensity={Platform.OS === "ios" ? 58 : 72}
+          tint="light"
+          {...(Platform.OS === "android"
+            ? {
+                experimentalBlurMethod: "dimezisBlurView" as const,
+                blurReductionFactor: 2,
+              }
+            : {})}
+          style={[
+            styles.floatingSheetBlur,
+            {
+              backgroundColor:
+                Platform.OS === "ios"
+                  ? "rgba(255, 255, 255, 0.48)"
+                  : "rgba(255, 255, 255, 0.52)",
+            },
+          ]}
+        >
+          <View style={[styles.floatingSheetInner, { paddingBottom }]}>
+            {children}
+          </View>
+        </BlurView>
       </View>
     </View>
   );
@@ -76,7 +187,7 @@ export default function DriverRouteDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } = useRoute<RouteProp<RootStackParamList, "DriverRouteDetail">>();
   const routeId = params?.routeId ?? "";
-  const detail = useMemo(() => getDriverRouteAssignmentDetail(routeId), [routeId]);
+  const { detail, loading, error, refresh } = useDriverRouteAssignmentDetail(routeId);
   const mapModel = useMemo(
     () => (detail ? tripMapModelFromAssignment(detail) : { path: [], stops: [] }),
     [detail],
@@ -86,382 +197,616 @@ export default function DriverRouteDetailScreen() {
     () => (detail ? destinationsInRouteTravelOrder(detail) : []),
     [detail],
   );
-  const firstDest = routeOrderDestinations[0];
-  const vehicle = firstDest?.vehicle;
-  const driver = firstDest?.assignedDriver;
+
+  const totalUnits = useMemo(
+    () =>
+      routeOrderDestinations.reduce(
+        (sum, dest) => sum + dest.records.reduce((s, r) => s + (r.quantity || 0), 0),
+        0,
+      ),
+    [routeOrderDestinations],
+  );
+
+  const confirmProgress = useMemo(() => {
+    if (!detail) return null;
+    return driverRouteConfirmProgress(flattenDriverRouteConfirmLines(detail.destinations));
+  }, [detail]);
+
+  const goPickup = useCallback(async () => {
+    if (!detail) return;
+    const id = detail.route.id;
+    if (DRIVER_ROUTES_FLOW_USE_DEMO) {
+      navigation.navigate("DriverRouteProductPickup", { routeId: id });
+      return;
+    }
+    if (confirmProgress && !confirmProgress.allConfirmed) {
+      navigation.navigate("DriverRouteConfirmMercancia", { routeId: id });
+      return;
+    }
+    navigation.navigate("DriverRouteProductPickup", { routeId: id });
+  }, [navigation, detail, confirmProgress]);
+
+  const goNavDeliveries = useCallback(() => {
+    if (!detail) return;
+    navigation.navigate("DriverRouteNavFirstStop", { routeId: detail.route.id });
+  }, [detail, navigation]);
+
+  const routeStatus = detail?.route.status ?? null;
+  const showPickupDock = routeStatus != null && canShowPickupDock(routeStatus);
+  const showNavDock = routeStatus === "EN_PROCESO";
+
+  const dockBottomPad = Math.max(insets.bottom, 12);
+  const dockHeight =
+    (showPickupDock
+      ? PICKUP_SWIPE_DOCK_HEIGHT
+      : showNavDock
+        ? 72
+        : 0) + dockBottomPad;
+
+  const mapSpacerHeight = Math.max(
+    Math.round(insets.top + 120),
+    Math.round(winH - dockHeight - SHEET_ESTIMATE_HEIGHT + 8),
+  );
+
+  const mapFitPadding = useMemo(
+    () => ({
+      top: 90,
+      right: 40,
+      bottom: Math.round(dockHeight + SHEET_ESTIMATE_HEIGHT + 10),
+      left: 40,
+    }),
+    [dockHeight],
+  );
+
+  const isCompleta = routeStatus === "COMPLETA";
+  const isEnProceso = routeStatus === "EN_PROCESO";
+  const progressTarget = detail ? statusProgress(detail.route.status) : 0;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressPulse = useRef(new Animated.Value(0)).current;
+  const statusDotPulse = useRef(new Animated.Value(0)).current;
+  const sheetOpacity = useRef(new Animated.Value(0)).current;
+  const sheetSlide = useRef(new Animated.Value(28)).current;
+  const detailsOpacity = useRef(new Animated.Value(0)).current;
+  const detailsSlide = useRef(new Animated.Value(20)).current;
+  const completaFxPlayedRef = useRef(false);
+
+  const stopDeliveryCounts = useMemo(() => {
+    if (!detail) return { delivered: 0, pending: 0 };
+    let delivered = 0;
+    let pending = 0;
+    for (const dest of routeOrderDestinations) {
+      const done = dest.records.some((rec) =>
+        isDeliveredStopRecord(String(rec.deliveryStatus ?? "")),
+      );
+      if (done) delivered += 1;
+      else pending += 1;
+    }
+    return { delivered, pending };
+  }, [detail, routeOrderDestinations]);
+
+  useEffect(() => {
+    if (!detail) return;
+    progressAnim.setValue(0);
+    sheetOpacity.setValue(0);
+    sheetSlide.setValue(28);
+    detailsOpacity.setValue(0);
+    detailsSlide.setValue(20);
+
+    Animated.parallel([
+      Animated.timing(progressAnim, {
+        toValue: progressTarget,
+        duration: isCompleta ? 1500 : 820,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(sheetOpacity, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(sheetSlide, {
+        toValue: 0,
+        friction: 8,
+        tension: 72,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.sequence([
+      Animated.delay(isCompleta ? 260 : 120),
+      Animated.parallel([
+        Animated.timing(detailsOpacity, {
+          toValue: 1,
+          duration: 380,
+          useNativeDriver: true,
+        }),
+        Animated.spring(detailsSlide, {
+          toValue: 0,
+          friction: 8,
+          tension: 70,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [
+    detail,
+    detailsOpacity,
+    detailsSlide,
+    isCompleta,
+    progressAnim,
+    progressTarget,
+    sheetOpacity,
+    sheetSlide,
+  ]);
+
+  useEffect(() => {
+    if (!isEnProceso) return;
+    const progressLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(progressPulse, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(progressPulse, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+    const dotLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(statusDotPulse, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(statusDotPulse, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    progressLoop.start();
+    dotLoop.start();
+    return () => {
+      progressLoop.stop();
+      dotLoop.stop();
+    };
+  }, [isEnProceso, progressPulse, statusDotPulse]);
+
+  useEffect(() => {
+    if (!isCompleta || completaFxPlayedRef.current) return;
+    completaFxPlayedRef.current = true;
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [isCompleta]);
+
+  if (loading && !detail) {
+    return (
+      <View style={styles.safe}>
+        <View style={{ paddingTop: insets.top }}>
+          <HeaderTitle title="Ruta" subtitle="Cargando detalle…" tone="light" />
+        </View>
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color={C.naranja} />
+        </View>
+      </View>
+    );
+  }
 
   if (!detail) {
     return (
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-        <LinearGradient
-          colors={["#E2E8F0", "#F8FAFC"]}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <HeaderTitle
-          title="Ruta"
-          subtitle="No se encontró el detalle"
-          tone="light"
-        />
+      <View style={styles.safe}>
+        <View style={{ paddingTop: insets.top }}>
+          <HeaderTitle title="Ruta" subtitle="No se encontró el detalle" tone="light" />
+        </View>
         <View style={styles.missing}>
           <Text style={styles.missingTitle}>Sin datos</Text>
           <Text style={styles.missingSub}>
-            Conecta el API o abre una ruta válida. En demo solo aplica a la ruta de ejemplo.
+            {error ?? "No se pudo cargar esta ruta."}
           </Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => void refresh()}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.retryTxt}>Reintentar</Text>
+          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const { route } = detail;
+  const firstDest = routeOrderDestinations[0];
+  const vehicle = firstDest?.vehicle;
+  const driver = firstDest?.assignedDriver;
   const vehicleLine = vehicle
-    ? `${vehicle.model} · ${vehicle.plateNumber} (${vehicle.type})`
+    ? `${vehicle.model} · ${vehicle.plateNumber}`
     : "";
   const statusLabel = driverRouteStatusLabelEs(route.status);
-
-  const goPickup = useCallback(async () => {
-    navigation.navigate("DriverRouteProductPickup", { routeId: route.id });
-  }, [navigation, route.id]);
-
-  const dockBottomPad = Math.max(insets.bottom, 12);
-  const swipeDockH = 88 + dockBottomPad;
-  const sheetMaxH = Math.round(winH * 0.48);
-  const scrollMaxH = Math.max(200, sheetMaxH);
-
-  const detailMapFitPadding = useMemo((): MapFitPadding => {
-    return {
-      top: Math.round(insets.top) + 112,
-      right: 16,
-      bottom: sheetMaxH + Math.round(swipeDockH * 0.45),
-      left: 14,
-    };
-  }, [insets.top, sheetMaxH, swipeDockH]);
-
-  const scrollPadBottom = swipeDockH + 12;
-
-  const scrollYRef = useRef(0);
-  const sectionYRef = useRef<number | null>(null);
-  const scrollVHRef = useRef(0);
-  const contentHRef = useRef(0);
-  const dockOpacity = useRef(new Animated.Value(0)).current;
-  const interactiveRef = useRef(false);
-  const [dockPointerEvents, setDockPointerEvents] = useState<"none" | "auto">("none");
-
-  const applyDockOpacity = useCallback(() => {
-    const sectionY = sectionYRef.current;
-    const vy = scrollVHRef.current;
-    const ch = contentHRef.current;
-    if (vy <= 0) return;
-    let t = 0;
-    if (sectionY != null) {
-      const y = scrollYRef.current;
-      const maxScroll = Math.max(0, ch - vy);
-      const bottom = y + vy;
-      const fadeStart = sectionY + 36;
-      const fadeEnd = sectionY + 140;
-      const zone = Math.min(1, Math.max(0, (bottom - fadeStart) / (fadeEnd - fadeStart)));
-      const scrollGate =
-        maxScroll <= 6 ? 1 : y < 6 ? 0 : Math.min(1, (y - 6) / 96);
-      t = zone * scrollGate;
-    }
-    dockOpacity.setValue(t);
-    const next = t > 0.14;
-    if (next !== interactiveRef.current) {
-      interactiveRef.current = next;
-      setDockPointerEvents(next ? "auto" : "none");
-    }
-  }, [dockOpacity]);
-
-  const onSheetScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      scrollYRef.current = e.nativeEvent.contentOffset.y;
-      applyDockOpacity();
-    },
-    [applyDockOpacity],
-  );
+  const badgeTone = statusBadgeTone(route.status);
+  const whenLabel = formatWhen(route.createdAtCdmx);
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+  const progressGlowOpacity = progressPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.75, 1],
+  });
+  const statusDotScale = statusDotPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.35],
+  });
+  const pickupSwipeHint =
+    confirmProgress && !confirmProgress.allConfirmed
+      ? "Desliza para iniciar conteo"
+      : "Desliza para verificar vehículo";
 
   return (
-    <View style={styles.screenRoot}>
-      <View style={styles.mapLayer} accessibilityLabel="Mapa del recorrido">
+    <View style={styles.safe}>
+      <View style={styles.mapLayer} pointerEvents="box-none">
         <DriverRouteTripMapWebView
           model={mapModel}
           fill
-          fitPadding={detailMapFitPadding}
+          fitPadding={mapFitPadding}
+          celebrationMode={isCompleta}
+          mapFitOptions={
+            isCompleta
+              ? undefined
+              : { maxZoom: 16, zoomBoost: false, animateDraw: true }
+          }
         />
-      </View>
-      <View style={styles.overlayColumn} pointerEvents="box-none">
-        <View style={[styles.headerBar, { paddingTop: insets.top }]}>
-          <LinearGradient
-            colors={["rgba(248,250,252,0.98)", "rgba(248,250,252,0.72)", "rgba(248,250,252,0)"]}
-            style={styles.headerGradient}
+        {isEnProceso ? (
+          <View
+            style={[styles.completedBadgeWrap, { top: insets.top + 78 }]}
             pointerEvents="none"
-          />
-          <HeaderTitle
-            title={route.folio}
-            subtitle={`Origen · ${route.originWarehouseName}`}
-            tone="light"
-            backgroundColor="transparent"
-          />
-        </View>
-        <View style={styles.flexSpacer} pointerEvents="box-none" />
-        <View style={[styles.bottomSheet, { maxHeight: sheetMaxH }]} pointerEvents="auto">
-          <ScrollView
-            style={[styles.sheetScroll, { maxHeight: scrollMaxH }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            scrollEventThrottle={16}
-            onScroll={onSheetScroll}
-            onLayout={(e) => {
-              scrollVHRef.current = e.nativeEvent.layout.height;
-              applyDockOpacity();
-            }}
-            onContentSizeChange={(_, h) => {
-              contentHRef.current = h;
-              applyDockOpacity();
-            }}
-            contentContainerStyle={[
-              styles.sheetScrollContent,
-              { paddingBottom: scrollPadBottom, paddingTop: 10 },
-            ]}
           >
-            <View style={styles.tripCard}>
-              <View style={styles.tripCardHead}>
-                <View style={styles.tripCardAccent} />
-                <Text style={styles.tripCardTitle}>Datos del viaje</Text>
+            <DriverRouteInProgressDetailBadge
+              deliveredStops={stopDeliveryCounts.delivered}
+              pendingStops={stopDeliveryCounts.pending}
+            />
+          </View>
+        ) : null}
+        {isCompleta ? (
+          <View
+            style={[styles.completedBadgeWrap, { top: insets.top + 78 }]}
+            pointerEvents="none"
+          >
+            <DriverRouteCompletedDetailBadge stopCount={routeOrderDestinations.length} />
+          </View>
+        ) : null}
+        {isCompleta ? <DriverRouteConfettiLayer active pieceCount={16} fallDistance={420} /> : null}
+      </View>
+
+      <ScrollView
+        style={styles.scrollOverlay}
+        pointerEvents="box-none"
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: dockHeight + 24 }}
+      >
+        <View style={{ height: mapSpacerHeight }} pointerEvents="none" />
+
+        <Animated.View
+          style={{
+            opacity: sheetOpacity,
+            transform: [{ translateY: sheetSlide }],
+          }}
+        >
+          <RouteGlassCard>
+            <View style={styles.sheetTop}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.sheetTitle}>
+                  {statusHeadline(route.status)}
+                </Text>
+                <Text style={styles.sheetSubtitle}>
+                  {statusSubline(
+                    route.status,
+                    routeOrderDestinations.length,
+                    totalUnits,
+                    whenLabel,
+                  )}
+                </Text>
               </View>
-              <TripFieldRow
-                icon={<Tag size={16} color="#64748B" variant="Bold" />}
-                label="Estatus"
-                value={statusLabel}
-                divider
-              />
-              <TripFieldRow
-                icon={<Clock size={16} color="#64748B" variant="Bold" />}
-                label="Última actualización"
-                value={formatWhen(route.lastUpdatedAtCdmx)}
-                hint={route.lastUpdatedByWorkerName ?? undefined}
-                divider={Boolean(driver || vehicleLine)}
-              />
-              {driver ? (
-                <TripFieldRow
-                  icon={<Profile2User size={16} color="#64748B" variant="Bold" />}
-                  label="Chofer"
-                  value={driverFullName(driver)}
-                  divider={Boolean(vehicleLine)}
-                />
-              ) : null}
-              {vehicleLine ? (
-                <TripFieldRow
-                  icon={<Car size={16} color="#64748B" variant="Bold" />}
-                  label="Vehículo"
-                  value={vehicleLine}
-                />
-              ) : null}
+              <View style={[styles.statusBadge, { borderColor: badgeTone.borderColor }]}>
+                {isEnProceso ? (
+                  <Animated.View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor: badgeTone.dotColor,
+                        transform: [{ scale: statusDotScale }],
+                      },
+                    ]}
+                  />
+                ) : (
+                  <View style={[styles.statusDot, { backgroundColor: badgeTone.dotColor }]} />
+                )}
+                <Text style={[styles.statusTxt, { color: badgeTone.textColor }]}>
+                  {statusLabel}
+                </Text>
+              </View>
             </View>
 
-            <View
-              onLayout={(e) => {
-                sectionYRef.current = e.nativeEvent.layout.y;
-                applyDockOpacity();
-              }}
-            >
-              <View style={[styles.sectionHead, styles.sectionHeadSpaced]}>
-                <View style={styles.sectionAccent} />
-                <Text style={styles.sectionTitle}>Entregas programadas</Text>
-              </View>
-              <DriverRouteStopsList destinations={routeOrderDestinations} />
+            <View style={styles.progressTrack}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: progressWidth,
+                    backgroundColor: isCompleta ? C.verdeHover : C.naranja,
+                    opacity: isEnProceso ? progressGlowOpacity : 1,
+                  },
+                ]}
+              />
             </View>
-          </ScrollView>
-        </View>
+
+            <Text style={styles.sheetWhen}>{whenLabel}</Text>
+          </RouteGlassCard>
+        </Animated.View>
+
         <Animated.View
-          style={[styles.pickupDock, { paddingBottom: dockBottomPad, opacity: dockOpacity }]}
-          pointerEvents={dockPointerEvents}
-          accessibilityLabel="Desliza para comenzar el conteo de levantamiento"
+          style={{
+            opacity: detailsOpacity,
+            transform: [{ translateY: detailsSlide }],
+            ...styles.detailsSection,
+          }}
+        >
+          <RouteGlassCard paddingBottom={20}>
+            <Text style={styles.detailsTitle}>Detalle del recorrido</Text>
+            <DriverRouteDetailTripRows
+              embedded
+              originName={route.originWarehouseName}
+              destinations={routeOrderDestinations}
+            />
+
+            {driver || vehicleLine ? (
+              <View style={styles.infoRow}>
+                {driver ? (
+                  <InfoPill
+                    icon={<Profile2User size={16} color={C.gris} variant="Bold" />}
+                    text={driverFullName(driver)}
+                  />
+                ) : null}
+                {vehicleLine ? (
+                  <InfoPill
+                    icon={<Car size={16} color={C.gris} variant="Bold" />}
+                    text={vehicleLine}
+                  />
+                ) : null}
+              </View>
+            ) : null}
+
+            {isCompleta ? <DriverRouteDetailAuditCards detail={detail} embedded /> : null}
+          </RouteGlassCard>
+        </Animated.View>
+      </ScrollView>
+
+      <View
+        style={[styles.fixedHeader, { paddingTop: insets.top + 2 }]}
+        pointerEvents="box-none"
+      >
+        <HeaderTitle
+          title={route.folio}
+          subtitle={`Origen · ${route.originWarehouseName}`}
+          tone="light"
+          backgroundColor="transparent"
+        />
+      </View>
+
+      {showPickupDock ? (
+        <View
+          style={[styles.pickupDock, { paddingBottom: dockBottomPad }]}
+          pointerEvents="box-none"
         >
           <SlideToStartAudit
             inDock
-            hintText="Desliza para comenzar el conteo"
+            hintText={pickupSwipeHint}
             onSlideComplete={goPickup}
             busy={false}
           />
-        </Animated.View>
-      </View>
+        </View>
+      ) : null}
+
+      {showNavDock ? (
+        <View
+          style={[styles.pickupDock, { paddingBottom: dockBottomPad }]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            style={styles.dockBtn}
+            onPress={goNavDeliveries}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="Continuar entregas"
+          >
+            <Text style={styles.dockBtnTxt}>Continuar entregas</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screenRoot: {
+  safe: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: C.crema,
+  },
+  scrollOverlay: {
+    flex: 1,
+    zIndex: 2,
+    backgroundColor: "transparent",
   },
   mapLayer: {
     ...StyleSheet.absoluteFillObject,
-  },
-  overlayColumn: {
-    flex: 1,
     zIndex: 1,
-    position: "relative",
+  },
+  completedBadgeWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 2,
+  },
+  fixedHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+  },
+  floatingSheetShadow: {
+    marginHorizontal: 16,
+    borderRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: C.marron,
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.24,
+        shadowRadius: 28,
+      },
+      android: { elevation: 18 },
+      default: {},
+    }),
+  },
+  floatingSheetWrap: {
+    borderRadius: 24,
+    overflow: "hidden",
+  },
+  floatingSheetBlur: {
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.72)",
+  },
+  floatingSheetInner: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+  },
+  sheetTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  sheetTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: C.ink,
+    letterSpacing: -0.3,
+    lineHeight: 28,
+  },
+  sheetSubtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "500",
+    color: C.corteza,
+    lineHeight: 20,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.72)",
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusTxt: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  progressTrack: {
+    marginTop: 18,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(162, 171, 182, 0.28)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+    minWidth: 12,
+  },
+  sheetWhen: {
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: "600",
+    color: C.gris,
+    textTransform: "capitalize",
+  },
+  detailsSection: {
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  detailsTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: C.ink,
+    letterSpacing: -0.3,
+    lineHeight: 28,
+  },
+  infoRow: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.line,
+    gap: 10,
+  },
+  infoPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(105, 97, 88, 0.06)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  infoPillTxt: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.ink,
+    lineHeight: 18,
   },
   pickupDock: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 100,
     paddingHorizontal: 16,
     paddingTop: 10,
     backgroundColor: "transparent",
-    ...Platform.select({
-      android: { elevation: 28 },
-    }),
+    zIndex: 4,
+    ...Platform.select({ android: { elevation: 24 } }),
   },
-  headerBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingBottom: 8,
-    backgroundColor: "transparent",
-  },
-  headerGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  flexSpacer: {
-    flex: 1,
-  },
-  bottomSheet: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    zIndex: 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: -12 },
-        shadowOpacity: 0.22,
-        shadowRadius: 28,
-      },
-      android: { elevation: 20 },
-    }),
-  },
-  sheetScroll: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    overflow: "hidden",
-  },
-  sheetScrollContent: {
-    paddingHorizontal: 16,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: "#F1F5F9",
-  },
-  sectionHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-  },
-  sectionHeadSpaced: {
-    marginTop: 10,
-  },
-  sectionAccent: {
-    width: 3,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: "#EA580C",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -0.3,
-  },
-  tripCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E8ECEF",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.14,
-        shadowRadius: 18,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  tripCardHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: "#FAFBFC",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E2E8F0",
-  },
-  tripCardAccent: {
-    width: 3,
-    height: 16,
-    borderRadius: 2,
-    backgroundColor: "#EA580C",
-  },
-  tripCardTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -0.2,
-  },
-  fieldRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-  },
-  fieldRowDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#EEF2F6",
-  },
-  fieldIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "#F1F5F9",
+  dockBtn: {
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: C.naranja,
     alignItems: "center",
     justifyContent: "center",
   },
-  fieldBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  fieldLbl: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#94A3B8",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    marginBottom: 3,
-  },
-  fieldVal: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0F172A",
-    lineHeight: 19,
-  },
-  fieldHint: {
-    marginTop: 3,
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#64748B",
+  dockBtnTxt: {
+    color: C.white,
+    fontSize: 16,
+    fontWeight: "800",
   },
   missing: {
     padding: 24,
@@ -469,12 +814,31 @@ const styles = StyleSheet.create({
   missingTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#0F172A",
+    color: C.ink,
   },
   missingSub: {
     marginTop: 8,
     fontSize: 14,
-    color: "#64748B",
+    color: C.gris,
     lineHeight: 20,
+  },
+  loader: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+  },
+  retryBtn: {
+    marginTop: 16,
+    alignSelf: "flex-start",
+    backgroundColor: C.naranja,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryTxt: {
+    color: C.white,
+    fontWeight: "800",
+    fontSize: 14,
   },
 });

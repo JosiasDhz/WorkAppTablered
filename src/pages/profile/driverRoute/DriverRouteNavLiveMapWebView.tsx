@@ -144,7 +144,7 @@ export const DriverRouteNavLiveMapWebView = forwardRef<
 const styles = StyleSheet.create({
   wrapFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#E8EAED",
+    backgroundColor: "transparent",
   },
   web: {
     flex: 1,

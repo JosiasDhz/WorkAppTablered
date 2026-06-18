@@ -5,9 +5,11 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Camera, GasStation, Speedometer } from "iconsax-react-native";
+import { TapImagePreview } from "../../../components/TapImagePreview";
 import {
   captureDriverRouteVehiclePhoto,
   pickDriverRouteVehiclePhotoFromLibrary,
@@ -16,52 +18,49 @@ import {
 
 export type DriverRouteVehicleCheckPhotosState = {
   odometer: DriverRouteVehiclePhoto | null;
+  odometerReading: string;
   fuel: DriverRouteVehiclePhoto | null;
 };
 
-export function isDriverRouteVehicleCheckComplete(
-  photos: DriverRouteVehicleCheckPhotosState,
-): boolean {
-  return photos.odometer !== null && photos.fuel !== null;
+export function parseOdometerReading(raw: string): number | null {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  const n = Number.parseInt(digits, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
-type SlotKey = keyof DriverRouteVehicleCheckPhotosState;
+export function isDriverRouteStartVehicleCheckComplete(
+  state: DriverRouteVehicleCheckPhotosState,
+): boolean {
+  return state.odometer !== null && parseOdometerReading(state.odometerReading) !== null;
+}
 
-const SLOTS: {
-  key: SlotKey;
-  title: string;
-  hint: string;
-  icon: React.ReactNode;
-}[] = [
-  {
-    key: "odometer",
-    title: "Tacómetro",
-    hint: "Kilometraje visible",
-    icon: <Speedometer size={22} color="#EA7600" variant="Bold" />,
-  },
-  {
-    key: "fuel",
-    title: "Combustible",
-    hint: "Nivel de gasolina visible",
-    icon: <GasStation size={22} color="#EA7600" variant="Bold" />,
-  },
-];
+export function isDriverRouteEndFuelCheckComplete(
+  state: DriverRouteVehicleCheckPhotosState,
+): boolean {
+  return state.fuel !== null;
+}
+
+type PhotoSlotKey = "odometer" | "fuel";
 
 type DriverRouteVehicleCheckPhotosProps = {
   photos: DriverRouteVehicleCheckPhotosState;
   onChange: (photos: DriverRouteVehicleCheckPhotosState) => void;
+  phase: "start" | "end";
 };
 
 export function DriverRouteVehicleCheckPhotos({
   photos,
   onChange,
+  phase,
 }: DriverRouteVehicleCheckPhotosProps) {
-  const [capturing, setCapturing] = useState<SlotKey | null>(null);
-  const [picking, setPicking] = useState<SlotKey | null>(null);
+  const [capturing, setCapturing] = useState<PhotoSlotKey | null>(null);
+  const [picking, setPicking] = useState<PhotoSlotKey | null>(null);
   const busyRef = useRef(false);
 
   const applyPhoto = useCallback(
-    (key: SlotKey, photo: DriverRouteVehiclePhoto | null) => {
+    (key: PhotoSlotKey, photo: DriverRouteVehiclePhoto | null) => {
       if (photo) {
         onChange({ ...photos, [key]: photo });
       }
@@ -70,7 +69,7 @@ export function DriverRouteVehicleCheckPhotos({
   );
 
   const captureFor = useCallback(
-    async (key: SlotKey) => {
+    async (key: PhotoSlotKey) => {
       if (busyRef.current) return;
       busyRef.current = true;
       setCapturing(key);
@@ -85,7 +84,7 @@ export function DriverRouteVehicleCheckPhotos({
   );
 
   const attachFor = useCallback(
-    async (key: SlotKey) => {
+    async (key: PhotoSlotKey) => {
       if (busyRef.current) return;
       busyRef.current = true;
       setPicking(key);
@@ -100,68 +99,141 @@ export function DriverRouteVehicleCheckPhotos({
   );
 
   const clearFor = useCallback(
-    (key: SlotKey) => {
+    (key: PhotoSlotKey) => {
       onChange({ ...photos, [key]: null });
     },
     [onChange, photos],
   );
 
+  const setOdometerReading = useCallback(
+    (text: string) => {
+      onChange({ ...photos, odometerReading: text });
+    },
+    [onChange, photos],
+  );
+
+  const odometerParsed = parseOdometerReading(photos.odometerReading);
+  const odometerReadingInvalid =
+    photos.odometerReading.trim().length > 0 && odometerParsed === null;
+
+  const renderPhotoSlot = (
+    key: PhotoSlotKey,
+    title: string,
+    hint: string,
+    icon: React.ReactNode,
+  ) => {
+    const photo = photos[key];
+    const loading = capturing === key || picking === key;
+    return (
+      <View style={styles.slot}>
+        <View style={styles.slotHead}>
+          {icon}
+          <Text style={styles.slotTitle}>{title}</Text>
+        </View>
+        <Pressable
+          style={[styles.photoBtn, photo ? styles.photoBtnDone : null]}
+          onPress={() => {
+            if (!photo) void captureFor(key);
+          }}
+          disabled={loading || Boolean(photo)}
+          accessibilityLabel={
+            photo ? `Foto de ${title} capturada` : `Tomar foto de ${title}`
+          }
+        >
+          {loading ? (
+            <ActivityIndicator color="#EA7600" />
+          ) : photo ? (
+            <TapImagePreview uri={photo.uri}>
+              <View style={styles.previewWrap}>
+                <Image source={{ uri: photo.uri }} style={styles.preview} />
+              </View>
+            </TapImagePreview>
+          ) : (
+            <View style={styles.placeholder}>
+              <Camera size={28} color="#64748B" variant="Linear" />
+              <Text style={styles.placeholderTxt}>Tomar foto</Text>
+            </View>
+          )}
+        </Pressable>
+        <Text style={styles.slotHint}>
+          {photo ? "Toca la foto para revisarla" : hint}
+        </Text>
+        {__DEV__ && !photo ? (
+          <Pressable
+            style={styles.devAttachBtn}
+            onPress={() => void attachFor(key)}
+            disabled={loading}
+            accessibilityLabel={`Adjuntar foto de ${title} desde galería`}
+          >
+            <Text style={styles.devAttachTxt}>Adjuntar foto (dev)</Text>
+          </Pressable>
+        ) : null}
+        {photo ? (
+          <Pressable
+            style={styles.retakeBtn}
+            onPress={() => clearFor(key)}
+            disabled={loading}
+          >
+            <Text style={styles.retakeTxt}>Volver a tomar</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  };
+
+  if (phase === "end") {
+    return (
+      <View style={styles.wrap}>
+        <Text style={styles.sectionTitle}>Combustible al cierre</Text>
+        <Text style={styles.sectionHint}>
+          Toma una foto del indicador de combustible al terminar la ruta.
+        </Text>
+        <View style={styles.grid}>
+          {renderPhotoSlot(
+            "fuel",
+            "Combustible",
+            "Nivel de gasolina visible",
+            <GasStation size={22} color="#EA7600" variant="Bold" />,
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.sectionTitle}>Verificación del vehículo</Text>
       <Text style={styles.sectionHint}>
-        Toma una foto del tacómetro y del indicador de combustible antes de iniciar la ruta.
+        Toma una foto del tacómetro y registra el kilometraje antes de iniciar la ruta.
       </Text>
       <View style={styles.grid}>
-        {SLOTS.map((slot) => {
-          const photo = photos[slot.key];
-          const loading = capturing === slot.key || picking === slot.key;
-          return (
-            <View key={slot.key} style={styles.slot}>
-              <View style={styles.slotHead}>
-                {slot.icon}
-                <Text style={styles.slotTitle}>{slot.title}</Text>
-              </View>
-              <Pressable
-                style={[styles.photoBtn, photo ? styles.photoBtnDone : null]}
-                onPress={() => void captureFor(slot.key)}
-                disabled={loading}
-                accessibilityLabel={`Tomar foto de ${slot.title}`}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#EA7600" />
-                ) : photo ? (
-                  <Image source={{ uri: photo.uri }} style={styles.preview} />
-                ) : (
-                  <View style={styles.placeholder}>
-                    <Camera size={28} color="#64748B" variant="Linear" />
-                    <Text style={styles.placeholderTxt}>Tomar foto</Text>
-                  </View>
-                )}
-              </Pressable>
-              <Text style={styles.slotHint}>{photo ? "Foto capturada" : slot.hint}</Text>
-              {__DEV__ && !photo ? (
-                <Pressable
-                  style={styles.devAttachBtn}
-                  onPress={() => void attachFor(slot.key)}
-                  disabled={loading}
-                  accessibilityLabel={`Adjuntar foto de ${slot.title} desde galería`}
-                >
-                  <Text style={styles.devAttachTxt}>Adjuntar foto (dev)</Text>
-                </Pressable>
-              ) : null}
-              {photo ? (
-                <Pressable
-                  style={styles.retakeBtn}
-                  onPress={() => clearFor(slot.key)}
-                  disabled={loading}
-                >
-                  <Text style={styles.retakeTxt}>Volver a tomar</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          );
-        })}
+        {renderPhotoSlot(
+          "odometer",
+          "Tacómetro",
+          "Kilometraje visible",
+          <Speedometer size={22} color="#EA7600" variant="Bold" />,
+        )}
+        <View style={styles.slot}>
+          <Text style={styles.inputLbl}>Kilometraje</Text>
+          <TextInput
+            value={photos.odometerReading}
+            onChangeText={setOdometerReading}
+            placeholder="Ej. 45230"
+            placeholderTextColor="#94A3B8"
+            keyboardType="number-pad"
+            inputMode="numeric"
+            maxLength={7}
+            style={[styles.input, odometerReadingInvalid ? styles.inputWarn : null]}
+            accessibilityLabel="Kilometraje del vehículo"
+          />
+          {odometerReadingInvalid ? (
+            <Text style={styles.inputWarnTxt}>Ingresa un kilometraje válido.</Text>
+          ) : (
+            <Text style={styles.inputHelp}>
+              Escribe el kilometraje que muestra el tacómetro.
+            </Text>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -219,7 +291,12 @@ const styles = StyleSheet.create({
   photoBtnDone: {
     borderColor: "#22C55E",
   },
+  previewWrap: {
+    width: "100%",
+    height: "100%",
+  },
   preview: {
+    ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
     resizeMode: "cover",
@@ -234,6 +311,41 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   slotHint: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#94A3B8",
+  },
+  inputLbl: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    backgroundColor: "#F8FAFC",
+  },
+  inputWarn: {
+    borderColor: "#F97316",
+    backgroundColor: "#FFF7ED",
+  },
+  inputWarnTxt: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#C2410C",
+  },
+  inputHelp: {
     marginTop: 8,
     fontSize: 12,
     fontWeight: "600",

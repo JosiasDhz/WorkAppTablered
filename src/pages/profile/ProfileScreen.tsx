@@ -76,7 +76,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = () => {
       <DriverAssignedRoutesHub
         userName={userName}
         avatarSource={avatarSource}
-        onLogout={handleLogout}
         routes={routesState}
         onScroll={onAutoTabBarScroll}
       />

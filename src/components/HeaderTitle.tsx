@@ -21,7 +21,7 @@ export type HeaderTitleProps = {
   title: string;
   subtitle?: string;
   onBack?: () => void;
-  tone: "light" | "dark";
+  tone: "light" | "dark" | "map";
   backgroundColor?: string;
   style?: StyleProp<ViewStyle>;
   rightAccessory?: ReactNode;
@@ -39,6 +39,7 @@ export function HeaderTitle({
   const navigation = useNavigation<any>();
   const handleBack = onBack ?? (() => navigation.goBack());
   const isDark = tone === "dark";
+  const isMap = tone === "map";
 
   const titleSizeStyle = useMemo(() => {
     const len = title.length;
@@ -56,7 +57,7 @@ export function HeaderTitle({
       ]}
     >
       <TouchableOpacity
-        style={[styles.backBtn, isDark ? styles.backBtnDark : styles.backBtnLight]}
+        style={[styles.backBtn, isMap ? styles.backBtnLight : isDark ? styles.backBtnDark : styles.backBtnLight]}
         onPress={handleBack}
         activeOpacity={0.85}
         hitSlop={12}
@@ -65,8 +66,8 @@ export function HeaderTitle({
       >
         <ArrowLeft2
           size={18}
-          color={isDark ? "#FFFFFF" : COLORS.text}
-          variant="Outline"
+          color={isMap || !isDark ? COLORS.text : "#FFFFFF"}
+          variant="Bold"
         />
       </TouchableOpacity>
       <View style={styles.textBlock}>
@@ -74,7 +75,7 @@ export function HeaderTitle({
           style={[
             styles.title,
             titleSizeStyle,
-            isDark ? styles.titleDark : styles.titleLight,
+            isMap ? styles.titleMap : isDark ? styles.titleDark : styles.titleLight,
           ]}
           numberOfLines={2}
           adjustsFontSizeToFit
@@ -86,7 +87,7 @@ export function HeaderTitle({
           <Text
             style={[
               styles.subtitle,
-              isDark ? styles.subtitleDark : styles.subtitleLight,
+              isMap ? styles.subtitleMap : isDark ? styles.subtitleDark : styles.subtitleLight,
             ]}
             numberOfLines={3}
           >
@@ -121,6 +122,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   backBtnDark: {
     backgroundColor: "rgba(15, 23, 42, 0.38)",
@@ -144,6 +150,12 @@ const styles = StyleSheet.create({
   titleDark: {
     color: "#FFFFFF",
   },
+  titleMap: {
+    color: "#FFFFFF",
+    textShadowColor: "rgba(15, 23, 42, 0.72)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
+  },
   subtitle: {
     marginTop: 3,
     fontSize: 11,
@@ -155,6 +167,12 @@ const styles = StyleSheet.create({
   },
   subtitleDark: {
     color: "rgba(255, 255, 255, 0.82)",
+  },
+  subtitleMap: {
+    color: "#FFFFFF",
+    textShadowColor: "rgba(15, 23, 42, 0.68)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   rightSlot: {
     width: 40,

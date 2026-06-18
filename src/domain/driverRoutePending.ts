@@ -1,6 +1,7 @@
 export type DeliveryRouteStatusApi =
   | "GUARDADA"
   | "CONFIRMADA"
+  | "LEVANTAMIENTO"
   | "EN_PROCESO"
   | "COMPLETA"
   | "CANCELADA";
@@ -11,8 +12,9 @@ export function isPendingDriverRouteStatus(status: string): boolean {
 
 export function driverRouteStatusLabelEs(status: string): string {
   const map: Record<string, string> = {
-    GUARDADA: "Guardada",
+    GUARDADA: "Pendiente",
     CONFIRMADA: "Confirmada",
+    LEVANTAMIENTO: "Verificación vehículo",
     EN_PROCESO: "En proceso",
     COMPLETA: "Completa",
     CANCELADA: "Cancelada",

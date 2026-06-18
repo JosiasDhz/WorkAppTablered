@@ -1,45 +1,55 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ArrowRight2 } from "iconsax-react-native";
+import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
-import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
 import {
-  buildPickupLinesLifoFromAssignment,
-  groupPickupLinesByDestinationInOrder,
-} from "./driverRoute/pickupLinesFromAssignment";
+  beginDeliveryRoutePickup,
+  startDeliveryRoute,
+  uploadDeliveryRouteVehicleEvidence,
+} from "../../services/deliveryRoutesService";
+import {
+  driverRouteConfirmProgress,
+  flattenDriverRouteConfirmLines,
+} from "../../domain/driverRouteConfirmLines";
+import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
+import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
+import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
 import {
   DriverRouteVehicleCheckPhotos,
-  isDriverRouteVehicleCheckComplete,
+  isDriverRouteStartVehicleCheckComplete,
+  parseOdometerReading,
   type DriverRouteVehicleCheckPhotosState,
 } from "./driverRoute/DriverRouteVehicleCheckPhotos";
+import { DriverRouteWorkerCodeModal } from "./driverRoute/DriverRouteWorkerCodeModal";
+import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
 
-type PickupStep = "products" | "vehicle";
-
-function parseQty(raw: string): number {
-  const n = Number.parseInt(raw.replace(/\D/g, ""), 10);
-  return Number.isFinite(n) ? Math.max(0, n) : 0;
-}
-
-function emptyQtyMap(recordIds: string[]): Record<string, string> {
-  const o: Record<string, string> = {};
-  for (const id of recordIds) {
-    o[id] = "";
+function extractApiErrorMessage(e: unknown): string {
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object") {
+    const resp = (e as { response?: { data?: { message?: unknown } } }).response;
+    const msg = resp?.data?.message;
+    if (typeof msg === "string") return msg;
+    if (Array.isArray(msg)) return msg.map(String).join(", ");
+    if ("message" in e && typeof (e as { message: unknown }).message === "string") {
+      return (e as { message: string }).message;
+    }
   }
-  return o;
+  return "No se pudo iniciar la ruta";
 }
 
 export default function DriverRouteProductPickupScreen() {
@@ -48,86 +58,157 @@ export default function DriverRouteProductPickupScreen() {
   const { params } =
     useRoute<RouteProp<RootStackParamList, "DriverRouteProductPickup">>();
   const routeId = params?.routeId ?? "";
-  const detail = useMemo(() => getDriverRouteAssignmentDetail(routeId), [routeId]);
-
-  const lines = useMemo(
-    () => (detail ? buildPickupLinesLifoFromAssignment(detail) : []),
-    [detail],
+  const sessionWorkerCode = useSessionWorkerCode();
+  const {
+    detail: apiDetail,
+    loading,
+    error,
+    refresh,
+  } = useDriverRouteAssignmentDetail(routeId);
+  const demoDetail = useMemo(
+    () => (DRIVER_ROUTES_FLOW_USE_DEMO ? getDriverRouteAssignmentDetail(routeId) : null),
+    [routeId],
   );
+  const detail = demoDetail ?? apiDetail;
 
-  const [step, setStep] = useState<PickupStep>("products");
-  const [loadedByRecordId, setLoadedByRecordId] = useState<Record<string, string>>({});
+  const confirmProgress = useMemo(() => {
+    if (!detail) return null;
+    return driverRouteConfirmProgress(flattenDriverRouteConfirmLines(detail.destinations));
+  }, [detail]);
+
   const [vehiclePhotos, setVehiclePhotos] = useState<DriverRouteVehicleCheckPhotosState>({
     odometer: null,
+    odometerReading: "",
     fuel: null,
   });
+  const [pickupBusy, setPickupBusy] = useState(false);
+  const [startBusy, setStartBusy] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [workerCodeModalOpen, setWorkerCodeModalOpen] = useState(false);
 
   useEffect(() => {
-    setLoadedByRecordId(emptyQtyMap(lines.map((l) => l.recordId)));
-    setStep("products");
-  }, [lines]);
+    if (!detail) return;
+    const status = detail.route.status;
+    if (status === "COMPLETA") {
+      navigation.replace("DriverRouteDetail", { routeId });
+      return;
+    }
+    if (status === "EN_PROCESO") {
+      navigation.replace("DriverRouteNavFirstStop", { routeId });
+      return;
+    }
+    if (DRIVER_ROUTES_FLOW_USE_DEMO) return;
+    if (status !== "CONFIRMADA" && status !== "LEVANTAMIENTO") return;
+    if (status === "LEVANTAMIENTO") return;
+    if (!confirmProgress?.allConfirmed) return;
+    setPickupBusy(true);
+    void beginDeliveryRoutePickup(routeId)
+      .then(() => refresh())
+      .catch(() => {})
+      .finally(() => setPickupBusy(false));
+  }, [confirmProgress?.allConfirmed, detail, navigation, refresh, routeId]);
 
-  const groups = useMemo(() => groupPickupLinesByDestinationInOrder(lines), [lines]);
-
-  const allPickupMatched = useMemo(() => {
-    if (lines.length === 0) return false;
-    return lines.every((line) => {
-      const raw = (loadedByRecordId[line.recordId] ?? "").trim();
-      if (!/\d/.test(raw)) return false;
-      return parseQty(raw) === line.expectedQty;
-    });
-  }, [lines, loadedByRecordId]);
-
-  const vehicleCheckComplete = isDriverRouteVehicleCheckComplete(vehiclePhotos);
-  const canStartRoute = allPickupMatched && vehicleCheckComplete;
+  const vehicleCheckComplete = isDriverRouteStartVehicleCheckComplete(vehiclePhotos);
+  const canStartRoute = vehicleCheckComplete && (confirmProgress?.allConfirmed ?? DRIVER_ROUTES_FLOW_USE_DEMO);
 
   const dockBottomPad = Math.max(insets.bottom, 12);
   const routeSwipeDockH = 88 + dockBottomPad;
-  const nextBtnDockH = 56 + dockBottomPad + 10;
+
+  const handleStartRouteConfirm = useCallback(
+    async (workerCode: string) => {
+      if (!canStartRoute || startBusy) return;
+      const odometerPhoto = vehiclePhotos.odometer;
+      const odometerReading = parseOdometerReading(vehiclePhotos.odometerReading);
+      if (!odometerPhoto || odometerReading == null) {
+        setStartError("Completa la foto y el kilometraje del tacómetro");
+        setWorkerCodeModalOpen(true);
+        return;
+      }
+
+      if (DRIVER_ROUTES_FLOW_USE_DEMO) {
+        setWorkerCodeModalOpen(false);
+        navigation.navigate("DriverRouteNavFirstStop", { routeId });
+        return;
+      }
+
+      setStartBusy(true);
+      setStartError(null);
+      try {
+        const uploaded = await uploadDeliveryRouteVehicleEvidence(odometerPhoto);
+        await startDeliveryRoute(routeId, {
+          workerCode,
+          odometerReading,
+          odometerEvidenceFileId: uploaded.id,
+        });
+        setWorkerCodeModalOpen(false);
+        Toast.show({
+          type: "success",
+          text1: "Ruta iniciada",
+          text2: "Ya puedes seguir el recorrido.",
+        });
+        navigation.navigate("DriverRouteNavFirstStop", { routeId });
+      } catch (e: unknown) {
+        setStartError(extractApiErrorMessage(e));
+        setWorkerCodeModalOpen(true);
+      } finally {
+        setStartBusy(false);
+      }
+    },
+    [canStartRoute, navigation, routeId, startBusy, vehiclePhotos],
+  );
 
   const onStartRoute = useCallback(async () => {
-    navigation.navigate("DriverRouteNavFirstStop", { routeId });
+    if (!canStartRoute || startBusy) return;
+    setStartError(null);
+    if (sessionWorkerCode) {
+      await handleStartRouteConfirm(sessionWorkerCode);
+      return;
+    }
+    setWorkerCodeModalOpen(true);
+  }, [canStartRoute, handleStartRouteConfirm, sessionWorkerCode, startBusy]);
+
+  const goConfirm = useCallback(() => {
+    navigation.navigate("DriverRouteConfirmMercancia", { routeId });
   }, [navigation, routeId]);
 
-  const setQty = useCallback((recordId: string, text: string) => {
-    setLoadedByRecordId((prev) => ({ ...prev, [recordId]: text }));
-  }, []);
-
-  const goToVehicleStep = useCallback(() => {
-    if (!allPickupMatched) return;
-    setStep("vehicle");
-  }, [allPickupMatched]);
-
-  const goToProductsStep = useCallback(() => {
-    setStep("products");
-  }, []);
+  if (loading && !detail) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <HeaderTitle title="Verificación del vehículo" subtitle="Cargando ruta…" tone="light" />
+        <View style={styles.missing}>
+          <ActivityIndicator size="large" color="#EA7600" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!detail) {
     return (
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-        <HeaderTitle title="Levantamiento" subtitle="Sin datos de ruta" tone="light" />
+        <HeaderTitle title="Verificación del vehículo" subtitle="Sin datos de ruta" tone="light" />
         <View style={styles.missing}>
-          <Text style={styles.missingTxt}>No hay ruta para contar productos.</Text>
+          <Text style={styles.missingTxt}>
+            {error ?? "No hay ruta para verificar el vehículo."}
+          </Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => void refresh()}>
+            <Text style={styles.retryTxt}>Reintentar</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
   const { route } = detail;
-  const showNextDock = step === "products" && allPickupMatched;
-  const showStartDock = step === "vehicle" && canStartRoute;
-  const scrollBottomPad = showNextDock
-    ? nextBtnDockH + 20
-    : showStartDock
-      ? routeSwipeDockH + 20
-      : 40;
+  const needsConfirm = confirmProgress != null && !confirmProgress.allConfirmed;
+  const showStartDock = !needsConfirm && canStartRoute;
+  const scrollBottomPad = showStartDock ? routeSwipeDockH + 20 : 40;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.shell}>
         <HeaderTitle
-          title={step === "products" ? "Levantamiento de productos" : "Verificación del vehículo"}
-          subtitle={`${route.folio} · Paso ${step === "products" ? "1" : "2"} de 2`}
+          title="Verificación del vehículo"
+          subtitle={`${route.folio} · antes de salir`}
           tone="light"
         />
         <KeyboardAvoidingView
@@ -140,133 +221,82 @@ export default function DriverRouteProductPickupScreen() {
             contentContainerStyle={[styles.scrollPad, { paddingBottom: scrollBottomPad }]}
             keyboardShouldPersistTaps="handled"
           >
-            {step === "products" ? (
-              <>
-                {groups.map((g) => (
-                  <View key={g.destinationId} style={styles.group}>
-                    <View style={styles.groupHead}>
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeTxt}>{g.visitOrder}</Text>
-                      </View>
-                      <View style={styles.groupHeadText}>
-                        <Text style={styles.loadSeq}>Subir {g.loadSequence}º</Text>
-                        <Text style={styles.groupTitle} numberOfLines={3}>
-                          {g.stopTitle}
-                        </Text>
-                      </View>
-                    </View>
-                    {g.lines.map((line) => {
-                      const raw = loadedByRecordId[line.recordId] ?? "";
-                      const parsed = parseQty(raw);
-                      const hasQty = /\d/.test(raw.trim());
-                      const over = hasQty && parsed > line.expectedQty;
-                      const under = hasQty && parsed < line.expectedQty;
-                      return (
-                        <View key={line.recordId} style={styles.lineCard}>
-                          <Text style={styles.prodName} numberOfLines={4}>
-                            {line.productName}
-                          </Text>
-                          <Text style={styles.folio}>{line.saleFolio}</Text>
-                          <View style={styles.qtyRow}>
-                            <View style={styles.qtyCol}>
-                              <Text style={styles.qtyLbl}>En ruta</Text>
-                              <Text style={styles.qtyExpected}>{line.expectedQty}</Text>
-                            </View>
-                            <View style={[styles.qtyCol, styles.qtyColInput]}>
-                              <Text style={styles.qtyLbl}>Cargado</Text>
-                              <TextInput
-                                value={raw}
-                                onChangeText={(t) => setQty(line.recordId, t)}
-                                placeholder="-"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="number-pad"
-                                inputMode="numeric"
-                                maxLength={6}
-                                style={[styles.input, over || under ? styles.inputWarn : null]}
-                                accessibilityLabel={`Cantidad a cargar para ${line.productName}`}
-                              />
-                            </View>
-                          </View>
-                          {over ? (
-                            <Text style={styles.warn}>
-                              No puede superar lo asignado ({line.expectedQty}).
-                            </Text>
-                          ) : null}
-                          {under ? (
-                            <Text style={styles.warn}>
-                              Debe coincidir con lo asignado ({line.expectedQty}).
-                            </Text>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
-                {!allPickupMatched ? (
-                  <View style={styles.pendingWrap}>
-                    <Text style={styles.pendingTitle}>Antes de continuar</Text>
-                    <Text style={styles.pendingItem}>
-                      Registra las cantidades cargadas en cada producto.
-                    </Text>
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Pressable style={styles.backStepBtn} onPress={goToProductsStep}>
-                  <Text style={styles.backStepTxt}>Volver al levantamiento</Text>
+            {needsConfirm ? (
+              <View style={styles.pendingWrap}>
+                <Text style={styles.pendingTitle}>Confirma la mercancía primero</Text>
+                <Text style={styles.pendingItem}>
+                  Debes confirmar la recepción antes de registrar el tacómetro.
+                </Text>
+                <Pressable style={styles.linkBtn} onPress={goConfirm}>
+                  <Text style={styles.linkBtnTxt}>Ir a confirmar mercancía</Text>
                 </Pressable>
-                <DriverRouteVehicleCheckPhotos
-                  photos={vehiclePhotos}
-                  onChange={setVehiclePhotos}
-                />
-                {!vehicleCheckComplete ? (
-                  <View style={styles.pendingWrap}>
-                    <Text style={styles.pendingTitle}>Antes de iniciar la ruta</Text>
-                    <Text style={styles.pendingItem}>
-                      Toma la foto del tacómetro y del combustible.
-                    </Text>
-                  </View>
-                ) : null}
-              </>
+              </View>
+            ) : null}
+            {pickupBusy ? (
+              <View style={styles.busyRow}>
+                <ActivityIndicator color="#EA7600" />
+                <Text style={styles.busyTxt}>Preparando salida…</Text>
+              </View>
+            ) : null}
+            <DriverRouteVehicleCheckPhotos
+              photos={vehiclePhotos}
+              onChange={setVehiclePhotos}
+              phase="start"
+            />
+            {!vehicleCheckComplete ? (
+              <View style={styles.pendingWrap}>
+                <Text style={styles.pendingTitle}>Antes de iniciar la ruta</Text>
+                <Text style={styles.pendingItem}>
+                  Toma la foto del tacómetro y registra el kilometraje.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.reviewWrap}>
+                <Text style={styles.reviewTitle}>Revisión lista</Text>
+                <Text style={styles.reviewItem}>
+                  Tacómetro: {parseOdometerReading(vehiclePhotos.odometerReading)} km
+                </Text>
+                <Text style={styles.reviewItem}>
+                  Toca la foto arriba para ampliarla antes de iniciar.
+                </Text>
+              </View>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
-        {showNextDock ? (
-          <View style={[styles.routeDock, { paddingBottom: dockBottomPad }]}>
-            <Pressable style={styles.nextBtn} onPress={goToVehicleStep}>
-              <Text style={styles.nextBtnTxt}>Siguiente</Text>
-              <ArrowRight2 size={20} color="#FFFFFF" variant="Bold" />
-            </Pressable>
-          </View>
-        ) : null}
         {showStartDock ? (
           <View style={[styles.routeDock, { paddingBottom: dockBottomPad }]}>
             <SlideToStartAudit
               inDock
               hintText="Iniciar ruta"
               onSlideComplete={onStartRoute}
-              busy={false}
+              busy={startBusy}
+              errorToken={startError}
             />
           </View>
         ) : null}
+        <DriverRouteWorkerCodeModal
+          visible={workerCodeModalOpen}
+          busy={startBusy}
+          error={startError}
+          defaultWorkerCode={sessionWorkerCode}
+          subtitle="Revisa el tacómetro y confirma con tu código para iniciar la ruta."
+          onClose={() => {
+            if (!startBusy) {
+              setWorkerCodeModalOpen(false);
+              setStartError(null);
+            }
+          }}
+          onConfirm={handleStartRouteConfirm}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: "#F1F5F9",
-  },
-  shell: {
-    flex: 1,
-    position: "relative",
-  },
-  flex: {
-    flex: 1,
-  },
+  safe: { flex: 1, backgroundColor: "#F1F5F9" },
+  shell: { flex: 1, position: "relative" },
+  flex: { flex: 1 },
   routeDock: {
     position: "absolute",
     left: 0,
@@ -276,179 +306,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     backgroundColor: "transparent",
-    ...Platform.select({
-      android: { elevation: 24 },
-    }),
+    ...Platform.select({ android: { elevation: 24 } }),
   },
-  nextBtn: {
-    height: 56,
+  scrollPad: { paddingHorizontal: 16, paddingBottom: 40 },
+  missing: { padding: 24 },
+  missingTxt: { fontSize: 15, color: "#64748B" },
+  retryBtn: {
+    marginTop: 16,
+    alignSelf: "flex-start",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: "#EA7600",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.22,
-        shadowRadius: 12,
-      },
-      android: { elevation: 10 },
-    }),
   },
-  nextBtnTxt: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  scrollPad: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-  },
-  backStepBtn: {
-    alignSelf: "flex-start",
-    marginBottom: 12,
-    paddingVertical: 4,
-  },
-  backStepTxt: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#EA7600",
-  },
-  group: {
-    marginBottom: 20,
-  },
-  groupHead: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    marginBottom: 10,
-  },
-  groupHeadText: {
-    flex: 1,
-    gap: 4,
-  },
-  loadSeq: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#EA7600",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  badge: {
-    minWidth: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#EA7600",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  badgeTxt: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-    fontSize: 14,
-  },
-  groupTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
-    lineHeight: 20,
-  },
-  lineCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  prodName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-    lineHeight: 19,
-  },
-  folio: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  qtyRow: {
-    marginTop: 12,
-    flexDirection: "row",
-    gap: 12,
-  },
-  qtyCol: {
-    flex: 1,
-  },
-  qtyColInput: {
-    maxWidth: 120,
-  },
-  qtyLbl: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 6,
-  },
-  qtyExpected: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    backgroundColor: "#F8FAFC",
-  },
-  inputWarn: {
-    borderColor: "#F97316",
-    backgroundColor: "#FFF7ED",
-  },
-  warn: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#C2410C",
-  },
-  missing: {
-    padding: 24,
-  },
-  missingTxt: {
-    fontSize: 15,
-    color: "#64748B",
-  },
+  retryTxt: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  busyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+  busyTxt: { fontSize: 13, fontWeight: "700", color: "#64748B" },
   pendingWrap: {
-    marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 12,
     padding: 14,
     borderRadius: 12,
     backgroundColor: "#FFF7ED",
     borderWidth: 1,
     borderColor: "#FED7AA",
   },
-  pendingTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#9A3412",
-    marginBottom: 6,
+  pendingTitle: { fontSize: 13, fontWeight: "800", color: "#9A3412", marginBottom: 6 },
+  pendingItem: { fontSize: 13, fontWeight: "600", color: "#C2410C", lineHeight: 18 },
+  linkBtn: { marginTop: 10, alignSelf: "flex-start" },
+  linkBtnTxt: { fontSize: 13, fontWeight: "800", color: "#EA7600" },
+  reviewWrap: {
+    marginTop: 4,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
   },
-  pendingItem: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#C2410C",
-    lineHeight: 18,
-  },
+  reviewTitle: { fontSize: 13, fontWeight: "800", color: "#065F46", marginBottom: 6 },
+  reviewItem: { fontSize: 13, fontWeight: "600", color: "#047857", lineHeight: 18 },
 });

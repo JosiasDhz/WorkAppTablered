@@ -27,6 +27,7 @@ import InventoryAuditFamilyProducts from "../pages/profile/InventoryAuditFamilyP
 import AuditLossDocuments from "../pages/profile/AuditLossDocuments";
 import AuditLossDocumentDetail from "../pages/profile/AuditLossDocumentDetail";
 import DriverRouteDetailScreen from "../pages/profile/DriverRouteDetailScreen";
+import DriverRouteConfirmMercanciaScreen from "../pages/profile/DriverRouteConfirmMercanciaScreen";
 import DriverRouteProductPickupScreen from "../pages/profile/DriverRouteProductPickupScreen";
 import DriverRouteNavFirstStopScreen from "../pages/profile/DriverRouteNavFirstStopScreen";
 
@@ -184,6 +185,11 @@ const AppNavigator = () => {
             <Stack.Screen
               name="DriverRouteDetail"
               component={DriverRouteDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DriverRouteConfirmMercancia"
+              component={DriverRouteConfirmMercanciaScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen

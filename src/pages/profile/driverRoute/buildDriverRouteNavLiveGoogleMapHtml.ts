@@ -1,32 +1,8 @@
 import type { TripMapModel } from "./tripMapModelFromAssignment";
-import type { MapFitPadding } from "./driverRouteTripGoogleMapHtml";
+import { MAP_STYLES_FOR_EMBED, ROUTE_POLYLINE_COLOR, type MapFitPadding } from "./driverRouteTripGoogleMapHtml";
 
-const LIVE_NAV_MAP_STYLES: object[] = [
-  { featureType: "all", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", elementType: "labels.text", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.business", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.business", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.attraction", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.attraction", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.government", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.medical", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.park", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.place_of_worship", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.school", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.sports_complex", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "administrative.locality", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e2e8f0" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#64748b" }] },
-  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#eef2f6" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#dbe4ee" }] },
-];
+const ROUTE_LINE_JS = `strokeColor:"${ROUTE_POLYLINE_COLOR}",strokeOpacity:1,strokeWeight:5,geodesic:true`;
+const ROUTE_LINE_ARROWS_JS = `icons:[{icon:{path:G.SymbolPath.FORWARD_CLOSED_ARROW,scale:3.2,fillColor:"#ffffff",fillOpacity:1,strokeColor:"${ROUTE_POLYLINE_COLOR}",strokeWeight:1.5},offset:"18px",repeat:"92px"}]`;
 
 const NO_KEY_HTML = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
@@ -234,7 +210,7 @@ var head=(typeof rotDeg==="number"&&!isNaN(rotDeg))?Number(rotDeg):0;
 return{
 ring:{
 path:G.SymbolPath.CIRCLE,
-fillColor:"#2563EB",
+fillColor:"#4E6D82",
 fillOpacity:1,
 strokeColor:"#FFFFFF",
 strokeWeight:3,
@@ -244,7 +220,7 @@ arrow:{
 path:"M 0 -1.7 1.15 1.35 0 0.5 -1.15 1.35 Z",
 fillColor:"#FFFFFF",
 fillOpacity:1,
-strokeColor:"#2563EB",
+strokeColor:"#4E6D82",
 strokeWeight:0.5,
 scale:8.5,
 rotation:head
@@ -296,8 +272,8 @@ window.__routePathPts=pts;
 if(window.__routePolyline){window.__routePolyline.setMap(null);window.__routePolyline=null;}
 if(pts.length>=2){
 window.__routePolyline=new G.Polyline({
-path:pts,geodesic:true,strokeColor:"#2563EB",strokeOpacity:1,strokeWeight:10,strokeLineCap:"round",strokeLineJoin:"round",map:map,
-icons:[{icon:{path:G.SymbolPath.FORWARD_CLOSED_ARROW,scale:3,fillColor:"#ffffff",fillOpacity:1,strokeColor:"#2563EB",strokeWeight:1.2},offset:"18px",repeat:"62px"}]
+path:pts,${ROUTE_LINE_JS},map:map,
+${ROUTE_LINE_ARROWS_JS}
 });
 }
 var lp=window.__lastDriverPos;
@@ -389,8 +365,8 @@ window.__navFitPaddingForRoute=p.fit||null;
 window.__routePolyline=null;
 if(pathPts.length>=2){
 window.__routePolyline=new G.Polyline({
-path:pathPts,geodesic:true,strokeColor:"#2563EB",strokeOpacity:1,strokeWeight:10,strokeLineCap:"round",strokeLineJoin:"round",map:map,
-icons:[{icon:{path:G.SymbolPath.FORWARD_CLOSED_ARROW,scale:3,fillColor:"#ffffff",fillOpacity:1,strokeColor:"#2563EB",strokeWeight:1.2},offset:"18px",repeat:"62px"}]
+path:pathPts,${ROUTE_LINE_JS},map:map,
+${ROUTE_LINE_ARROWS_JS}
 });
 }else if(pathPts.length===1){
 map.setCenter(pathPts[0]);map.setZoom(15);
@@ -437,7 +413,7 @@ export function buildDriverRouteNavLiveGoogleMapHtml(
   };
   if (fitPadding) body.fit = fitPadding;
   const enc = encodeURIComponent(JSON.stringify(body));
-  const styles = JSON.stringify(LIVE_NAV_MAP_STYLES);
+  const styles = JSON.stringify(MAP_STYLES_FOR_EMBED);
   const cloudMapId = (mapId ?? "").trim();
   return SHELL.replace("___PAYLOAD___", enc)
     .replace("___STYLES___", styles)

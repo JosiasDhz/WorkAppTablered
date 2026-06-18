@@ -1,15 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import {
-  fetchDriverAssignedRoutes,
-  type DriverAssignedRouteRecord,
-} from "../../../services/driverRoutesService";
-import { isPendingDriverRouteStatus } from "../../../domain/driverRoutePending";
-import { DRIVER_ROUTES_LIST_USE_DEMO } from "../driverDemo/driverRoutesListDemoFlag";
-import { DRIVER_ROUTE_ASSIGNMENT_DEMO } from "../driverDemo/driverRouteAssignmentDemoPayload";
-import { mapDriverRouteAssignmentDemoToListRecord } from "../driverDemo/mapDriverRouteAssignmentDemoToListRecord";
+import type { DriverAssignedRoutesReader } from "../../../domain/driverAssignedRoutes/DriverAssignedRoutesReader";
+import { createDriverAssignedRoutesReader } from "../../../infrastructure/driverAssignedRoutes/createDriverAssignedRoutesReader";
+import type { DriverAssignedRouteRecord } from "../../../services/driverRoutesService";
 
-const LIST_LIMIT = 50;
+const defaultDriverAssignedRoutesReader = createDriverAssignedRoutesReader();
 
 function extractErrorMessage(e: unknown): string {
   if (typeof e === "string") return e;
@@ -30,7 +25,11 @@ export type UseDriverPendingRoutesResult = {
 
 export function useDriverPendingRoutes(
   enabled: boolean,
+  reader: DriverAssignedRoutesReader = defaultDriverAssignedRoutesReader,
 ): UseDriverPendingRoutesResult {
+  const readerRef = useRef(reader);
+  readerRef.current = reader;
+
   const [items, setItems] = useState<DriverAssignedRouteRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,16 +39,7 @@ export function useDriverPendingRoutes(
     setLoading(true);
     setError(null);
     try {
-      if (DRIVER_ROUTES_LIST_USE_DEMO) {
-        const row = mapDriverRouteAssignmentDemoToListRecord(DRIVER_ROUTE_ASSIGNMENT_DEMO);
-        setItems(isPendingDriverRouteStatus(row.status) ? [row] : []);
-        return;
-      }
-      const { records } = await fetchDriverAssignedRoutes({
-        limit: LIST_LIMIT,
-        offset: 0,
-      });
-      setItems(records.filter((r) => isPendingDriverRouteStatus(r.status)));
+      setItems(await readerRef.current.fetchHubRoutes());
     } catch (e: unknown) {
       setError(extractErrorMessage(e));
       setItems([]);

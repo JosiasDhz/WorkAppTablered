@@ -7,6 +7,7 @@ export type RootStackParamList = {
   InventoryAuditLossDocuments: undefined;
   InventoryAuditLossDocumentDetail: undefined;
   DriverRouteDetail: { routeId: string };
+  DriverRouteConfirmMercancia: { routeId: string };
   DriverRouteProductPickup: { routeId: string };
   DriverRouteNavFirstStop: { routeId: string };
   Login: undefined;

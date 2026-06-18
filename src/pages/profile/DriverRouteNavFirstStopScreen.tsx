@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -27,14 +29,25 @@ import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
+import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
+import {
+  finalizeDeliveryRoute,
+  markDeliveryRouteStopDelivered,
+  uploadDeliveryRouteSignatureDataUrl,
+  uploadDeliveryRouteVehicleEvidence,
+} from "../../services/deliveryRoutesService";
 import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
+import { DRIVER_ROUTES_DETAIL_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
+import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
 import { destinationsInRouteTravelOrder } from "./driverRoute/driverRouteDestinationsTravelOrder";
 import type { MapFitPadding } from "./driverRoute/driverRouteTripGoogleMapHtml";
 import {
   DriverRouteNavLiveMapWebView,
   type DriverRouteNavLiveMapWebViewRef,
 } from "./driverRoute/DriverRouteNavLiveMapWebView";
+import { DriverRouteCompletionCelebration } from "./driverRoute/DriverRouteCompletionCelebration";
 import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
+import { tripMapModelFromAssignment } from "./driverRoute/tripMapModelFromAssignment";
 import { openGoogleMapsDrivingDirections } from "./driverRoute/openGoogleMapsDrivingDirections";
 import type { NavTurnKind } from "./driverRoute/resolveNavTurnKind";
 import { tripMapModelLegToStopAtIndex } from "./driverRoute/tripMapModelLegToStopAtIndex";
@@ -45,17 +58,38 @@ import { DriverRouteDeliveryCountPanel } from "./driverRoute/DriverRouteDelivery
 import {
   type DriverRouteDeliveryEvidencePhotosState,
 } from "./driverRoute/DriverRouteDeliveryEvidencePhotos";
+import { buildDriverRouteDeliveredPayload, firstDriverRouteStopInTransitIndex } from "../../domain/driverRouteConfirmLines";
 import {
   buildDeliveryLinesFromDestination,
   buildDeliveryPaymentFromDestination,
   emptyRouteQtyMap,
 } from "./driverRoute/deliveryLinesFromDestination";
+import {
+  DriverRouteVehicleCheckPhotos,
+  isDriverRouteEndFuelCheckComplete,
+  parseOdometerReading,
+  type DriverRouteVehicleCheckPhotosState,
+} from "./driverRoute/DriverRouteVehicleCheckPhotos";
 
 const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const signatureWebStyle = `.m-signature-pad--footer {display: none; margin: 0;} .m-signature-pad {box-shadow: none; border: none;}`;
 
-type DeliveryFlow = "start_slide" | "delivery_count" | "signature";
+type DeliveryFlow = "start_slide" | "delivery_count" | "signature" | "end_fuel";
 type MapMode = "route" | "live";
+
+function extractApiErrorMessage(e: unknown): string {
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object") {
+    const resp = (e as { response?: { data?: { message?: unknown } } }).response;
+    const msg = resp?.data?.message;
+    if (typeof msg === "string") return msg;
+    if (Array.isArray(msg)) return msg.map(String).join(", ");
+    if ("message" in e && typeof (e as { message: unknown }).message === "string") {
+      return (e as { message: string }).message;
+    }
+  }
+  return "No se pudo completar la operación";
+}
 
 function NavTurnGlyph({ kind }: { kind: NavTurnKind }) {
   const color = "#0F172A";
@@ -96,26 +130,87 @@ const navTurnStyles = StyleSheet.create({
 export default function DriverRouteNavFirstStopScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const sessionWorkerCode = useSessionWorkerCode();
   const { height: winH } = useWindowDimensions();
   const liveMapRef = useRef<DriverRouteNavLiveMapWebViewRef | null>(null);
   const liveNavCameraStartedRef = useRef(false);
   const sigRef = useRef<SignatureViewRef | null>(null);
   const { params } = useRoute<RouteProp<RootStackParamList, "DriverRouteNavFirstStop">>();
   const routeId = params?.routeId ?? "";
-  const detail = useMemo(() => getDriverRouteAssignmentDetail(routeId), [routeId]);
+  const { detail: apiDetail, loading, error, refresh } = useDriverRouteAssignmentDetail(routeId);
+  const demoDetail = useMemo(
+    () => (DRIVER_ROUTES_DETAIL_USE_DEMO ? getDriverRouteAssignmentDetail(routeId) : null),
+    [routeId],
+  );
+  const detail = demoDetail ?? apiDetail;
 
   const ordered = useMemo(
     () => (detail ? destinationsInRouteTravelOrder(detail) : []),
     [detail],
   );
   const [stopIdx, setStopIdx] = useState(0);
+  const stopInitRouteIdRef = useRef("");
   const [mapMode, setMapMode] = useState<MapMode>("route");
   const [liveMapReady, setLiveMapReady] = useState(false);
   const [flow, setFlow] = useState<DeliveryFlow>("start_slide");
   const [signatureBusy, setSignatureBusy] = useState(false);
+  const [finalizeBusy, setFinalizeBusy] = useState(false);
+  const [routeCelebration, setRouteCelebration] = useState<{
+    folio: string;
+    deliveredStops: number;
+    mapModel: ReturnType<typeof tripMapModelFromAssignment>;
+  } | null>(null);
   const [deliveredByRecordId, setDeliveredByRecordId] = useState<Record<string, string>>({});
   const [deliveryEvidencePhotos, setDeliveryEvidencePhotos] =
     useState<DriverRouteDeliveryEvidencePhotosState>([]);
+  const [endVehiclePhotos, setEndVehiclePhotos] = useState<DriverRouteVehicleCheckPhotosState>({
+    odometer: null,
+    odometerReading: "",
+    fuel: null,
+  });
+  const flowFade = useRef(new Animated.Value(1)).current;
+  const flowSlide = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    flowFade.setValue(0);
+    flowSlide.setValue(18);
+    Animated.parallel([
+      Animated.timing(flowFade, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(flowSlide, {
+        toValue: 0,
+        friction: 8,
+        tension: 78,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [flow, flowFade, flowSlide]);
+
+  useEffect(() => {
+    if (!detail || ordered.length === 0) return;
+    if (stopInitRouteIdRef.current === routeId) return;
+    stopInitRouteIdRef.current = routeId;
+    setStopIdx(firstDriverRouteStopInTransitIndex(ordered));
+    if (
+      detail.route.status === "COMPLETA" &&
+      detail.route.routeEndFuelEvidenceFileId
+    ) {
+      setRouteCelebration({
+        folio: detail.route.folio,
+        deliveredStops: ordered.length,
+        mapModel: tripMapModelFromAssignment(detail),
+      });
+      return;
+    }
+    if (detail.route.status === "COMPLETA") {
+      setFlow("end_fuel");
+      return;
+    }
+    setFlow("start_slide");
+  }, [detail, ordered, routeId]);
 
   const current = ordered[stopIdx];
   const currentRec = current?.records[0];
@@ -180,7 +275,7 @@ export default function DriverRouteNavFirstStopScreen() {
 
   const deliveryFocusScrollMaxH = useMemo(() => {
     const headerReserve = 88;
-    const sigActionsReserve = flow === "signature" ? 170 : 0;
+    const sigActionsReserve = flow === "signature" ? 170 : flow === "end_fuel" ? 88 : 0;
     return Math.max(
       winH -
         insets.top -
@@ -191,6 +286,8 @@ export default function DriverRouteNavFirstStopScreen() {
       160,
     );
   }, [winH, insets.top, insets.bottom, flow]);
+
+  const endFuelComplete = isDriverRouteEndFuelCheckComplete(endVehiclePhotos);
 
   const fitPadding = useMemo((): MapFitPadding => {
     const bottomSheetRatio = 0.34;
@@ -213,7 +310,6 @@ export default function DriverRouteNavFirstStopScreen() {
     setDeliveredByRecordId(emptyRouteQtyMap(deliveryLines.map((l) => l.recordId)));
     setDeliveryEvidencePhotos([]);
     setAmountReceivedRaw("");
-    setFlow("start_slide");
   }, [stopIdx, deliveryLines]);
 
   useEffect(() => {
@@ -327,35 +423,129 @@ export default function DriverRouteNavFirstStopScreen() {
     sigRef.current?.readSignature?.();
   }, []);
 
-  const finalizeDelivery = useCallback(async () => {
+  const completeDeliveryAfterSignature = useCallback(async (signatureDataUrl: string) => {
     setSignatureBusy(true);
     try {
+      if (!current) return;
+      if (!sessionWorkerCode) {
+        Toast.show({
+          type: "error",
+          text1: "Código de trabajador no disponible",
+          text2: "Cierra sesión y vuelve a entrar para continuar.",
+        });
+        return;
+      }
+      if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
+        const evidenceFileIds = await Promise.all(
+          deliveryEvidencePhotos.map((photo) =>
+            uploadDeliveryRouteVehicleEvidence(photo).then((uploaded) => uploaded.id),
+          ),
+        );
+        const uploadedSignature = await uploadDeliveryRouteSignatureDataUrl(signatureDataUrl);
+        const deliveredPayload = buildDriverRouteDeliveredPayload(current.records);
+        if (
+          !deliveredPayload.cartItemDeliveryIds?.length &&
+          !deliveredPayload.transferIds?.length
+        ) {
+          Toast.show({
+            type: "error",
+            text1: "Sin partidas para entregar",
+            text2: "No se encontraron líneas válidas en esta parada.",
+          });
+          return;
+        }
+        await markDeliveryRouteStopDelivered(routeId, {
+          workerCode: sessionWorkerCode,
+          ...deliveredPayload,
+          ...(evidenceFileIds.length > 0 ? { evidenceFileIds } : {}),
+          signatureEvidenceFileId: uploadedSignature.id,
+        });
+      }
       const last = stopIdx >= ordered.length - 1;
       if (last) {
-        Toast.show({
-          type: "success",
-          text1: "Ruta finalizada",
-          text2: "Todas las entregas quedaron registradas.",
+        sigRef.current?.clearSignature?.();
+        setFlow("end_fuel");
+        if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
+          await refresh();
+        }
+        return;
+      }
+      setStopIdx((i) => i + 1);
+      sigRef.current?.clearSignature?.();
+      setFlow("start_slide");
+      if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
+        await refresh();
+      }
+      Toast.show({
+        type: "success",
+        text1: "Entrega registrada",
+        text2: "Continúa con la siguiente parada.",
+      });
+    } catch (e: unknown) {
+      Toast.show({
+        type: "error",
+        text1: "No se pudo registrar la entrega",
+        text2: extractApiErrorMessage(e),
+      });
+    } finally {
+      setSignatureBusy(false);
+    }
+  }, [current, deliveryEvidencePhotos, ordered.length, refresh, routeId, sessionWorkerCode, stopIdx]);
+
+  const finalizeRoute = useCallback(async () => {
+    if (!isDriverRouteEndFuelCheckComplete(endVehiclePhotos) || finalizeBusy) return;
+    if (!sessionWorkerCode) {
+      Toast.show({
+        type: "error",
+        text1: "Código de trabajador no disponible",
+        text2: "Cierra sesión y vuelve a entrar para continuar.",
+      });
+      return;
+    }
+    const odometerPhoto = endVehiclePhotos.odometer;
+    const fuelPhoto = endVehiclePhotos.fuel;
+    const odometerReading = parseOdometerReading(endVehiclePhotos.odometerReading);
+    if (!odometerPhoto || !fuelPhoto || odometerReading == null) {
+      return;
+    }
+    setFinalizeBusy(true);
+    try {
+      if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
+        const [odometerUploaded, fuelUploaded] = await Promise.all([
+          uploadDeliveryRouteVehicleEvidence(odometerPhoto),
+          uploadDeliveryRouteVehicleEvidence(fuelPhoto),
+        ]);
+        await finalizeDeliveryRoute(routeId, {
+          workerCode: sessionWorkerCode,
+          odometerReading,
+          odometerEvidenceFileId: odometerUploaded.id,
+          fuelEvidenceFileId: fuelUploaded.id,
         });
+      }
+      if (detail) {
+        setRouteCelebration({
+          folio: detail.route.folio,
+          deliveredStops: ordered.length,
+          mapModel: tripMapModelFromAssignment(detail),
+        });
+      } else {
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
             routes: [{ name: "Tabs" }],
           }),
         );
-        return;
       }
-      setStopIdx((i) => i + 1);
-      sigRef.current?.clearSignature?.();
+    } catch (e: unknown) {
       Toast.show({
-        type: "success",
-        text1: "Entrega registrada",
-        text2: "Continúa con la siguiente parada.",
+        type: "error",
+        text1: "No se pudo finalizar la ruta",
+        text2: extractApiErrorMessage(e),
       });
     } finally {
-      setSignatureBusy(false);
+      setFinalizeBusy(false);
     }
-  }, [navigation, ordered.length, stopIdx]);
+  }, [detail, endVehiclePhotos, finalizeBusy, navigation, ordered.length, routeId, sessionWorkerCode]);
 
   const onSignatureOk = useCallback(
     (signature: string) => {
@@ -367,9 +557,9 @@ export default function DriverRouteNavFirstStopScreen() {
         });
         return;
       }
-      void finalizeDelivery();
+      void completeDeliveryAfterSignature(signature);
     },
-    [finalizeDelivery],
+    [completeDeliveryAfterSignature],
   );
 
   const onSignatureEmpty = useCallback(() => {
@@ -380,10 +570,50 @@ export default function DriverRouteNavFirstStopScreen() {
     });
   }, []);
 
+  if (routeCelebration) {
+    return (
+      <DriverRouteCompletionCelebration
+        folio={routeCelebration.folio}
+        deliveredStops={routeCelebration.deliveredStops}
+        mapModel={routeCelebration.mapModel}
+        onFinish={() => {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 1,
+              routes: [
+                { name: "Tabs" },
+                { name: "DriverRouteDetail", params: { routeId } },
+              ],
+            }),
+          );
+        }}
+      />
+    );
+  }
+
+  if (loading && !detail) {
+    return (
+      <SafeAreaView style={styles.fallback} edges={["top", "left", "right"]}>
+        <HeaderTitle title="Ruta" subtitle="Cargando entregas…" tone="light" />
+        <View style={styles.fallbackCenter}>
+          <ActivityIndicator size="large" color="#EA7600" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!detail || !current || !currentRec) {
     return (
       <SafeAreaView style={styles.fallback} edges={["top", "left", "right"]}>
-        <HeaderTitle title="Ruta" subtitle="Sin primera entrega" tone="light" />
+        <HeaderTitle title="Ruta" subtitle="Sin entregas" tone="light" />
+        <View style={styles.fallbackCenter}>
+          <Text style={styles.fallbackMsg}>
+            {error ?? "No se pudo cargar el detalle de la ruta."}
+          </Text>
+          <TouchableOpacity style={styles.fallbackRetry} onPress={() => void refresh()}>
+            <Text style={styles.fallbackRetryTxt}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -420,15 +650,26 @@ export default function DriverRouteNavFirstStopScreen() {
             onBack={closeSignatureModal}
           />
         ) : null}
+        {flow === "end_fuel" ? (
+          <HeaderTitle
+            title="Cierre de ruta"
+            subtitle={`${detail.route.folio} · Combustible`}
+            tone="light"
+          />
+        ) : null}
         <KeyboardAvoidingView
           style={styles.deliveryFocusShell}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
         >
-          <View
+          <Animated.View
             style={[
               styles.deliveryFocusBody,
-              { paddingBottom: Math.max(insets.bottom, 14) },
+              {
+                paddingBottom: Math.max(insets.bottom, 14),
+                opacity: flowFade,
+                transform: [{ translateY: flowSlide }],
+              },
             ]}
           >
             {flow === "delivery_count" ? (
@@ -515,7 +756,36 @@ export default function DriverRouteNavFirstStopScreen() {
                 </View>
               </View>
             ) : null}
-          </View>
+            {flow === "end_fuel" ? (
+              <ScrollView
+                style={{ maxHeight: deliveryFocusScrollMaxH }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <DriverRouteVehicleCheckPhotos
+                  photos={endVehiclePhotos}
+                  onChange={setEndVehiclePhotos}
+                  phase="end"
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.sigPrimaryBtn,
+                    styles.endFuelBtn,
+                    !endFuelComplete || finalizeBusy ? styles.sigPrimaryBtnBusy : null,
+                  ]}
+                  onPress={() => void finalizeRoute()}
+                  activeOpacity={0.85}
+                  disabled={!endFuelComplete || finalizeBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Finalizar ruta"
+                >
+                  <Text style={styles.sigPrimaryBtnText}>
+                    {finalizeBusy ? "Finalizando…" : "Finalizar ruta"}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : null}
+          </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
@@ -529,7 +799,7 @@ export default function DriverRouteNavFirstStopScreen() {
           model={staticRoute.model}
           fill
           fitPadding={fitPadding}
-          mapFitOptions={{ zoomBoost: true }}
+          mapFitOptions={{ maxZoom: 16, zoomBoost: false, animateDraw: true }}
         />
       ) : (
         <DriverRouteNavLiveMapWebView
@@ -640,6 +910,31 @@ const styles = StyleSheet.create({
   fallback: {
     flex: 1,
     backgroundColor: "#F1F5F9",
+  },
+  fallbackCenter: {
+    flex: 1,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fallbackMsg: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  fallbackRetry: {
+    marginTop: 16,
+    backgroundColor: "#EA7600",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  fallbackRetryTxt: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
   },
   deliveryFocusRoot: {
     flex: 1,
@@ -890,5 +1185,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
     color: "#FFFFFF",
+  },
+  endFuelBtn: {
+    marginTop: 16,
+    flex: undefined,
+    width: "100%",
   },
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Modal,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   View,
   useWindowDimensions,
+  type ImageSourcePropType,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CloseCircle } from "iconsax-react-native";
@@ -14,12 +15,14 @@ import { CloseCircle } from "iconsax-react-native";
 type TapImagePreviewProps = {
   uri: string;
   enabled?: boolean;
+  headers?: Record<string, string>;
   children: React.ReactNode;
 };
 
 export function TapImagePreview({
   uri,
   enabled = true,
+  headers,
   children,
 }: TapImagePreviewProps) {
   const [open, setOpen] = useState(false);
@@ -28,6 +31,10 @@ export function TapImagePreview({
   const close = useCallback(() => setOpen(false), []);
   const trimmed = uri && String(uri).trim();
   const canOpen = Boolean(enabled && trimmed);
+  const imageSource = useMemo((): ImageSourcePropType | null => {
+    if (!trimmed) return null;
+    return headers ? { uri: String(trimmed), headers } : { uri: String(trimmed) };
+  }, [headers, trimmed]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +49,10 @@ export function TapImagePreview({
       <Pressable
         disabled={!canOpen}
         onPress={() => canOpen && setOpen(true)}
-        style={({ pressed }) => (pressed && canOpen ? styles.thumbPressed : undefined)}
+        style={({ pressed }) => [
+          styles.thumbPressable,
+          pressed && canOpen ? styles.thumbPressed : undefined,
+        ]}
       >
         {children}
       </Pressable>
@@ -59,17 +69,19 @@ export function TapImagePreview({
             style={[styles.modalCenter, { paddingTop: insets.top + 44, paddingBottom: insets.bottom + 24 }]}
             pointerEvents="box-none"
           >
-            <Image
-              source={{ uri: String(trimmed) }}
-              style={{
-                width: ww - 32,
-                height: Math.min(
-                  wh * 0.72,
-                  wh - insets.top - insets.bottom - 72,
-                ),
-              }}
-              resizeMode="contain"
-            />
+            {imageSource ? (
+              <Image
+                source={imageSource}
+                style={{
+                  width: ww - 32,
+                  height: Math.min(
+                    wh * 0.72,
+                    wh - insets.top - insets.bottom - 72,
+                  ),
+                }}
+                resizeMode="contain"
+              />
+            ) : null}
           </View>
           <Pressable
             style={[styles.closeFab, { top: insets.top + 10, right: 16 + Math.max(insets.right, 0) }]}
@@ -87,6 +99,9 @@ export function TapImagePreview({
 }
 
 const styles = StyleSheet.create({
+  thumbPressable: {
+    alignSelf: "flex-start",
+  },
   thumbPressed: {
     opacity: 0.92,
   },
