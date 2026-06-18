@@ -66,7 +66,7 @@ import {
 } from "./driverRoute/deliveryLinesFromDestination";
 import {
   DriverRouteVehicleCheckPhotos,
-  isDriverRouteEndFuelCheckComplete,
+  isDriverRouteEndCloseCheckComplete,
   parseOdometerReading,
   type DriverRouteVehicleCheckPhotosState,
 } from "./driverRoute/DriverRouteVehicleCheckPhotos";
@@ -194,6 +194,13 @@ export default function DriverRouteNavFirstStopScreen() {
     if (stopInitRouteIdRef.current === routeId) return;
     stopInitRouteIdRef.current = routeId;
     setStopIdx(firstDriverRouteStopInTransitIndex(ordered));
+    if (detail.route.status !== "COMPLETA") {
+      setFlow("start_slide");
+    }
+  }, [detail, ordered, routeId]);
+
+  useEffect(() => {
+    if (!detail || ordered.length === 0 || routeCelebration) return;
     if (
       detail.route.status === "COMPLETA" &&
       detail.route.routeEndFuelEvidenceFileId
@@ -207,10 +214,8 @@ export default function DriverRouteNavFirstStopScreen() {
     }
     if (detail.route.status === "COMPLETA") {
       setFlow("end_fuel");
-      return;
     }
-    setFlow("start_slide");
-  }, [detail, ordered, routeId]);
+  }, [detail, ordered, routeCelebration]);
 
   const current = ordered[stopIdx];
   const currentRec = current?.records[0];
@@ -287,7 +292,7 @@ export default function DriverRouteNavFirstStopScreen() {
     );
   }, [winH, insets.top, insets.bottom, flow]);
 
-  const endFuelComplete = isDriverRouteEndFuelCheckComplete(endVehiclePhotos);
+  const endFuelComplete = isDriverRouteEndCloseCheckComplete(endVehiclePhotos);
 
   const fitPadding = useMemo((): MapFitPadding => {
     const bottomSheetRatio = 0.34;
@@ -493,7 +498,7 @@ export default function DriverRouteNavFirstStopScreen() {
   }, [current, deliveryEvidencePhotos, ordered.length, refresh, routeId, sessionWorkerCode, stopIdx]);
 
   const finalizeRoute = useCallback(async () => {
-    if (!isDriverRouteEndFuelCheckComplete(endVehiclePhotos) || finalizeBusy) return;
+    if (!isDriverRouteEndCloseCheckComplete(endVehiclePhotos) || finalizeBusy) return;
     if (!sessionWorkerCode) {
       Toast.show({
         type: "error",
@@ -506,6 +511,11 @@ export default function DriverRouteNavFirstStopScreen() {
     const fuelPhoto = endVehiclePhotos.fuel;
     const odometerReading = parseOdometerReading(endVehiclePhotos.odometerReading);
     if (!odometerPhoto || !fuelPhoto || odometerReading == null) {
+      Toast.show({
+        type: "error",
+        text1: "Faltan datos del cierre",
+        text2: "Completa el kilometraje final, la foto del tacómetro y la del combustible.",
+      });
       return;
     }
     setFinalizeBusy(true);
@@ -522,19 +532,17 @@ export default function DriverRouteNavFirstStopScreen() {
           fuelEvidenceFileId: fuelUploaded.id,
         });
       }
-      if (detail) {
-        setRouteCelebration({
-          folio: detail.route.folio,
-          deliveredStops: ordered.length,
-          mapModel: tripMapModelFromAssignment(detail),
-        });
-      } else {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Tabs" }],
-          }),
-        );
+      const celebrationFolio = detail?.route.folio ?? routeId;
+      const celebrationMapModel = detail
+        ? tripMapModelFromAssignment(detail)
+        : { path: [], stops: [] };
+      setRouteCelebration({
+        folio: celebrationFolio,
+        deliveredStops: ordered.length,
+        mapModel: celebrationMapModel,
+      });
+      if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
+        void refresh();
       }
     } catch (e: unknown) {
       Toast.show({
@@ -545,7 +553,15 @@ export default function DriverRouteNavFirstStopScreen() {
     } finally {
       setFinalizeBusy(false);
     }
-  }, [detail, endVehiclePhotos, finalizeBusy, navigation, ordered.length, routeId, sessionWorkerCode]);
+  }, [
+    detail,
+    endVehiclePhotos,
+    finalizeBusy,
+    ordered.length,
+    refresh,
+    routeId,
+    sessionWorkerCode,
+  ]);
 
   const onSignatureOk = useCallback(
     (signature: string) => {
@@ -653,17 +669,14 @@ export default function DriverRouteNavFirstStopScreen() {
         {flow === "end_fuel" ? (
           <HeaderTitle
             title="Cierre de ruta"
-            subtitle={`${detail.route.folio} · Combustible`}
+            subtitle={`${detail.route.folio} · Vehículo`}
             tone="light"
           />
         ) : null}
-        <KeyboardAvoidingView
-          style={styles.deliveryFocusShell}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
-        >
+        {flow === "delivery_count" ? (
           <Animated.View
             style={[
+              styles.deliveryFocusShell,
               styles.deliveryFocusBody,
               {
                 paddingBottom: Math.max(insets.bottom, 14),
@@ -672,21 +685,36 @@ export default function DriverRouteNavFirstStopScreen() {
               },
             ]}
           >
-            {flow === "delivery_count" ? (
-              <DriverRouteDeliveryCountPanel
-                addressLine={addrLine}
-                lines={deliveryLines}
-                payment={deliveryPayment}
-                deliveredByRecordId={deliveredByRecordId}
-                amountReceivedRaw={amountReceivedRaw}
-                evidencePhotos={deliveryEvidencePhotos}
-                onChangeQty={setDeliveredQty}
-                onChangeAmountReceived={setAmountReceivedRaw}
-                onChangeEvidencePhotos={setDeliveryEvidencePhotos}
-                onContinue={onContinueToSignature}
-              />
-            ) : null}
-            {flow === "signature" ? (
+            <DriverRouteDeliveryCountPanel
+              addressLine={addrLine}
+              lines={deliveryLines}
+              payment={deliveryPayment}
+              deliveredByRecordId={deliveredByRecordId}
+              amountReceivedRaw={amountReceivedRaw}
+              evidencePhotos={deliveryEvidencePhotos}
+              onChangeQty={setDeliveredQty}
+              onChangeAmountReceived={setAmountReceivedRaw}
+              onChangeEvidencePhotos={setDeliveryEvidencePhotos}
+              onContinue={onContinueToSignature}
+            />
+          </Animated.View>
+        ) : (
+          <KeyboardAvoidingView
+            style={styles.deliveryFocusShell}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 8 : 0}
+          >
+            <Animated.View
+              style={[
+                styles.deliveryFocusBody,
+                {
+                  paddingBottom: Math.max(insets.bottom, 14),
+                  opacity: flowFade,
+                  transform: [{ translateY: flowSlide }],
+                },
+              ]}
+            >
+              {flow === "signature" ? (
               <View style={styles.sigPanel}>
                 <View style={styles.sigPanelHead}>
                   <Text style={styles.sigPanelSub}>
@@ -785,8 +813,9 @@ export default function DriverRouteNavFirstStopScreen() {
                 </TouchableOpacity>
               </ScrollView>
             ) : null}
-          </Animated.View>
-        </KeyboardAvoidingView>
+            </Animated.View>
+          </KeyboardAvoidingView>
+        )}
       </SafeAreaView>
     );
   }

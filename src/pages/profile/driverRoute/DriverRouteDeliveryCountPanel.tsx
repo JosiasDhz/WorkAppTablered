@@ -2,12 +2,12 @@ import React, { useMemo } from "react";
 import {
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { ArrowRight2, Location } from "iconsax-react-native";
 import {
   DriverRouteDeliveryEvidencePhotos,
@@ -115,14 +115,15 @@ export function DriverRouteDeliveryCountPanel({
     progressSteps.length > 0 ? progressDone / progressSteps.length : 0;
 
   return (
-    <View style={styles.wrap}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-      >
+    <KeyboardAwareScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid
+      extraScrollHeight={48}
+      nestedScrollEnabled
+    >
         {addressLine ? (
           <View style={styles.addressStrip}>
             <View style={styles.addressIcon}>
@@ -277,7 +278,6 @@ export function DriverRouteDeliveryCountPanel({
             ))}
           </View>
         ) : null}
-      </ScrollView>
       <View style={styles.footer}>
         <Pressable
           style={[styles.nextBtn, !canContinue ? styles.nextBtnDisabled : null]}
@@ -302,18 +302,16 @@ export function DriverRouteDeliveryCountPanel({
           />
         </Pressable>
       </View>
-    </View>
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: 12,
   },
   addressStrip: {
@@ -573,10 +571,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   footer: {
+    marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
-    backgroundColor: "#F1F5F9",
   },
   nextBtn: {
     height: 56,

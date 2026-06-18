@@ -36,10 +36,20 @@ export function isDriverRouteStartVehicleCheckComplete(
   return state.odometer !== null && parseOdometerReading(state.odometerReading) !== null;
 }
 
+export function isDriverRouteEndCloseCheckComplete(
+  state: DriverRouteVehicleCheckPhotosState,
+): boolean {
+  return (
+    state.fuel !== null &&
+    state.odometer !== null &&
+    parseOdometerReading(state.odometerReading) !== null
+  );
+}
+
 export function isDriverRouteEndFuelCheckComplete(
   state: DriverRouteVehicleCheckPhotosState,
 ): boolean {
-  return state.fuel !== null;
+  return isDriverRouteEndCloseCheckComplete(state);
 }
 
 type PhotoSlotKey = "odometer" | "fuel";
@@ -184,11 +194,38 @@ export function DriverRouteVehicleCheckPhotos({
   if (phase === "end") {
     return (
       <View style={styles.wrap}>
-        <Text style={styles.sectionTitle}>Combustible al cierre</Text>
+        <Text style={styles.sectionTitle}>Cierre del vehículo</Text>
         <Text style={styles.sectionHint}>
-          Toma una foto del indicador de combustible al terminar la ruta.
+          Registra el kilometraje final, foto del tacómetro y del combustible.
         </Text>
         <View style={styles.grid}>
+          {renderPhotoSlot(
+            "odometer",
+            "Tacómetro",
+            "Kilometraje final visible",
+            <Speedometer size={22} color="#EA7600" variant="Bold" />,
+          )}
+          <View style={styles.slot}>
+            <Text style={styles.inputLbl}>Kilometraje final</Text>
+            <TextInput
+              value={photos.odometerReading}
+              onChangeText={setOdometerReading}
+              placeholder="Ej. 45230"
+              placeholderTextColor="#94A3B8"
+              keyboardType="number-pad"
+              inputMode="numeric"
+              maxLength={7}
+              style={[styles.input, odometerReadingInvalid ? styles.inputWarn : null]}
+              accessibilityLabel="Kilometraje final del vehículo"
+            />
+            {odometerReadingInvalid ? (
+              <Text style={styles.inputWarnTxt}>Ingresa un kilometraje válido.</Text>
+            ) : (
+              <Text style={styles.inputHelp}>
+                Escribe el kilometraje que muestra el tacómetro al cierre.
+              </Text>
+            )}
+          </View>
           {renderPhotoSlot(
             "fuel",
             "Combustible",
