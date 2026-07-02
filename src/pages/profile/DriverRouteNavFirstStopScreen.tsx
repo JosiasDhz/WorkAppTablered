@@ -32,6 +32,7 @@ import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
 import {
   finalizeDeliveryRoute,
+  handoverDeliveryRouteCash,
   markDeliveryRouteStopDelivered,
   uploadDeliveryRouteSignatureDataUrl,
   uploadDeliveryRouteVehicleEvidence,
@@ -55,6 +56,7 @@ import type { TripMapStopMarker } from "./driverRoute/tripMapModelFromAssignment
 import { useLiveLegNavigation } from "./driverRoute/useLiveLegNavigation";
 import { useStaticLegRouteMap } from "./driverRoute/useStaticLegRouteMap";
 import { DriverRouteDeliveryCountPanel } from "./driverRoute/DriverRouteDeliveryCountPanel";
+import { DriverRouteCashHandoverPanel } from "./driverRoute/DriverRouteCashHandoverPanel";
 import {
   type DriverRouteDeliveryEvidencePhotosState,
 } from "./driverRoute/DriverRouteDeliveryEvidencePhotos";
@@ -63,6 +65,8 @@ import {
   buildDeliveryLinesFromDestination,
   buildDeliveryPaymentFromDestination,
   emptyRouteQtyMap,
+  isDeliveryPaymentRequired,
+  parseMoneyMxn,
 } from "./driverRoute/deliveryLinesFromDestination";
 import {
   DriverRouteVehicleCheckPhotos,
@@ -155,6 +159,7 @@ export default function DriverRouteNavFirstStopScreen() {
   const [flow, setFlow] = useState<DeliveryFlow>("start_slide");
   const [signatureBusy, setSignatureBusy] = useState(false);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
+  const [handoverBusy, setHandoverBusy] = useState(false);
   const [routeCelebration, setRouteCelebration] = useState<{
     folio: string;
     deliveredStops: number;
@@ -293,6 +298,16 @@ export default function DriverRouteNavFirstStopScreen() {
   }, [winH, insets.top, insets.bottom, flow]);
 
   const endFuelComplete = isDriverRouteEndCloseCheckComplete(endVehiclePhotos);
+  const cashHandoverCompleted = Boolean(detail?.route.driverCashHandoverAtCdmx);
+  const cashHandoverPendingMxn = Math.max(
+    0,
+    Number(detail?.route.driverCashPendingHandoverMxn) || 0,
+  );
+  const cashHandoverAmountMxn = cashHandoverCompleted
+    ? Math.max(0, Number(detail?.route.driverCashHandoverAmountMxn) || 0)
+    : cashHandoverPendingMxn;
+  const canFinalizeRoute =
+    endFuelComplete && (cashHandoverPendingMxn <= 0 || cashHandoverCompleted);
 
   const fitPadding = useMemo((): MapFitPadding => {
     const bottomSheetRatio = 0.34;
@@ -446,7 +461,6 @@ export default function DriverRouteNavFirstStopScreen() {
             uploadDeliveryRouteVehicleEvidence(photo).then((uploaded) => uploaded.id),
           ),
         );
-        const uploadedSignature = await uploadDeliveryRouteSignatureDataUrl(signatureDataUrl);
         const deliveredPayload = buildDriverRouteDeliveredPayload(current.records);
         if (
           !deliveredPayload.cartItemDeliveryIds?.length &&
@@ -459,11 +473,24 @@ export default function DriverRouteNavFirstStopScreen() {
           });
           return;
         }
+        let signaturePayload:
+          | { signatureEvidenceFileId: string }
+          | { signatureDataUrl: string };
+        try {
+          const uploadedSignature =
+            await uploadDeliveryRouteSignatureDataUrl(signatureDataUrl);
+          signaturePayload = { signatureEvidenceFileId: uploadedSignature.id };
+        } catch {
+          signaturePayload = { signatureDataUrl };
+        }
         await markDeliveryRouteStopDelivered(routeId, {
           workerCode: sessionWorkerCode,
           ...deliveredPayload,
           ...(evidenceFileIds.length > 0 ? { evidenceFileIds } : {}),
-          signatureEvidenceFileId: uploadedSignature.id,
+          ...signaturePayload,
+          ...(isDeliveryPaymentRequired(deliveryPayment)
+            ? { cashCollectionReceivedMxn: parseMoneyMxn(amountReceivedRaw) }
+            : {}),
         });
       }
       const last = stopIdx >= ordered.length - 1;
@@ -495,10 +522,42 @@ export default function DriverRouteNavFirstStopScreen() {
     } finally {
       setSignatureBusy(false);
     }
-  }, [current, deliveryEvidencePhotos, ordered.length, refresh, routeId, sessionWorkerCode, stopIdx]);
+  }, [amountReceivedRaw, current, deliveryEvidencePhotos, deliveryPayment, ordered.length, refresh, routeId, sessionWorkerCode, stopIdx]);
+
+  const confirmCashHandover = useCallback(async () => {
+    if (!sessionWorkerCode || handoverBusy || cashHandoverCompleted) return;
+    if (cashHandoverPendingMxn <= 0) return;
+    setHandoverBusy(true);
+    try {
+      if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
+        await handoverDeliveryRouteCash(routeId, { workerCode: sessionWorkerCode });
+        await refresh();
+      }
+      Toast.show({
+        type: "success",
+        text1: "Entrega a caja registrada",
+        text2: "Ya puedes finalizar la ruta.",
+      });
+    } catch (e: unknown) {
+      Toast.show({
+        type: "error",
+        text1: "No se pudo registrar la entrega a caja",
+        text2: extractApiErrorMessage(e),
+      });
+    } finally {
+      setHandoverBusy(false);
+    }
+  }, [
+    cashHandoverCompleted,
+    cashHandoverPendingMxn,
+    handoverBusy,
+    refresh,
+    routeId,
+    sessionWorkerCode,
+  ]);
 
   const finalizeRoute = useCallback(async () => {
-    if (!isDriverRouteEndCloseCheckComplete(endVehiclePhotos) || finalizeBusy) return;
+    if (!canFinalizeRoute || finalizeBusy) return;
     if (!sessionWorkerCode) {
       Toast.show({
         type: "error",
@@ -554,6 +613,7 @@ export default function DriverRouteNavFirstStopScreen() {
       setFinalizeBusy(false);
     }
   }, [
+    canFinalizeRoute,
     detail,
     endVehiclePhotos,
     finalizeBusy,
@@ -795,15 +855,21 @@ export default function DriverRouteNavFirstStopScreen() {
                   onChange={setEndVehiclePhotos}
                   phase="end"
                 />
+                <DriverRouteCashHandoverPanel
+                  amountMxn={cashHandoverAmountMxn}
+                  busy={handoverBusy}
+                  completed={cashHandoverCompleted}
+                  onConfirm={() => void confirmCashHandover()}
+                />
                 <TouchableOpacity
                   style={[
                     styles.sigPrimaryBtn,
                     styles.endFuelBtn,
-                    !endFuelComplete || finalizeBusy ? styles.sigPrimaryBtnBusy : null,
+                    !canFinalizeRoute || finalizeBusy ? styles.sigPrimaryBtnBusy : null,
                   ]}
                   onPress={() => void finalizeRoute()}
                   activeOpacity={0.85}
-                  disabled={!endFuelComplete || finalizeBusy}
+                  disabled={!canFinalizeRoute || finalizeBusy}
                   accessibilityRole="button"
                   accessibilityLabel="Finalizar ruta"
                 >

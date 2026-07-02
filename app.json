@@ -1,5 +1,6 @@
 {
   "expo": {
+    "owner": "josiveloper",
     "name": "Table Red Oaxaca Wallet",
     "slug": "tableredoaxaca",
     "version": "1.0.0",
@@ -14,7 +15,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["comgooglemaps", "googlemaps"]
+        "LSApplicationQueriesSchemes": [
+          "comgooglemaps",
+          "googlemaps"
+        ]
       }
     },
     "android": {
@@ -54,11 +58,7 @@
         }
       ]
     ],
-    "extra": {
-      "eas": {
-        "projectId": "3712610d-4dd9-42dd-8985-1650b432e282"
-      }
-    },
+    
     "runtimeVersion": {
       "policy": "appVersion"
     },

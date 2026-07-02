@@ -61,6 +61,15 @@ export type DriverRouteAssignmentDemoDestinationPayment = {
   amountToCollectMxn: number;
 };
 
+export type DriverRouteAssignmentDemoDestinationCollection = {
+  pendingAmountMxn: number;
+  receivedMxn: number;
+  changeMxn: number;
+  netMxn: number;
+  recordedAtCdmx: string | null;
+  recordedByWorkerId: string | null;
+};
+
 export type DriverRouteAssignmentDemoDestination = {
   id: string;
   visitOrder: number;
@@ -68,7 +77,8 @@ export type DriverRouteAssignmentDemoDestination = {
   vehicle: DriverRouteAssignmentDemoVehicle | null;
   assignedDriver: DriverRouteAssignmentDemoDriver | null;
   records: DriverRouteAssignmentDemoRecord[];
-  payment?: DriverRouteAssignmentDemoDestinationPayment;
+  payment?: DriverRouteAssignmentDemoDestinationPayment | null;
+  collection?: DriverRouteAssignmentDemoDestinationCollection | null;
 };
 
 export type DriverRouteAssignmentDemoRoute = {
@@ -96,6 +106,10 @@ export type DriverRouteAssignmentDemoRoute = {
   routeEndOdometerReading?: number | null;
   routeEndOdometerEvidenceFileId?: string | null;
   routeEndFuelEvidenceFileId?: string | null;
+  driverCashPendingHandoverMxn?: number;
+  driverCashHandoverAmountMxn?: number;
+  driverCashHandoverAtCdmx?: string | null;
+  driverCashHandoverByWorkerId?: string | null;
   savedDirectionsPolylinesByVehicleId: Record<string, string> | null;
 };
 

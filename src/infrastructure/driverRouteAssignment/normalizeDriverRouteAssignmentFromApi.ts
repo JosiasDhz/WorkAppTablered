@@ -40,6 +40,10 @@ export function normalizeDriverRouteAssignmentFromApi(
       routeEndOdometerReading: raw.route.routeEndOdometerReading ?? null,
       routeEndOdometerEvidenceFileId: raw.route.routeEndOdometerEvidenceFileId ?? null,
       routeEndFuelEvidenceFileId: raw.route.routeEndFuelEvidenceFileId ?? null,
+      driverCashPendingHandoverMxn: Number(raw.route.driverCashPendingHandoverMxn) || 0,
+      driverCashHandoverAmountMxn: Number(raw.route.driverCashHandoverAmountMxn) || 0,
+      driverCashHandoverAtCdmx: asNullableString(raw.route.driverCashHandoverAtCdmx),
+      driverCashHandoverByWorkerId: asNullableString(raw.route.driverCashHandoverByWorkerId),
       savedDirectionsPolylinesByVehicleId:
         raw.route.savedDirectionsPolylinesByVehicleId ?? null,
     },
@@ -76,6 +80,22 @@ export function normalizeDriverRouteAssignmentFromApi(
             name: asNullableString(dest.assignedDriver.name) ?? "",
             lastName: asNullableString(dest.assignedDriver.lastName) ?? "",
             secondLastName: dest.assignedDriver.secondLastName ?? null,
+          }
+        : null,
+      payment: dest.payment
+        ? {
+            status: dest.payment.status,
+            amountToCollectMxn: Number(dest.payment.amountToCollectMxn) || 0,
+          }
+        : null,
+      collection: dest.collection
+        ? {
+            pendingAmountMxn: Number(dest.collection.pendingAmountMxn) || 0,
+            receivedMxn: Number(dest.collection.receivedMxn) || 0,
+            changeMxn: Number(dest.collection.changeMxn) || 0,
+            netMxn: Number(dest.collection.netMxn) || 0,
+            recordedAtCdmx: asNullableString(dest.collection.recordedAtCdmx),
+            recordedByWorkerId: asNullableString(dest.collection.recordedByWorkerId),
           }
         : null,
       records: dest.records.map((rec) => ({

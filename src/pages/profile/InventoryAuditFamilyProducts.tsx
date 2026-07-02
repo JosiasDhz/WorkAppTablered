@@ -288,7 +288,7 @@ export default function InventoryAuditFamilyProducts() {
       setFamily(res.family);
       setAuditStatus(res.audit.status as InventoryAuditStatus);
       if (payload.length > 0) mergeSavedLines(payload);
-      Alert.alert("Familia completada", "El conteo de esta familia quedó cerrado.", [
+      Alert.alert("Marca completada", "El conteo de esta marca quedó cerrado.", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (e: unknown) {
@@ -339,7 +339,7 @@ export default function InventoryAuditFamilyProducts() {
   }, []);
 
   const headerTitle =
-    deptName && brandName ? `${deptName} · ${brandName}` : "Productos de la familia";
+    deptName && brandName ? `${deptName} · ${brandName}` : "Productos de la marca";
 
   const pct =
     family && family.totalProducts > 0
@@ -377,7 +377,7 @@ export default function InventoryAuditFamilyProducts() {
         <>
           {familyComplete ? (
             <View style={styles.doneBanner}>
-              <Text style={styles.doneBannerText}>Esta familia ya está completada (solo lectura).</Text>
+              <Text style={styles.doneBannerText}>Esta marca ya está completada (solo lectura).</Text>
             </View>
           ) : null}
           {auditReadOnly && !familyComplete ? (
@@ -392,7 +392,7 @@ export default function InventoryAuditFamilyProducts() {
               <Text style={styles.progressMain}>
                 <Text style={styles.progressStrong}>{family.countedProducts}</Text>
                 <Text style={styles.progressMuted}>/{family.totalProducts}</Text>
-                <Text style={styles.progressMuted}> Partidas</Text>
+                <Text style={styles.progressMuted}> productos</Text>
               </Text>
               <View style={styles.progressPctPill}>
                 <Text style={styles.progressPctText}>{pct}%</Text>
@@ -405,7 +405,7 @@ export default function InventoryAuditFamilyProducts() {
           <Text style={styles.totalHint}>
             {debouncedSearch
               ? `${total} resultado${total !== 1 ? "s" : ""} para “${debouncedSearch}”`
-              : `Mostrando ${lines.length} de ${total} en esta familia`}
+              : `Mostrando ${lines.length} de ${total} en esta marca`}
           </Text>
         </>
       ) : null}
@@ -483,7 +483,7 @@ export default function InventoryAuditFamilyProducts() {
                     ? "Sin datos"
                     : debouncedSearch
                       ? `Nada coincide con “${debouncedSearch}”.`
-                      : "No hay productos en esta familia."}
+                      : "No hay productos en esta marca."}
                 </Text>
               </View>
             }

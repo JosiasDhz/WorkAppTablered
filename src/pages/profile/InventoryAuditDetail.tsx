@@ -325,8 +325,12 @@ export default function InventoryAuditDetail() {
                 ) : costReport ? (
                   <>
                     <Text style={styles.resultsLine}>Pérdidas: {fmtMXN(costReport.totalLoss)}</Text>
-                    <Text style={styles.resultsLine}>Ganancias: {fmtMXN(costReport.totalSurplus)}</Text>
-                    <Text style={styles.resultsLine}>Neto: {fmtMXN(costReport.netValue)}</Text>
+                    <Text style={styles.resultsLine}>
+                      Neto:{" "}
+                      {fmtMXN(
+                        costReport.totalLoss > 0 ? -Math.abs(costReport.totalLoss) : 0,
+                      )}
+                    </Text>
                   </>
                 ) : null}
               </View>

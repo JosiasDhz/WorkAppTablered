@@ -27,11 +27,10 @@ export function buildDeliveryPaymentFromDestination(
   destination: DriverRouteAssignmentDemoDestination,
 ): DeliveryPaymentView | null {
   const payment = destination.payment;
-  if (!payment) return null;
-  if (payment.status === "PAID") {
-    return { status: "PAID", amountToCollectMxn: 0 };
-  }
-  if (payment.status === "PENDING" && payment.amountToCollectMxn > 0) {
+  if (payment) {
+    if (payment.status === "PAID" || payment.amountToCollectMxn <= 0) {
+      return { status: "PAID", amountToCollectMxn: 0 };
+    }
     return {
       status: "PENDING",
       amountToCollectMxn: payment.amountToCollectMxn,

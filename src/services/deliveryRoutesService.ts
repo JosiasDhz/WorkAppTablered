@@ -68,6 +68,18 @@ export type SavedDeliveryRouteDestinationDetail = {
   pinColorHex: string | null;
   vehicle: SavedDeliveryRouteVehicle | null;
   assignedDriver?: SavedDeliveryRouteAssignedDriver | null;
+  payment?: {
+    status: "PAID" | "PENDING";
+    amountToCollectMxn: number;
+  } | null;
+  collection?: {
+    pendingAmountMxn: number;
+    receivedMxn: number;
+    changeMxn: number;
+    netMxn: number;
+    recordedAtCdmx: string | null;
+    recordedByWorkerId: string | null;
+  } | null;
   records: SavedDeliveryRouteRecord[];
 };
 
@@ -97,6 +109,10 @@ export type SavedDeliveryRouteDetailResponse = {
     routeEndOdometerReading?: number | null;
     routeEndOdometerEvidenceFileId?: string | null;
     routeEndFuelEvidenceFileId?: string | null;
+    driverCashPendingHandoverMxn?: number;
+    driverCashHandoverAmountMxn?: number;
+    driverCashHandoverAtCdmx?: string | null;
+    driverCashHandoverByWorkerId?: string | null;
     savedDirectionsPolylinesByVehicleId?: Record<string, string> | null;
   };
   destinations: SavedDeliveryRouteDestinationDetail[];
@@ -213,6 +229,7 @@ export type MarkDeliveryRouteStopPayload = {
   evidenceFileIds?: string[];
   signatureDataUrl?: string;
   signatureEvidenceFileId?: string;
+  cashCollectionReceivedMxn?: number;
 };
 
 export type MarkDeliveryRouteStopResponse = {
@@ -226,11 +243,16 @@ export type MarkDeliveryRouteStopResponse = {
 export async function uploadDeliveryRouteSignatureDataUrl(
   signatureDataUrl: string,
 ): Promise<UploadedDeliveryRouteEvidenceFile> {
-  return uploadDeliveryRouteVehicleEvidence({
-    uri: signatureDataUrl,
-    name: `delivery-signature-${Date.now()}.png`,
-    mimeType: "image/png",
-  });
+  const {
+    deletePreparedSignatureUpload,
+    prepareSignatureDataUrlForUpload,
+  } = await import("../utils/prepareSignatureDataUrlForUpload");
+  const prepared = await prepareSignatureDataUrlForUpload(signatureDataUrl);
+  try {
+    return await uploadDeliveryRouteVehicleEvidence(prepared);
+  } finally {
+    await deletePreparedSignatureUpload(prepared.uri);
+  }
 }
 
 export async function markDeliveryRouteStopDelivered(
@@ -268,6 +290,29 @@ export async function finalizeDeliveryRoute(
 ): Promise<FinalizeDeliveryRouteResponse> {
   const { data } = await http.post<FinalizeDeliveryRouteResponse>(
     `/delivery-routes/saved/${routeId}/finalize`,
+    payload,
+  );
+  return data;
+}
+
+export type HandoverDeliveryRouteCashPayload = {
+  workerCode: string;
+};
+
+export type HandoverDeliveryRouteCashResponse = {
+  routeId: string;
+  amountMxn: number;
+  handoverAtCdmx: string;
+  handoverByWorkerId: string;
+  pendingHandoverMxn: number;
+};
+
+export async function handoverDeliveryRouteCash(
+  routeId: string,
+  payload: HandoverDeliveryRouteCashPayload,
+): Promise<HandoverDeliveryRouteCashResponse> {
+  const { data } = await http.post<HandoverDeliveryRouteCashResponse>(
+    `/delivery-routes/saved/${routeId}/handover-cash`,
     payload,
   );
   return data;
