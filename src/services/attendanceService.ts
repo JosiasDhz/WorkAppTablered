@@ -3,22 +3,6 @@ import http from "../api/http-common";
 export type WorkerQrResponse = {
   nonce: string;
   expiresAt: string;
-  checkTypeCode?: string | null;
-};
-
-export type AttendanceCheckTypeOption = {
-  id: string;
-  code: string;
-  name: string;
-};
-
-export type WorkerTodayCheckContext = {
-  workDayYmd: string;
-  mode: "work_start" | "select_type" | "complete";
-  hasWorkStart: boolean;
-  workStartType: AttendanceCheckTypeOption | null;
-  selectableTypes: AttendanceCheckTypeOption[];
-  todayEvents: MyAttendanceEventDto[];
 };
 
 export type MyAttendanceEventDto = {
@@ -33,6 +17,21 @@ export type MyAttendanceEventDto = {
   } | null;
 };
 
+export type WorkerCheckTypeDto = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type WorkerTodayCheckContext = {
+  workDayYmd: string;
+  mode: "work_start" | "select_type" | "complete";
+  hasWorkStart: boolean;
+  workStartType: WorkerCheckTypeDto | null;
+  selectableTypes: WorkerCheckTypeDto[];
+  todayEvents: MyAttendanceEventDto[];
+};
+
 export async function fetchWorkerTodayCheckContext() {
   const { data } = await http.get<WorkerTodayCheckContext>(
     "/attendance/worker/today",
@@ -44,11 +43,14 @@ export async function fetchWorkerAttendanceQr(
   rotate: boolean,
   checkTypeCode?: string,
 ) {
+  const params: Record<string, string | number> = {
+    rotate: rotate ? 1 : 0,
+  };
+  if (checkTypeCode?.trim()) {
+    params.checkTypeCode = checkTypeCode.trim().toUpperCase();
+  }
   const { data } = await http.get<WorkerQrResponse>("/attendance/worker/qr", {
-    params: {
-      rotate: rotate ? 1 : 0,
-      ...(checkTypeCode ? { checkTypeCode } : {}),
-    },
+    params,
   });
   return data;
 }

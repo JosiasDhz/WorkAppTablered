@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   LayoutChangeEvent,
   Platform,
@@ -13,12 +12,12 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle } from "react-native-svg";
 import QRCode from "react-native-qrcode-svg";
-import { Card, TickCircle } from "iconsax-react-native";
+import { Card, InfoCircle } from "iconsax-react-native";
 import { TAB_BAR_PRIMARY } from "../tabBarConstants";
 import { useWorkerAttendanceQr } from "./useWorkerAttendanceQr";
-import { useWorkerTodayCheckContext } from "./useWorkerTodayCheckContext";
 import { AttendanceDateTimeStrip } from "./AttendanceDateTimeStrip";
-import type { AttendanceCheckTypeOption } from "../../../services/attendanceService";
+import { AttendanceNoticeFormModal } from "./AttendanceNoticeFormModal";
+import { AttendanceCheckTypeSelector } from "./AttendanceCheckTypeSelector";
 
 const TIMER_ENDING_SECONDS = 5;
 const ENDING_HAPTIC_INTERVAL_MS = 500;
@@ -34,57 +33,23 @@ export type CardQrSheetProps = {
   onClose: () => void;
 };
 
-function CheckTypeButton({
-  type,
-  selected,
-  onPress,
-}: {
-  type: AttendanceCheckTypeOption;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={[styles.typeBtn, selected ? styles.typeBtnSelected : null]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={type.name}
-    >
-      <Text style={[styles.typeBtnText, selected ? styles.typeBtnTextSelected : null]}>
-        {type.name}
-      </Text>
-    </Pressable>
-  );
-}
-
 export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
-  const { context, loading, error, reload } = useWorkerTodayCheckContext(true);
-  const [selectedTypeCode, setSelectedTypeCode] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSelectedTypeCode(null);
-  }, [context?.mode, context?.workDayYmd]);
-
-  const qrCheckTypeCode = useMemo(() => {
-    if (!context) return undefined;
-    if (context.mode === "work_start") return undefined;
-    if (context.mode === "select_type") return selectedTypeCode ?? undefined;
-    return undefined;
-  }, [context, selectedTypeCode]);
-
-  const qrEnabled = useMemo(() => {
-    if (!context) return false;
-    if (context.mode === "work_start") return true;
-    if (context.mode === "select_type") return selectedTypeCode != null;
-    return false;
-  }, [context, selectedTypeCode]);
-
-  const { payload, secondsLeft, timerProgress, cycle } = useWorkerAttendanceQr({
-    checkTypeCode: qrCheckTypeCode,
-    enabled: qrEnabled,
-  });
-
+  const [noticeModalOpen, setNoticeModalOpen] = useState(false);
+  const {
+    payload,
+    secondsLeft,
+    timerProgress,
+    cycle,
+    context,
+    contextLoading,
+    contextError,
+    selectedCheckTypeCode,
+    setSelectedCheckTypeCode,
+    checkTypeOptions,
+  } = useWorkerAttendanceQr();
+  const isComplete = context?.mode === "complete";
+  const showTypeSelector =
+    !contextLoading && checkTypeOptions.length > 0 && !isComplete;
   const timerOffset = TIMER_CIRCUMFERENCE * (1 - timerProgress);
   const timerFade = useRef(new Animated.Value(1)).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
@@ -94,27 +59,6 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
 
   const endingSoon =
     secondsLeft <= TIMER_ENDING_SECONDS && secondsLeft >= 1;
-
-  const selectedType = useMemo(
-    () =>
-      context?.selectableTypes.find((row) => row.code === selectedTypeCode) ??
-      null,
-    [context?.selectableTypes, selectedTypeCode],
-  );
-
-  const headerSubtitle = useMemo(() => {
-    if (!context) return "Escanea en sucursal";
-    if (context.mode === "work_start") {
-      return context.workStartType?.name ?? "Inicio trabajo";
-    }
-    if (context.mode === "complete") {
-      return "Jornada completa";
-    }
-    if (selectedType) {
-      return selectedType.name;
-    }
-    return "Elige el tipo de chequeo";
-  }, [context, selectedType]);
 
   useEffect(() => {
     if (!endingSoon) {
@@ -200,11 +144,6 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
     ]).start();
   }, [cycle, timerFade]);
 
-  const onSelectType = useCallback((code: string) => {
-    setSelectedTypeCode(code);
-    void Haptics.selectionAsync();
-  }, []);
-
   const opacity = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 1],
@@ -217,10 +156,6 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
     inputRange: [0, 1],
     outputRange: [0.96, 1],
   });
-
-  const showQr =
-    context?.mode === "work_start" ||
-    (context?.mode === "select_type" && selectedTypeCode != null);
 
   return (
     <Animated.View pointerEvents="box-none" style={[styles.layer, { opacity }]}>
@@ -252,144 +187,133 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
               </View>
               <View style={styles.headerTextWrap}>
                 <Text style={styles.title}>Qr de asistencia</Text>
-                <Text style={styles.subtitle}>{headerSubtitle}</Text>
+                <Text style={styles.subtitle}>
+                  {isComplete
+                    ? "Sin chequeos pendientes hoy"
+                    : context?.mode === "select_type"
+                      ? "Elige el tipo y escanea en sucursal"
+                      : "Escanea en sucursal"}
+                </Text>
               </View>
-              {showQr ? (
-                <Animated.View style={[styles.countdownWrap, { opacity: timerFade }]}>
-                  <Animated.View
-                    style={{
-                      width: TIMER_SIZE,
-                      height: TIMER_SIZE,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transform: [{ scale: pulseScale }],
-                    }}
+              {!isComplete && payload ? (
+              <Animated.View style={[styles.countdownWrap, { opacity: timerFade }]}>
+                <Animated.View
+                  style={{
+                    width: TIMER_SIZE,
+                    height: TIMER_SIZE,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transform: [{ scale: pulseScale }],
+                  }}
+                >
+                  <Svg width={TIMER_SIZE} height={TIMER_SIZE}>
+                    <Circle
+                      cx={TIMER_SIZE / 2}
+                      cy={TIMER_SIZE / 2}
+                      r={TIMER_RADIUS}
+                      stroke={
+                        endingSoon
+                          ? "rgba(220, 38, 38, 0.35)"
+                          : "rgba(148, 163, 184, 0.35)"
+                      }
+                      strokeWidth={TIMER_STROKE}
+                      fill="none"
+                    />
+                    <Circle
+                      cx={TIMER_SIZE / 2}
+                      cy={TIMER_SIZE / 2}
+                      r={TIMER_RADIUS}
+                      stroke={endingSoon ? TIMER_URGENT_RED : TAB_BAR_PRIMARY}
+                      strokeWidth={TIMER_STROKE}
+                      strokeLinecap="round"
+                      strokeDasharray={`${TIMER_CIRCUMFERENCE} ${TIMER_CIRCUMFERENCE}`}
+                      strokeDashoffset={timerOffset}
+                      fill="none"
+                      originX={TIMER_SIZE / 2}
+                      originY={TIMER_SIZE / 2}
+                      rotation={-90}
+                    />
+                  </Svg>
+                  <Text
+                    style={[
+                      styles.countdownText,
+                      endingSoon && styles.countdownTextUrgent,
+                    ]}
                   >
-                    <Svg width={TIMER_SIZE} height={TIMER_SIZE}>
-                      <Circle
-                        cx={TIMER_SIZE / 2}
-                        cy={TIMER_SIZE / 2}
-                        r={TIMER_RADIUS}
-                        stroke={
-                          endingSoon
-                            ? "rgba(220, 38, 38, 0.35)"
-                            : "rgba(148, 163, 184, 0.35)"
-                        }
-                        strokeWidth={TIMER_STROKE}
-                        fill="none"
-                      />
-                      <Circle
-                        cx={TIMER_SIZE / 2}
-                        cy={TIMER_SIZE / 2}
-                        r={TIMER_RADIUS}
-                        stroke={endingSoon ? TIMER_URGENT_RED : TAB_BAR_PRIMARY}
-                        strokeWidth={TIMER_STROKE}
-                        strokeLinecap="round"
-                        strokeDasharray={`${TIMER_CIRCUMFERENCE} ${TIMER_CIRCUMFERENCE}`}
-                        strokeDashoffset={timerOffset}
-                        fill="none"
-                        originX={TIMER_SIZE / 2}
-                        originY={TIMER_SIZE / 2}
-                        rotation={-90}
-                      />
-                    </Svg>
-                    <Text
-                      style={[
-                        styles.countdownText,
-                        endingSoon && styles.countdownTextUrgent,
-                      ]}
-                    >
-                      {secondsLeft}s
-                    </Text>
-                  </Animated.View>
+                    {secondsLeft}s
+                  </Text>
                 </Animated.View>
+              </Animated.View>
               ) : null}
             </View>
-
-            {loading ? (
-              <View style={styles.stateBox}>
-                <ActivityIndicator color={TAB_BAR_PRIMARY} />
-              </View>
+            {contextError ? (
+              <Text style={styles.contextError}>{contextError}</Text>
             ) : null}
-
-            {!loading && error ? (
-              <View style={styles.stateBox}>
-                <Text style={styles.stateText}>{error}</Text>
-                <Pressable style={styles.retryBtn} onPress={() => void reload()}>
-                  <Text style={styles.retryBtnText}>Reintentar</Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            {!loading && !error && context?.mode === "select_type" ? (
-              <View style={styles.typePicker}>
-                <Text style={styles.typePickerTitle}>¿Qué chequeo vas a registrar?</Text>
-                <View style={styles.typeGrid}>
-                  {context.selectableTypes.map((type) => (
-                    <CheckTypeButton
-                      key={type.id}
-                      type={type}
-                      selected={selectedTypeCode === type.code}
-                      onPress={() => onSelectType(type.code)}
-                    />
-                  ))}
+            <View style={styles.qrWrap} onLayout={onQrSquareLayout}>
+              {isComplete ? (
+                <View style={styles.completeWrap}>
+                  <Text style={styles.completeTitle}>
+                    Chequeos completados
+                  </Text>
+                  <Text style={styles.completeText}>
+                    Ya registraste todos tus chequeos programados de hoy.
+                  </Text>
                 </View>
-              </View>
+              ) : contextLoading ? (
+                <Text style={styles.placeholderQr}>Cargando…</Text>
+              ) : qrPixelSize > 0 ? (
+                <View
+                  style={{
+                    width: qrPixelSize,
+                    height: qrPixelSize,
+                    borderRadius: Math.max(14, Math.round(qrPixelSize * 0.055)),
+                    overflow: "hidden",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "rgba(255,255,255,0.25)",
+                  }}
+                >
+                  {payload ? (
+                  <QRCode
+                    value={payload}
+                    size={qrPixelSize}
+                    color="#0F172A"
+                    backgroundColor="transparent"
+                    ecl="L"
+                    quietZone={4}
+                  />
+                  ) : (
+                    <Text style={styles.placeholderQr}>Actualizando…</Text>
+                  )}
+                </View>
+              ) : null}
+            </View>
+            {showTypeSelector ? (
+              <AttendanceCheckTypeSelector
+                options={checkTypeOptions}
+                selectedCode={selectedCheckTypeCode}
+                onSelect={setSelectedCheckTypeCode}
+                disabled={contextLoading}
+              />
             ) : null}
-
-            {!loading && !error && context?.mode === "complete" ? (
-              <View style={styles.stateBox}>
-                <TickCircle size={42} color="#16A34A" variant="Bold" />
-                <Text style={styles.completeTitle}>Jornada completa</Text>
-                <Text style={styles.stateText}>
-                  Ya registraste todos tus chequeos de hoy.
-                </Text>
-              </View>
-            ) : null}
-
-            {!loading && !error && showQr ? (
-              <View style={styles.qrWrap} onLayout={onQrSquareLayout}>
-                {qrPixelSize > 0 ? (
-                  <View
-                    style={{
-                      width: qrPixelSize,
-                      height: qrPixelSize,
-                      borderRadius: Math.max(14, Math.round(qrPixelSize * 0.055)),
-                      overflow: "hidden",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "rgba(255,255,255,0.25)",
-                    }}
-                  >
-                    {payload ? (
-                      <QRCode
-                        value={payload}
-                        size={qrPixelSize}
-                        color="#0F172A"
-                        backgroundColor="transparent"
-                        ecl="L"
-                        quietZone={4}
-                      />
-                    ) : (
-                      <Text style={styles.placeholderQr}>Actualizando…</Text>
-                    )}
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
-            {!loading && !error && context?.mode === "select_type" && !selectedTypeCode ? (
-              <View style={styles.qrHintBox}>
-                <Text style={styles.qrHintText}>
-                  Selecciona un tipo para generar tu código QR.
-                </Text>
-              </View>
-            ) : null}
-
             <AttendanceDateTimeStrip />
+            <Pressable
+              style={styles.noticeBtn}
+              onPress={() => setNoticeModalOpen(true)}
+              accessibilityLabel="Avisar incidencia de asistencia"
+            >
+              <InfoCircle size={18} color={TAB_BAR_PRIMARY} variant="Bold" />
+              <Text style={styles.noticeBtnText}>
+                No checaré o llegaré tarde
+              </Text>
+            </Pressable>
           </View>
         </BlurView>
       </Animated.View>
+      <AttendanceNoticeFormModal
+        visible={noticeModalOpen}
+        onClose={() => setNoticeModalOpen(false)}
+      />
     </Animated.View>
   );
 }
@@ -485,80 +409,38 @@ const styles = StyleSheet.create({
   countdownTextUrgent: {
     color: TIMER_URGENT_RED,
   },
-  typePicker: {
-    marginBottom: 12,
-  },
-  typePickerTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 10,
-  },
-  typeGrid: {
-    gap: 8,
-  },
-  typeBtn: {
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    backgroundColor: "rgba(255,255,255,0.72)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  typeBtnSelected: {
-    borderColor: TAB_BAR_PRIMARY,
-    backgroundColor: "#FFF7ED",
-  },
-  typeBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#334155",
-    textAlign: "center",
-  },
-  typeBtnTextSelected: {
-    color: TAB_BAR_PRIMARY,
-  },
-  stateBox: {
-    minHeight: 160,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-  },
-  completeTitle: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: "#0F172A",
-  },
-  stateText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: 12,
-  },
-  retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: TAB_BAR_PRIMARY,
-  },
-  retryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
   placeholderQr: {
     paddingHorizontal: 16,
     textAlign: "center",
     color: "#475569",
     fontSize: 13,
     fontWeight: "600",
+  },
+  contextError: {
+    marginBottom: 10,
+    color: "#DC2626",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  completeWrap: {
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  completeTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0F172A",
+    textAlign: "center",
+  },
+  completeText: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 18,
   },
   qrWrap: {
     width: "100%",
@@ -572,20 +454,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  qrHintBox: {
-    marginTop: 4,
-    marginBottom: 8,
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.55)",
+  noticeBtn: {
+    marginTop: 12,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(234, 118, 0, 0.35)",
+    backgroundColor: "rgba(255, 247, 237, 0.95)",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  qrHintText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 18,
+  noticeBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: TAB_BAR_PRIMARY,
   },
 });

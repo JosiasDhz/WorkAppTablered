@@ -1,27 +1,75 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchWorkerAttendanceQr } from "../../../services/attendanceService";
+import {
+  fetchWorkerAttendanceQr,
+  fetchWorkerTodayCheckContext,
+  type WorkerCheckTypeDto,
+  type WorkerTodayCheckContext,
+} from "../../../services/attendanceService";
 
 export type WorkerQrTimeSlice = {
   payload: string;
   secondsLeft: number;
   timerProgress: number;
   cycle: number;
+  context: WorkerTodayCheckContext | null;
+  contextLoading: boolean;
+  contextError: string | null;
+  selectedCheckTypeCode: string | null;
+  setSelectedCheckTypeCode: (code: string) => void;
+  checkTypeOptions: WorkerCheckTypeDto[];
+  refreshContext: () => Promise<void>;
 };
 
-type UseWorkerAttendanceQrOptions = {
-  checkTypeCode?: string;
-  enabled?: boolean;
-};
+function resolveDefaultSelection(
+  data: WorkerTodayCheckContext,
+  previous: string | null,
+): string | null {
+  if (data.mode === "work_start") {
+    return data.workStartType?.code ?? "TRABAJO_ENTRADA";
+  }
+  if (data.mode === "select_type") {
+    if (previous && data.selectableTypes.some((row) => row.code === previous)) {
+      return previous;
+    }
+    return data.selectableTypes[0]?.code ?? null;
+  }
+  return null;
+}
 
-export function useWorkerAttendanceQr({
-  checkTypeCode,
-  enabled = true,
-}: UseWorkerAttendanceQrOptions = {}): WorkerQrTimeSlice {
+export function useWorkerAttendanceQr(): WorkerQrTimeSlice {
+  const [context, setContext] = useState<WorkerTodayCheckContext | null>(null);
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [selectedCheckTypeCode, setSelectedCheckTypeCode] = useState<
+    string | null
+  >(null);
   const [nonce, setNonce] = useState("");
   const [deadlineMs, setDeadlineMs] = useState<number | null>(null);
   const [cycle, setCycle] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const refreshAfterExpiryRef = useRef(false);
+  const selectedRef = useRef<string | null>(null);
+
+  selectedRef.current = selectedCheckTypeCode;
+
+  const checkTypeOptions = useMemo(() => {
+    if (!context) return [];
+    if (context.mode === "work_start" && context.workStartType) {
+      return [context.workStartType];
+    }
+    if (context.mode === "select_type") {
+      return context.selectableTypes;
+    }
+    return [];
+  }, [context]);
+
+  const effectiveCheckTypeCode = useMemo(() => {
+    if (!context || context.mode === "complete") return undefined;
+    if (context.mode === "work_start") {
+      return context.workStartType?.code ?? "TRABAJO_ENTRADA";
+    }
+    return selectedCheckTypeCode ?? undefined;
+  }, [context, selectedCheckTypeCode]);
 
   const applyTicket = useCallback((n: string, expiresAtIso: string) => {
     const end = new Date(expiresAtIso).getTime();
@@ -31,10 +79,34 @@ export function useWorkerAttendanceQr({
     refreshAfterExpiryRef.current = false;
   }, []);
 
-  const load = useCallback(
+  const refreshContext = useCallback(async () => {
+    setContextLoading(true);
+    setContextError(null);
+    try {
+      const data = await fetchWorkerTodayCheckContext();
+      setContext(data);
+      setSelectedCheckTypeCode((prev) => resolveDefaultSelection(data, prev));
+    } catch {
+      setContext(null);
+      setSelectedCheckTypeCode(null);
+      setContextError("No se pudo cargar el estado de chequeo de hoy.");
+    } finally {
+      setContextLoading(false);
+    }
+  }, []);
+
+  const loadQr = useCallback(
     async (rotate: boolean) => {
+      if (!effectiveCheckTypeCode) {
+        setNonce("");
+        setDeadlineMs(null);
+        return;
+      }
       try {
-        const data = await fetchWorkerAttendanceQr(rotate, checkTypeCode);
+        const data = await fetchWorkerAttendanceQr(
+          rotate,
+          effectiveCheckTypeCode,
+        );
         if (data?.nonce && data?.expiresAt) {
           applyTicket(data.nonce, data.expiresAt);
         }
@@ -44,17 +116,22 @@ export function useWorkerAttendanceQr({
         setDeadlineMs(null);
       }
     },
-    [applyTicket, checkTypeCode],
+    [applyTicket, effectiveCheckTypeCode],
   );
 
   useEffect(() => {
-    if (!enabled) {
+    void refreshContext();
+  }, [refreshContext]);
+
+  useEffect(() => {
+    if (contextLoading) return;
+    if (context?.mode === "complete") {
       setNonce("");
       setDeadlineMs(null);
       return;
     }
-    void load(true);
-  }, [enabled, load]);
+    void loadQr(true);
+  }, [contextLoading, context?.mode, effectiveCheckTypeCode, loadQr]);
 
   useEffect(() => {
     const tickId = setInterval(() => setNow(Date.now()), 400);
@@ -62,12 +139,38 @@ export function useWorkerAttendanceQr({
   }, []);
 
   useEffect(() => {
-    if (!enabled || deadlineMs == null) return;
+    if (deadlineMs == null) return;
     if (now < deadlineMs) return;
     if (refreshAfterExpiryRef.current) return;
     refreshAfterExpiryRef.current = true;
-    void load(false);
-  }, [now, deadlineMs, load, enabled]);
+    void (async () => {
+      try {
+        const data = await fetchWorkerTodayCheckContext();
+        setContext(data);
+        const nextSelection = resolveDefaultSelection(
+          data,
+          selectedRef.current,
+        );
+        setSelectedCheckTypeCode(nextSelection);
+        if (data.mode === "complete" || !nextSelection) {
+          setNonce("");
+          setDeadlineMs(null);
+          refreshAfterExpiryRef.current = false;
+          return;
+        }
+        const qr = await fetchWorkerAttendanceQr(false, nextSelection);
+        if (qr?.nonce && qr?.expiresAt) {
+          applyTicket(qr.nonce, qr.expiresAt);
+        } else {
+          refreshAfterExpiryRef.current = false;
+        }
+      } catch {
+        refreshAfterExpiryRef.current = false;
+        setNonce("");
+        setDeadlineMs(null);
+      }
+    })();
+  }, [now, deadlineMs, applyTicket]);
 
   const WINDOW_MS = 30_000;
 
@@ -89,7 +192,25 @@ export function useWorkerAttendanceQr({
       secondsLeft,
       timerProgress,
       cycle,
+      context,
+      contextLoading,
+      contextError,
+      selectedCheckTypeCode,
+      setSelectedCheckTypeCode,
+      checkTypeOptions,
+      refreshContext,
     }),
-    [nonce, secondsLeft, timerProgress, cycle],
+    [
+      nonce,
+      secondsLeft,
+      timerProgress,
+      cycle,
+      context,
+      contextLoading,
+      contextError,
+      selectedCheckTypeCode,
+      checkTypeOptions,
+      refreshContext,
+    ],
   );
 }
