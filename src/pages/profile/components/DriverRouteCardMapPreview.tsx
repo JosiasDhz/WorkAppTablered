@@ -12,9 +12,16 @@ const CARD_MAP_PADDING = { top: 10, right: 10, bottom: 10, left: 10 };
 type Props = {
   routeId: string;
   height?: number;
+  routeComplete?: boolean;
+  routeInProcess?: boolean;
 };
 
-export function DriverRouteCardMapPreview({ routeId, height = PREVIEW_HEIGHT }: Props) {
+export function DriverRouteCardMapPreview({
+  routeId,
+  height = PREVIEW_HEIGHT,
+  routeComplete = false,
+  routeInProcess = false,
+}: Props) {
   const [model, setModel] = useState<TripMapModel | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +62,11 @@ export function DriverRouteCardMapPreview({ routeId, height = PREVIEW_HEIGHT }: 
         model={model}
         height={height}
         fitPadding={CARD_MAP_PADDING}
-        mapFitOptions={{ zoomBoost: true }}
+        mapFitOptions={{
+          zoomBoost: true,
+          animateDraw: false,
+          strokeColor: routeComplete ? "#10B981" : routeInProcess ? "#EA7600" : "#EA7600",
+        }}
         embedded
       />
     </View>

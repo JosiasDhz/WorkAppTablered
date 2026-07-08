@@ -21,6 +21,7 @@ import {
   getMyLossDocumentById,
   getMyLossDocumentPdfUrl,
   patchMyLossDocumentSignatures,
+  auditFamilyDisplayLabel,
   type MyLossDocumentItem,
 } from "../../services/inventoryAuditService";
 
@@ -309,7 +310,7 @@ export default function AuditLossDocumentDetail() {
         >
           <View style={styles.summary}>
             <Text style={styles.summaryTitle}>
-              {item.family.departament.name} · {item.family.brand.name}
+              {auditFamilyDisplayLabel(item.family)}
             </Text>
             <Text style={styles.summaryMeta}>
               {item.audit.warehouse?.name ?? "Sin almacén"} · {item.percentage}% · {formatMoney(item.amount)}

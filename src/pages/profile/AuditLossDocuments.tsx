@@ -14,6 +14,7 @@ import { ArrowRight2 } from "iconsax-react-native";
 import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
 import {
   getMyLossDocuments,
+  auditFamilyDisplayLabel,
   type MyLossDocumentItem,
 } from "../../services/inventoryAuditService";
 import { formatInventoryAuditCalendarDateMX, parseInventoryAuditCalendarDate } from "../../utils/auditCalendarDates";
@@ -109,8 +110,8 @@ export default function AuditLossDocuments() {
       .map((group) => ({
         ...group,
         items: [...group.items].sort((a, b) => {
-          const aKey = `${a.family.departament.name} ${a.family.brand.name}`;
-          const bKey = `${b.family.departament.name} ${b.family.brand.name}`;
+          const aKey = auditFamilyDisplayLabel(a.family);
+          const bKey = auditFamilyDisplayLabel(b.family);
           return aKey.localeCompare(bKey, "es-MX");
         }),
       }))
@@ -203,7 +204,7 @@ export default function AuditLossDocuments() {
                         }
                       >
                         <Text style={styles.cardTitle} numberOfLines={2}>
-                          {docItem.family.departament.name} · {docItem.family.brand.name}
+                          {auditFamilyDisplayLabel(docItem.family)}
                         </Text>
                         <Text style={styles.cardAmount}>{formatMoney(docItem.amount)}</Text>
                         <Text style={styles.cardHint}>

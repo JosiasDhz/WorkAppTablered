@@ -16,6 +16,7 @@ export type DriverRouteTripMapWebViewProps = {
   mapFitOptions?: MapFitOptions;
   embedded?: boolean;
   celebrationMode?: boolean;
+  interactive?: boolean;
 };
 
 export function DriverRouteTripMapWebView({
@@ -26,6 +27,7 @@ export function DriverRouteTripMapWebView({
   mapFitOptions,
   embedded = false,
   celebrationMode = false,
+  interactive = true,
 }: DriverRouteTripMapWebViewProps) {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
@@ -46,6 +48,7 @@ export function DriverRouteTripMapWebView({
       return buildDriverRouteCelebrationMapHtml(GOOGLE_MAPS_KEY, model, {
         interactive: true,
         fitPadding,
+        fitOpts: mapFitOptions,
       });
     }
     return buildDriverRouteTripGoogleMapHtml(GOOGLE_MAPS_KEY, model, fitPadding, mapFitOptions);
@@ -68,12 +71,18 @@ export function DriverRouteTripMapWebView({
       allowsInlineMediaPlayback
       mixedContentMode="compatibility"
       nestedScrollEnabled
-      {...(Platform.OS === "android" ? { androidLayerType: "hardware" as const } : {})}
+      {...(Platform.OS === "android"
+        ? { androidLayerType: "hardware" as const, textZoom: 100 }
+        : {})}
     />
   );
   if (fill) {
     return (
-      <View style={styles.wrapFill} pointerEvents="auto">
+      <View
+        style={styles.wrapFill}
+        pointerEvents={interactive ? "auto" : "none"}
+        collapsable={false}
+      >
         {web}
       </View>
     );

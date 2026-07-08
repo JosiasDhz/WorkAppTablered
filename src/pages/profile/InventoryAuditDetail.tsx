@@ -19,6 +19,7 @@ import {
   getAuditCostReport,
   getMyAuditSummary,
   startMyAudit,
+  auditFamilyDisplayLabel,
   type AuditCostReport,
   type AuditDetailFamily,
   type MyAuditDetail,
@@ -189,8 +190,7 @@ export default function InventoryAuditDetail() {
     navigation.navigate("InventoryAuditFamilyProducts", {
       auditId,
       familyId: f.id,
-      deptName: f.departament?.name,
-      brandName: f.brand?.name,
+      locationLabel: auditFamilyDisplayLabel(f),
     });
   };
 
@@ -305,7 +305,7 @@ export default function InventoryAuditDetail() {
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.familyDept}>{f.departament?.name ?? "—"}</Text>
-                    <Text style={styles.familyBrand}>{f.brand?.name ?? "—"}</Text>
+                    <Text style={styles.familyBrand}>{auditFamilyDisplayLabel(f)}</Text>
                     <Text style={styles.familyMeta}>{f.countedProducts}/{f.totalProducts} contados · {pct}%</Text>
                   </View>
                   {familiesLocked ? (

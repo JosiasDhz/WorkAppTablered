@@ -1,9 +1,8 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-export const apiBaseUrl = (
-  process.env.EXPO_PUBLIC_API_URL?.trim() || "http://192.168.0.227:9005"
-).replace(/\/$/, "");
+//esadsadasd
+export const apiBaseUrl = "http://192.168.0.227:9005";
+// export const apiBaseUrl = "https://table-red.karimnot.dev";
 const baseURL = apiBaseUrl;
 
 const setupAxiosInterceptors = async () => {

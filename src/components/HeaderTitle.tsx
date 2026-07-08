@@ -1,5 +1,6 @@
 import React, { useMemo, type ReactNode } from "react";
 import {
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,6 +23,7 @@ export type HeaderTitleProps = {
   subtitle?: string;
   onBack?: () => void;
   tone: "light" | "dark" | "map";
+  overlayOnMap?: boolean;
   backgroundColor?: string;
   style?: StyleProp<ViewStyle>;
   rightAccessory?: ReactNode;
@@ -32,6 +34,7 @@ export function HeaderTitle({
   subtitle,
   onBack,
   tone,
+  overlayOnMap = false,
   backgroundColor,
   style,
   rightAccessory,
@@ -40,6 +43,7 @@ export function HeaderTitle({
   const handleBack = onBack ?? (() => navigation.goBack());
   const isDark = tone === "dark";
   const isMap = tone === "map";
+  const useSolidOverlayText = overlayOnMap || isMap;
 
   const titleSizeStyle = useMemo(() => {
     const len = title.length;
@@ -75,11 +79,19 @@ export function HeaderTitle({
           style={[
             styles.title,
             titleSizeStyle,
-            isMap ? styles.titleMap : isDark ? styles.titleDark : styles.titleLight,
+            useSolidOverlayText
+              ? styles.titleOverlay
+              : isMap
+                ? styles.titleMap
+                : isDark
+                  ? styles.titleDark
+                  : styles.titleLight,
+            Platform.OS === "android" ? styles.titleAndroid : null,
           ]}
           numberOfLines={2}
-          adjustsFontSizeToFit
-          minimumFontScale={0.88}
+          {...(overlayOnMap
+            ? {}
+            : { adjustsFontSizeToFit: true, minimumFontScale: 0.88 })}
         >
           {title}
         </Text>
@@ -87,9 +99,15 @@ export function HeaderTitle({
           <Text
             style={[
               styles.subtitle,
-              isMap ? styles.subtitleMap : isDark ? styles.subtitleDark : styles.subtitleLight,
+              useSolidOverlayText
+                ? styles.subtitleOverlay
+                : isMap
+                  ? styles.subtitleMap
+                  : isDark
+                    ? styles.subtitleDark
+                    : styles.subtitleLight,
             ]}
-            numberOfLines={3}
+            numberOfLines={2}
           >
             {subtitle}
           </Text>
@@ -144,7 +162,14 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: "900",
   },
+  titleAndroid: {
+    fontWeight: "800",
+    includeFontPadding: false,
+  },
   titleLight: {
+    color: COLORS.text,
+  },
+  titleOverlay: {
     color: COLORS.text,
   },
   titleDark: {
@@ -164,6 +189,10 @@ const styles = StyleSheet.create({
   },
   subtitleLight: {
     color: COLORS.muted,
+  },
+  subtitleOverlay: {
+    color: COLORS.text,
+    opacity: 0.78,
   },
   subtitleDark: {
     color: "rgba(255, 255, 255, 0.82)",

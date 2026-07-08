@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "main": "expo/AppEntry.js",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --offline --clear --go",
+    "start:tunnel": "expo start --tunnel --clear --go",
+    "update:preview": "eas update --branch preview",
+    "update:production": "eas update --branch production",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"

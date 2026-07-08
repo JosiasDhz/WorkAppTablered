@@ -15,6 +15,7 @@ import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
 import { ArrowRight2, Box, Building, Calendar } from "iconsax-react-native";
 import {
   getMyAudits,
+  auditFamilyDisplayLabel,
   type MyInventoryAudit,
   type MyInventoryAuditFamily,
 } from "../../services/inventoryAuditService";
@@ -58,8 +59,8 @@ function formatApiError(e: unknown): string {
   return "No se pudieron cargar las auditorías.";
 }
 
-function familyBrandLabel(fam: MyInventoryAuditFamily) {
-  return fam.brand?.name ?? "—";
+function familyLocationLabel(fam: MyInventoryAuditFamily) {
+  return auditFamilyDisplayLabel(fam);
 }
 
 function finalizedDateText(audit: MyInventoryAudit) {
@@ -76,7 +77,7 @@ function finalizedDateText(audit: MyInventoryAudit) {
 function auditTitle(audit: MyInventoryAudit) {
   if (audit.warehouse?.name) return audit.warehouse.name;
   const first = audit.families?.[0];
-  if (first) return familyBrandLabel(first);
+  if (first) return familyLocationLabel(first);
   return "Auditoría de inventario";
 }
 
@@ -148,7 +149,7 @@ function AuditListCard({
     audit.totalProducts > 0
       ? Math.round((audit.countedProducts / audit.totalProducts) * 100)
       : 0;
-  const primaryBrand = families[0] ? familyBrandLabel(families[0]) : null;
+  const primaryLocation = families[0] ? familyLocationLabel(families[0]) : null;
 
   return (
     <View style={[styles.card, { borderLeftColor: meta.color }]}>
@@ -161,10 +162,10 @@ function AuditListCard({
             <Text style={styles.cardTitle} numberOfLines={1}>
               {auditTitle(audit)}
             </Text>
-            {primaryBrand ? (
+            {primaryLocation ? (
               <Text style={styles.cardSubtitle} numberOfLines={1}>
-                {primaryBrand}
-                {familiesTotal > 1 ? ` · +${familiesTotal - 1} marcas` : ""}
+                {primaryLocation}
+                {familiesTotal > 1 ? ` · +${familiesTotal - 1} ubicaciones` : ""}
               </Text>
             ) : null}
           </View>
@@ -192,7 +193,7 @@ function AuditListCard({
         </Text>
         <Text style={styles.statDot}>·</Text>
         <Text style={styles.statText}>
-          {familiesDone}/{familiesTotal} marcas
+          {familiesDone}/{familiesTotal} ubicaciones
         </Text>
       </View>
 

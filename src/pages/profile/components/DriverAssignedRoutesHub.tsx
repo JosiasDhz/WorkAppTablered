@@ -35,6 +35,7 @@ import { partitionDriverHubRoutes } from "../../../domain/driverRouteHubVisibili
 import type { DriverAssignedRouteRecord } from "../../../services/driverRoutesService";
 import type { UseDriverPendingRoutesResult } from "../hooks/useDriverPendingRoutes";
 import { DriverRouteCardMapPreview } from "./DriverRouteCardMapPreview";
+import { DELIVERY_ROUTE_PROGRESS_ACCENT } from "../driverRoute/deliveryRouteProgressTheme";
 import { TableRedColors } from "../../../theme/tableRedColors";
 
 type DriverAssignedRoutesHubProps = {
@@ -45,7 +46,8 @@ type DriverAssignedRoutesHubProps = {
 };
 
 const C = TableRedColors;
-const MAP_PREVIEW_HEIGHT = 108;
+const MAP_PREVIEW_HEIGHT = 124;
+const VIVID_GREEN = DELIVERY_ROUTE_PROGRESS_ACCENT.complete;
 
 function formatRouteWhen(iso: string): string {
   try {
@@ -66,6 +68,7 @@ type RouteTicketTheme = {
   accent: string;
   badgeLabel: string;
   hint: string;
+  hintMuted: boolean;
   pulse: boolean;
 };
 
@@ -75,32 +78,36 @@ function routeTicketTheme(
 ): RouteTicketTheme {
   if (model.isCompleta) {
     return {
-      accent: C.verde,
+      accent: VIVID_GREEN,
       badgeLabel: model.operationalStatusLabel,
       hint: model.summaryTitle,
+      hintMuted: true,
       pulse: false,
     };
   }
   if (model.isEnProceso) {
     return {
-      accent: C.naranja,
+      accent: DELIVERY_ROUTE_PROGRESS_ACCENT.inProcess,
       badgeLabel: model.operationalStatusLabel,
       hint: model.summaryTitle,
+      hintMuted: false,
       pulse: true,
     };
   }
   if (model.driverFullyConfirmed) {
     return {
-      accent: C.verde,
+      accent: VIVID_GREEN,
       badgeLabel: model.operationalStatusLabel,
       hint: model.summaryTitle,
+      hintMuted: false,
       pulse: false,
     };
   }
   return {
-    accent: C.azul,
+    accent: DELIVERY_ROUTE_PROGRESS_ACCENT.pending,
     badgeLabel: model.operationalStatusLabel,
     hint: driverRouteConfirmationSummaryLabel(item),
+    hintMuted: false,
     pulse: false,
   };
 }
@@ -167,11 +174,22 @@ function AnimatedStatCard(props: {
   );
 }
 
-function MetaChip(props: { icon: React.ReactNode; label: string }) {
+function parseVehicleSummary(summary: string): { model: string; plate: string | null } {
+  const parts = summary
+    .split("·")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return { model: parts[0]!, plate: parts.slice(1).join(" · ") };
+  }
+  return { model: summary.trim(), plate: null };
+}
+
+function CompactMetricTile(props: { icon: React.ReactNode; value: string }) {
   return (
-    <View style={styles.metaChip}>
+    <View style={ticketStyles.compactMetric}>
       {props.icon}
-      <Text style={styles.metaChipTxt}>{props.label}</Text>
+      <Text style={ticketStyles.compactMetricValue}>{props.value}</Text>
     </View>
   );
 }
@@ -186,8 +204,9 @@ function RouteTicket({
   onPress: () => void;
 }) {
   const model = buildDriverRouteListCardModel(item);
-  const { accent, badgeLabel, hint, pulse } = routeTicketTheme(item, model);
+  const { accent, badgeLabel, hint, hintMuted, pulse } = routeTicketTheme(item, model);
   const vehicle = item.assignedVehiclesSummary?.trim();
+  const vehicleParts = vehicle ? parseVehicleSummary(vehicle) : null;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(28)).current;
   const scale = useRef(new Animated.Value(1)).current;
@@ -275,7 +294,12 @@ function RouteTicket({
       >
         <View style={ticketStyles.clip}>
           <View style={ticketStyles.mapHero}>
-            <DriverRouteCardMapPreview routeId={item.id} height={MAP_PREVIEW_HEIGHT} />
+            <DriverRouteCardMapPreview
+              routeId={item.id}
+              height={MAP_PREVIEW_HEIGHT}
+              routeComplete={model.isCompleta}
+              routeInProcess={model.isEnProceso}
+            />
             <Animated.View
               style={[
                 ticketStyles.mapBadge,
@@ -285,38 +309,63 @@ function RouteTicket({
                 },
               ]}
             >
+              <View style={ticketStyles.mapBadgeDot} />
               <Text style={ticketStyles.mapBadgeTxt}>{badgeLabel}</Text>
             </Animated.View>
           </View>
 
           <View style={ticketStyles.body}>
             <Text style={ticketStyles.folio}>{item.folio}</Text>
-            <Text style={ticketStyles.warehouse}>{item.originWarehouseName}</Text>
-            <Text style={[ticketStyles.confirmHint, { color: accent }]}>{hint}</Text>
+            <View style={ticketStyles.titleRow}>
+              <Text style={ticketStyles.warehouse} numberOfLines={1}>
+                {item.originWarehouseName}
+              </Text>
+              {vehicleParts?.model || vehicleParts?.plate ? (
+                <View style={ticketStyles.vehicleInline}>
+                  <Text style={ticketStyles.titleSep}>·</Text>
+                  <Car size={12} color={C.corteza} variant="Bold" />
+                  {vehicleParts.model ? (
+                    <Text style={ticketStyles.vehicleInlineTxt} numberOfLines={1}>
+                      {vehicleParts.model}
+                    </Text>
+                  ) : null}
+                  {vehicleParts.plate ? (
+                    <>
+                      <Text style={ticketStyles.titleSep}>·</Text>
+                      <Text style={ticketStyles.plateInlineTxt} numberOfLines={1}>
+                        {vehicleParts.plate}
+                      </Text>
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+            <Text
+              style={[
+                ticketStyles.confirmHint,
+                hintMuted ? ticketStyles.confirmHintMuted : { color: accent },
+              ]}
+            >
+              {hint}
+            </Text>
 
-            <View style={ticketStyles.chipRow}>
-              <MetaChip
-                icon={<Calendar1 size={12} color={C.corteza} variant="Linear" />}
-                label={formatRouteWhen(item.createdAtCdmx)}
-              />
+            <View style={ticketStyles.metricsRow}>
+              <View style={ticketStyles.dateTile}>
+                <Calendar1 size={13} color={C.corteza} variant="Linear" />
+                <Text style={ticketStyles.dateTileTxt} numberOfLines={1}>
+                  {formatRouteWhen(item.createdAtCdmx)}
+                </Text>
+              </View>
               {item.assignedDestinationsCount > 0 ? (
-                <MetaChip
-                  icon={<Location size={12} color={C.corteza} variant="Linear" />}
-                  label={`${item.assignedDestinationsCount} ${
-                    item.assignedDestinationsCount === 1 ? "parada" : "paradas"
-                  }`}
+                <CompactMetricTile
+                  icon={<Location size={13} color={C.corteza} variant="Linear" />}
+                  value={String(item.assignedDestinationsCount)}
                 />
               ) : null}
               {item.assignedTotalUnits > 0 ? (
-                <MetaChip
-                  icon={<Box1 size={12} color={C.corteza} variant="Linear" />}
-                  label={`${item.assignedTotalUnits} uds.`}
-                />
-              ) : null}
-              {vehicle ? (
-                <MetaChip
-                  icon={<Car size={12} color={C.corteza} variant="Linear" />}
-                  label={vehicle}
+                <CompactMetricTile
+                  icon={<Box1 size={13} color={C.corteza} variant="Linear" />}
+                  value={String(item.assignedTotalUnits)}
                 />
               ) : null}
             </View>
@@ -419,8 +468,8 @@ export function DriverAssignedRoutesHub({
         {
           key: "ready",
           title: "Listas para salir",
-          accent: C.verde,
-          icon: <TickCircle size={15} color={C.verdeHover} variant="Bold" />,
+          accent: VIVID_GREEN,
+          icon: <TickCircle size={15} color={VIVID_GREEN} variant="Bold" />,
           items: ready,
         },
         {
@@ -433,8 +482,8 @@ export function DriverAssignedRoutesHub({
         {
           key: "completed",
           title: "Finalizadas",
-          accent: C.verdeHover,
-          icon: <TickCircle size={15} color={C.verdeHover} variant="Bold" />,
+          accent: VIVID_GREEN,
+          icon: <TickCircle size={15} color={VIVID_GREEN} variant="Bold" />,
           items: completed,
         },
       ].filter((section) => section.items.length > 0),
@@ -476,8 +525,6 @@ export function DriverAssignedRoutesHub({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <View style={styles.headerGlowA} pointerEvents="none" />
-        <View style={styles.headerGlowB} pointerEvents="none" />
         <Animated.View
           style={{
             opacity: headerOpacity,
@@ -504,15 +551,15 @@ export function DriverAssignedRoutesHub({
             <AnimatedStatCard
               label="Por confirmar"
               value={pendingConfirm.length}
-              accent={C.azul}
-              icon={<Box1 size={12} color={C.azul} variant="Bold" />}
+              accent={DELIVERY_ROUTE_PROGRESS_ACCENT.pending}
+              icon={<Box1 size={12} color={DELIVERY_ROUTE_PROGRESS_ACCENT.pending} variant="Bold" />}
               delayMs={50}
             />
             <AnimatedStatCard
               label="Listas"
               value={ready.length}
-              accent={C.verde}
-              icon={<TickCircle size={12} color={C.verde} variant="Bold" />}
+              accent={VIVID_GREEN}
+              icon={<TickCircle size={12} color={VIVID_GREEN} variant="Bold" />}
               delayMs={110}
             />
             <AnimatedStatCard
@@ -613,21 +660,21 @@ export function DriverAssignedRoutesHub({
 
 const ticketStyles = StyleSheet.create({
   wrap: {
-    marginBottom: 12,
-    borderRadius: 16,
+    marginBottom: 14,
+    borderRadius: 18,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.cardBorder,
     shadowColor: C.marron,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
     overflow: "hidden",
   },
   clip: {
     overflow: "hidden",
-    borderRadius: 16,
+    borderRadius: 18,
   },
   mapHero: {
     position: "relative",
@@ -635,16 +682,25 @@ const ticketStyles = StyleSheet.create({
   },
   mapBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.white,
   },
   mapBadgeTxt: {
     fontSize: 10,
@@ -653,23 +709,56 @@ const ticketStyles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   body: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+    gap: 2,
   },
   folio: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "800",
     color: C.gris,
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
-  warehouse: {
+  titleRow: {
     marginTop: 2,
-    fontSize: 17,
-    fontWeight: "800",
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  warehouse: {
+    flexShrink: 1,
+    fontSize: 18,
+    fontWeight: "900",
     color: C.ink,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
+  },
+  titleSep: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#CBD5E1",
+  },
+  vehicleInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 0,
+  },
+  vehicleInlineTxt: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.corteza,
+    flexShrink: 1,
+    maxWidth: 72,
+  },
+  plateInlineTxt: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: C.gris,
+    flexShrink: 1,
+    maxWidth: 88,
   },
   confirmHint: {
     marginTop: 2,
@@ -677,11 +766,52 @@ const ticketStyles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 16,
   },
-  chipRow: {
-    marginTop: 8,
+  confirmHintMuted: {
+    color: "#64748B",
+  },
+  metricsRow: {
+    marginTop: 10,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+    alignItems: "stretch",
+    gap: 8,
+  },
+  dateTile: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  dateTileTxt: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.corteza,
+    lineHeight: 13,
+  },
+  compactMetric: {
+    width: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  compactMetricValue: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: C.corteza,
   },
 });
 
@@ -696,24 +826,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     paddingBottom: 10,
     overflow: "hidden",
-  },
-  headerGlowA: {
-    position: "absolute",
-    top: -50,
-    right: -30,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(255,255,255,0.07)",
-  },
-  headerGlowB: {
-    position: "absolute",
-    bottom: 10,
-    left: -40,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: "rgba(234, 118, 0, 0.14)",
   },
   listScroll: {
     flex: 1,
@@ -742,10 +854,10 @@ const styles = StyleSheet.create({
     borderRadius: 19,
   },
   kicker: {
-    color: "rgba(255,255,255,0.6)",
+    color: C.naranja,
     fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 1,
+    fontWeight: "800",
+    letterSpacing: 1.1,
     textTransform: "uppercase",
   },
   title: {
@@ -770,14 +882,14 @@ const styles = StyleSheet.create({
   statCell: {
     flex: 1,
     backgroundColor: C.white,
-    borderRadius: 12,
-    paddingVertical: 5,
+    borderRadius: 14,
+    paddingVertical: 8,
     paddingHorizontal: 6,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 2,
   },
   statTopRow: {
@@ -799,27 +911,32 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   statLbl: {
-    marginTop: 1,
-    fontSize: 7,
+    marginTop: 2,
+    fontSize: 8,
     fontWeight: "700",
     color: C.gris,
     textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0.35,
     textAlign: "center",
   },
   sectionBlock: {
-    marginBottom: 6,
+    marginBottom: 10,
   },
   sectionPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     backgroundColor: C.white,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
+    shadowColor: C.marron,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   sectionIconWrap: {
     width: 26,
@@ -846,22 +963,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     color: C.white,
-  },
-  metaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: C.crema,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: C.line,
-  },
-  metaChipTxt: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: C.corteza,
   },
   errorBox: {
     backgroundColor: "#FEF2F2",

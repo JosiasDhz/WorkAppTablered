@@ -12,11 +12,36 @@ export type InventoryAuditStatus =
   | "completed"
   | "submitted";
 
+export interface AuditInventoryLocation {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export function auditFamilyDisplayLabel(family: {
+  displayLabel?: string;
+  inventoryLocation?: AuditInventoryLocation | null;
+  brand?: { name: string } | null;
+  departament?: { name: string };
+}): string {
+  if (family.displayLabel) return family.displayLabel;
+  if (family.inventoryLocation) {
+    const dept = family.departament?.name ?? "—";
+    return `${dept} · ${family.inventoryLocation.name} (${family.inventoryLocation.code})`;
+  }
+  if (family.brand?.name) {
+    return `${family.departament?.name ?? "—"} · ${family.brand.name}`;
+  }
+  return family.departament?.name ?? "—";
+}
+
 export interface MyInventoryAuditFamily {
   id: string;
   status: string;
   departament?: { id: string; name: string };
-  brand?: { id: string; name: string };
+  brand?: { id: string; name: string } | null;
+  inventoryLocation?: AuditInventoryLocation | null;
+  displayLabel?: string;
 }
 
 export interface MyInventoryAudit {
@@ -73,7 +98,9 @@ export interface AuditDetailFamily {
   totalProducts: number;
   countedProducts: number;
   departament?: { id: string; name: string };
-  brand?: { id: string; name: string };
+  brand?: { id: string; name: string } | null;
+  inventoryLocation?: AuditInventoryLocation | null;
+  displayLabel?: string;
 }
 
 export interface MyAuditDetail extends Omit<MyInventoryAudit, "families"> {
@@ -152,7 +179,9 @@ export interface CostReportProductLine {
 export interface FamilyCostReport {
   familyId: string;
   departament: { id: string; name: string };
-  brand: { id: string; name: string };
+  brand?: { id: string; name: string } | null;
+  inventoryLocation?: AuditInventoryLocation | null;
+  displayLabel?: string;
   status: string;
   totalProducts: number;
   countedProducts: number;
@@ -192,7 +221,9 @@ export interface MyLossDocumentAudit {
 export interface MyLossDocumentFamily {
   id: string;
   departament: { id: string; name: string };
-  brand: { id: string; name: string };
+  brand?: { id: string; name: string } | null;
+  inventoryLocation?: AuditInventoryLocation | null;
+  displayLabel?: string;
 }
 
 export interface MyLossDocumentItem {

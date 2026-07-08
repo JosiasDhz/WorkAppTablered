@@ -11,9 +11,11 @@ export type MapFitOptions = {
   zoomBoost?: boolean;
   zoomOut?: number;
   maxZoom?: number;
+  minZoom?: number;
   panUp?: number;
   panDown?: number;
   animateDraw?: boolean;
+  strokeColor?: string;
 };
 
 export const ROUTE_POLYLINE_COLOR = "#EA7600";
@@ -113,7 +115,9 @@ var G=window.google&&window.google.maps;if(!G)return;
 var raw='___PAYLOAD___';
 var p={path:[],stops:[]};
 try{p=JSON.parse(decodeURIComponent(raw));}catch(e){}
-var pathPts=(p.path||[]).map(function(P){return{lat:Number(P.latitude),lng:Number(P.longitude)};});
+var pathPts=(p.path||[]).map(function(P){return{lat:Number(P.latitude),lng:Number(P.longitude)};}).filter(function(pt){
+return isFinite(pt.lat)&&isFinite(pt.lng)&&Math.abs(pt.lat)<=90&&Math.abs(pt.lng)<=180&&!(pt.lat===0&&pt.lng===0);
+});
 var center={lat:17.065,lng:-96.72};
 if(pathPts.length)center=pathPts[Math.floor(pathPts.length/2)];
 var map=new G.Map(document.getElementById("map"),{
@@ -122,11 +126,18 @@ styles:___STYLES___
 });
 var bounds=new G.LatLngBounds();
 pathPts.forEach(function(pt){bounds.extend(pt);});
+var routeColor=(p.fitOpts&&p.fitOpts.strokeColor)||"#EA7600";
 var routeLine=null;
+var glowLine=null;
 if(pathPts.length>=2){
+if(routeColor==="#10B981"){
+glowLine=new G.Polyline({
+path:pathPts,geodesic:true,strokeColor:"#34D399",strokeOpacity:0.38,strokeWeight:12,map:map
+});
+}
 routeLine=new G.Polyline({
-path:p.animateDraw?[pathPts[0]]:pathPts,geodesic:true,strokeColor:"#EA7600",strokeOpacity:1,strokeWeight:5,map:map,
-icons:[{icon:{path:G.SymbolPath.FORWARD_CLOSED_ARROW,scale:3.2,fillColor:"#ffffff",fillOpacity:1,strokeColor:"#EA7600",strokeWeight:1.5},offset:"18px",repeat:"92px"}]
+path:p.animateDraw?[pathPts[0]]:pathPts,geodesic:true,strokeColor:routeColor,strokeOpacity:1,strokeWeight:routeColor==="#10B981"?6:5,map:map,
+icons:[{icon:{path:G.SymbolPath.FORWARD_CLOSED_ARROW,scale:3.2,fillColor:"#ffffff",fillOpacity:1,strokeColor:routeColor,strokeWeight:1.5},offset:"18px",repeat:"92px"}]
 });
 }else if(pathPts.length===1){
 map.setCenter(pathPts[0]);map.setZoom(14);
@@ -146,41 +157,101 @@ var pt={lat:Number(s.latitude),lng:Number(s.longitude)};
 bounds.extend(pt);
 var m=new G.Marker({
 position:pt,map:map,opacity:p.animateDraw?0:1,
-label:{text:String(s.visitOrder),color:"#ffffff",fontSize:"12px",fontWeight:"bold"},
-icon:{path:G.SymbolPath.CIRCLE,scale:15,fillColor:s.color||"#EA7600",fillOpacity:1,strokeColor:"#ffffff",strokeWeight:2}
+label:{text:String(s.visitOrder),color:"#ffffff",fontSize:"11px",fontWeight:"700"},
+icon:{path:G.SymbolPath.CIRCLE,scale:14,fillColor:s.color||routeColor,fillOpacity:1,strokeColor:"#ffffff",strokeWeight:2.5}
 });
 stopMarkers.push(m);
 });
-function fitMap(){
-if(!bounds.isEmpty()){
-var pad=p.fit;
-if(pad&&typeof pad.top==="number"&&typeof pad.bottom==="number"){
-map.fitBounds(bounds,{top:pad.top,right:pad.right||44,bottom:pad.bottom,left:pad.left||16});
-}else{map.fitBounds(bounds,48);}
-G.event.addListenerOnce(map,"bounds_changed",function(){
-var z=map.getZoom();
+function revealMarkersFallback(){
+setTimeout(function(){
+if(originMarker&&originMarker.getOpacity&&originMarker.getOpacity()<1)originMarker.setOpacity(1);
+stopMarkers.forEach(function(m){if(m.getOpacity&&m.getOpacity()<1)m.setOpacity(1);});
+},2800);
+}
+function revealRouteFallback(){
+setTimeout(function(){
+if(routeLine&&pathPts.length>=2)routeLine.setPath(pathPts);
+},2800);
+}
+function buildBounds(){
+var b=new G.LatLngBounds();
+pathPts.forEach(function(pt){b.extend(pt);});
+(p.stops||[]).forEach(function(s){
+var lat=Number(s.latitude);
+var lng=Number(s.longitude);
+if(isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&!(lat===0&&lng===0))b.extend({lat:lat,lng:lng});
+});
+if(p.origin&&typeof p.origin.latitude==="number"&&typeof p.origin.longitude==="number"){
+b.extend({lat:Number(p.origin.latitude),lng:Number(p.origin.longitude)});
+}
+return b;
+}
+function buildStopsOnlyBounds(){
+var b=new G.LatLngBounds();
+(p.stops||[]).forEach(function(s){
+var lat=Number(s.latitude);
+var lng=Number(s.longitude);
+if(isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&!(lat===0&&lng===0))b.extend({lat:lat,lng:lng});
+});
+return b;
+}
+function boundsSpanTooWide(b){
+if(b.isEmpty())return true;
+var ne=b.getNorthEast();
+var sw=b.getSouthWest();
+return Math.abs(ne.lat()-sw.lat())>6||Math.abs(ne.lng()-sw.lng())>6;
+}
+function applyFitOpts(map,z){
 var opts=p.fitOpts||{};
 var boost=opts.zoomBoost;
 var maxZ=typeof opts.maxZoom==="number"?opts.maxZoom:(boost?17:15);
+var minZ=typeof opts.minZoom==="number"?opts.minZoom:10;
 if(boost){
 if(z>maxZ)map.setZoom(maxZ);
 else try{map.setZoom(Math.min(z+1,maxZ));}catch(e){}
 }else if(z>maxZ)map.setZoom(maxZ);
 if(typeof opts.zoomOut==="number"&&opts.zoomOut>0){
-try{map.setZoom(Math.max(map.getZoom()-opts.zoomOut,4));}catch(e){}
+try{map.setZoom(Math.max(map.getZoom()-opts.zoomOut,minZ));}catch(e){}
 }
+z=map.getZoom();
+if(z<minZ){try{map.setZoom(minZ);}catch(e){}}
 if(typeof opts.panUp==="number"&&opts.panUp>0){
 try{map.panBy(0,opts.panUp);}catch(e){}
 }
 if(typeof opts.panDown==="number"&&opts.panDown>0){
 try{map.panBy(0,opts.panDown);}catch(e){}
 }
+}
+function fitMap(){
+var bounds=buildBounds();
+if(boundsSpanTooWide(bounds))bounds=buildStopsOnlyBounds();
+if(!bounds.isEmpty()&&!boundsSpanTooWide(bounds)){
+var pad=p.fit;
+var uniform=48;
+if(pad&&typeof pad.top==="number"&&typeof pad.bottom==="number"){
+uniform=Math.round((pad.top+pad.right+pad.bottom+pad.left)/4);
+uniform=Math.max(24,Math.min(uniform,72));
+}
+map.fitBounds(bounds,uniform);
+G.event.addListenerOnce(map,"bounds_changed",function(){
+applyFitOpts(map,map.getZoom());
 });
+}else if((p.stops||[]).length){
+var s0=p.stops[0];
+map.setCenter({lat:Number(s0.latitude),lng:Number(s0.longitude)});
+map.setZoom(14);
+}else{
+map.setCenter(center);map.setZoom(12);
 }
-else if((p.stops||[]).length){var s0=p.stops[0];map.setCenter({lat:Number(s0.latitude),lng:Number(s0.longitude)});map.setZoom(14);}
-else{map.setCenter(center);map.setZoom(11);}
 }
+function fitMapWhenReady(attempt){
+var mapDiv=document.getElementById("map");
+var h=mapDiv&&mapDiv.offsetHeight||0;
+if(h<80&&attempt<12){setTimeout(function(){fitMapWhenReady(attempt+1);},100);return;}
 fitMap();
+setTimeout(fitMap,350);
+}
+fitMapWhenReady(0);
 if(p.animateDraw&&routeLine&&pathPts.length>=2&&window.gsap){
 var drawState={idx:1};
 var tl=gsap.timeline({defaults:{ease:"power2.out"}});
@@ -194,7 +265,12 @@ routeLine.setPath(pathPts.slice(0,i));
 });
 if(originMarker)tl.to(originMarker,{opacity:1,duration:0.3,ease:"back.out(2)"},"-=0.7");
 if(stopMarkers.length)tl.to(stopMarkers,{opacity:1,duration:0.35,stagger:0.08,ease:"back.out(2)"},"-=0.8");
+}else{
+if(originMarker)originMarker.setOpacity(1);
+stopMarkers.forEach(function(m){m.setOpacity(1);});
 }
+revealMarkersFallback();
+revealRouteFallback();
 };
 </script>
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=___API_KEY___&callback=initTripRouteMap"></script>
@@ -209,16 +285,22 @@ export function buildDriverRouteTripGoogleMapHtml(
 ): string {
   const key = apiKey.trim();
   if (!key) return NO_KEY_HTML;
+  const stops = model.stops.map((stop) => ({
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    color: stop.color,
+    visitOrder: stop.visitOrder,
+  }));
   const body: {
     path: TripMapModel["path"];
-    stops: TripMapModel["stops"];
+    stops: typeof stops;
     origin?: TripMapModel["origin"];
     fit?: MapFitPadding;
     fitOpts?: MapFitOptions;
     animateDraw?: boolean;
   } = {
     path: model.path,
-    stops: model.stops,
+    stops,
     origin: model.origin,
   };
   if (fitPadding) body.fit = fitPadding;

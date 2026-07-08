@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -11,12 +11,11 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Car, Profile2User } from "iconsax-react-native";
+import { Car } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
@@ -29,15 +28,28 @@ import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFl
 import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
 import { tripMapModelFromAssignment } from "./driverRoute/tripMapModelFromAssignment";
 import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
-import { DriverRouteCompletedDetailBadge } from "./driverRoute/DriverRouteCompletedDetailBadge";
 import { DriverRouteConfettiLayer } from "./driverRoute/DriverRouteConfettiLayer";
 import { DriverRouteDetailAuditCards } from "./driverRoute/DriverRouteDetailAuditCards";
-import { DriverRouteInProgressDetailBadge } from "./driverRoute/DriverRouteInProgressDetailBadge";
-import { DriverRouteDetailTripRows } from "./driverRoute/DriverRouteDetailTripRows";
 import { destinationsInRouteTravelOrder } from "./driverRoute/driverRouteDestinationsTravelOrder";
+import {
+  buildRouteProgressSteps,
+  isDriverRouteStopDelivered,
+} from "./driverRoute/deliveryStopProgress";
+import { isDriverRouteTransferLine } from "../../domain/driverRouteConfirmLines";
+import { DriverRouteGlassDeliveryCard } from "./driverRoute/DriverRouteGlassDeliveryCard";
+import { DriverRouteStatusCard } from "./driverRoute/DriverRouteStatusCard";
+import { RouteGlassPanel } from "./driverRoute/RouteGlassPanel";
 import { TableRedColors } from "../../theme/tableRedColors";
 
 const C = TableRedColors;
+
+const HEADER_BODY_HEIGHT = 56;
+const STATUS_SHEET_ESTIMATE = 196;
+const MAP_FIT_BOTTOM_RESERVE = 156;
+const MAP_FIT_ZOOM_OUT = 0;
+const STATUS_SHEET_PEEK_GAP = 148;
+const SHEET_SCROLL_OFFSET = 36;
+const PICKUP_SWIPE_DOCK_HEIGHT = 88;
 
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -54,12 +66,12 @@ function formatWhen(iso: string | null | undefined): string {
   }
 }
 
-function driverFullName(d: {
-  name: string;
-  lastName: string;
-  secondLastName: string | null;
-}): string {
-  return [d.name, d.lastName, d.secondLastName].filter(Boolean).join(" ").trim();
+function canShowPickupDock(status: string): boolean {
+  return (
+    status !== "EN_PROCESO" &&
+    status !== "COMPLETA" &&
+    status !== "CANCELADA"
+  );
 }
 
 function statusBadgeTone(status: string): {
@@ -67,24 +79,13 @@ function statusBadgeTone(status: string): {
   dotColor: string;
   textColor: string;
 } {
-  if (status === "EN_PROCESO") {
-    return { borderColor: C.naranja, dotColor: C.naranja, textColor: C.naranja };
-  }
-  if (status === "LEVANTAMIENTO") {
+  if (status === "EN_PROCESO" || status === "LEVANTAMIENTO") {
     return { borderColor: C.naranja, dotColor: C.naranja, textColor: C.naranja };
   }
   if (status === "CONFIRMADA" || status === "COMPLETA") {
     return { borderColor: C.verde, dotColor: C.verdeHover, textColor: C.verdeHover };
   }
   return { borderColor: C.azul, dotColor: C.azul, textColor: C.azul };
-}
-
-function statusHeadline(status: string): string {
-  if (status === "COMPLETA") return "Ruta completada";
-  if (status === "EN_PROCESO") return "Entregas en curso";
-  if (status === "LEVANTAMIENTO") return "Verificación del vehículo";
-  if (status === "CONFIRMADA") return "Ruta lista para salir";
-  return "Ruta pendiente";
 }
 
 function statusSubline(
@@ -110,27 +111,6 @@ function statusSubline(
   return `${stopsLabel}${unitsLabel} — revisa el recorrido antes de salir`;
 }
 
-function canShowPickupDock(status: string): boolean {
-  return (
-    status !== "EN_PROCESO" &&
-    status !== "COMPLETA" &&
-    status !== "CANCELADA"
-  );
-}
-
-function statusProgress(status: string): number {
-  if (status === "COMPLETA") return 1;
-  if (status === "EN_PROCESO") return 0.88;
-  if (status === "LEVANTAMIENTO") return 0.75;
-  if (status === "CONFIRMADA") return 0.62;
-  return 0.34;
-}
-
-function isDeliveredStopRecord(status: string): boolean {
-  const s = status.trim().toUpperCase();
-  return s === "ENTREGADO" || s === "ENTREGADO_CHOFER";
-}
-
 function InfoPill(props: { icon: React.ReactNode; text: string }) {
   return (
     <View style={styles.infoPill}>
@@ -142,43 +122,23 @@ function InfoPill(props: { icon: React.ReactNode; text: string }) {
   );
 }
 
-const SHEET_ESTIMATE_HEIGHT = 172;
-const PICKUP_SWIPE_DOCK_HEIGHT = 88;
+import type { DriverRouteAssignmentDemoDestination } from "./driverDemo/driverRouteAssignmentDemo.types";
 
-function RouteGlassCard(props: {
-  children: React.ReactNode;
-  paddingBottom?: number;
-}) {
-  const { children, paddingBottom = 18 } = props;
-  return (
-    <View style={styles.floatingSheetShadow}>
-      <View style={styles.floatingSheetWrap}>
-        <BlurView
-          intensity={Platform.OS === "ios" ? 58 : 72}
-          tint="light"
-          {...(Platform.OS === "android"
-            ? {
-                experimentalBlurMethod: "dimezisBlurView" as const,
-                blurReductionFactor: 2,
-              }
-            : {})}
-          style={[
-            styles.floatingSheetBlur,
-            {
-              backgroundColor:
-                Platform.OS === "ios"
-                  ? "rgba(255, 255, 255, 0.48)"
-                  : "rgba(255, 255, 255, 0.52)",
-            },
-          ]}
-        >
-          <View style={[styles.floatingSheetInner, { paddingBottom }]}>
-            {children}
-          </View>
-        </BlurView>
-      </View>
-    </View>
-  );
+function buildDestinationProgressRows(
+  dest: DriverRouteAssignmentDemoDestination,
+): { deliveryStatus?: string | null; isTransfer: boolean }[] {
+  return dest.records.map((row) => ({
+    deliveryStatus: row.deliveryStatus,
+    isTransfer: isDriverRouteTransferLine({
+      id: row.id,
+      rowKind: row.rowKind,
+      transferId: row.transferId,
+      productName: row.productName,
+      saleFolio: row.saleFolio,
+      quantity: row.quantity,
+      deliveryStatus: row.deliveryStatus,
+    }),
+  }));
 }
 
 export default function DriverRouteDetailScreen() {
@@ -192,6 +152,10 @@ export default function DriverRouteDetailScreen() {
     () => (detail ? tripMapModelFromAssignment(detail) : { path: [], stops: [] }),
     [detail],
   );
+
+  const [productsCollapsedByDestId, setProductsCollapsedByDestId] = useState<
+    Record<string, boolean>
+  >({});
 
   const routeOrderDestinations = useMemo(
     () => (detail ? destinationsInRouteTravelOrder(detail) : []),
@@ -242,27 +206,31 @@ export default function DriverRouteDetailScreen() {
       : showNavDock
         ? 72
         : 0) + dockBottomPad;
+  const topChromeTop = insets.top + HEADER_BODY_HEIGHT;
 
   const mapSpacerHeight = Math.max(
-    Math.round(insets.top + 120),
-    Math.round(winH - dockHeight - SHEET_ESTIMATE_HEIGHT + 8),
+    Math.round(topChromeTop + 32 + SHEET_SCROLL_OFFSET),
+    Math.round(
+      winH -
+        dockHeight -
+        STATUS_SHEET_ESTIMATE -
+        STATUS_SHEET_PEEK_GAP +
+        SHEET_SCROLL_OFFSET,
+    ),
   );
 
   const mapFitPadding = useMemo(
     () => ({
-      top: 90,
-      right: 40,
-      bottom: Math.round(dockHeight + SHEET_ESTIMATE_HEIGHT + 10),
-      left: 40,
+      top: Math.round(topChromeTop + 44),
+      right: 36,
+      bottom: Math.round(dockHeight + MAP_FIT_BOTTOM_RESERVE),
+      left: 36,
     }),
-    [dockHeight],
+    [dockHeight, topChromeTop],
   );
 
   const isCompleta = routeStatus === "COMPLETA";
   const isEnProceso = routeStatus === "EN_PROCESO";
-  const progressTarget = detail ? statusProgress(detail.route.status) : 0;
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const progressPulse = useRef(new Animated.Value(0)).current;
   const statusDotPulse = useRef(new Animated.Value(0)).current;
   const sheetOpacity = useRef(new Animated.Value(0)).current;
   const sheetSlide = useRef(new Animated.Value(28)).current;
@@ -275,30 +243,66 @@ export default function DriverRouteDetailScreen() {
     let delivered = 0;
     let pending = 0;
     for (const dest of routeOrderDestinations) {
-      const done = dest.records.some((rec) =>
-        isDeliveredStopRecord(String(rec.deliveryStatus ?? "")),
-      );
+      const done = isDriverRouteStopDelivered({
+        rows: buildDestinationProgressRows(dest),
+        routeInProcess: isEnProceso,
+        routeComplete: isCompleta,
+      });
       if (done) delivered += 1;
       else pending += 1;
     }
     return { delivered, pending };
-  }, [detail, routeOrderDestinations]);
+  }, [detail, routeOrderDestinations, isEnProceso, isCompleta]);
+
+  const routeProgressRows = useMemo(() => {
+    const rows: { deliveryStatus?: string | null; isTransfer: boolean }[] = [];
+    for (const dest of routeOrderDestinations) {
+      rows.push(...buildDestinationProgressRows(dest));
+    }
+    return rows;
+  }, [routeOrderDestinations]);
+
+  const routeProgressStops = useMemo(() => {
+    return routeOrderDestinations.map((dest) => ({
+      delivered: isDriverRouteStopDelivered({
+        rows: buildDestinationProgressRows(dest),
+        routeInProcess: isEnProceso,
+        routeComplete: isCompleta,
+      }),
+    }));
+  }, [routeOrderDestinations, isEnProceso, isCompleta]);
+
+  const routeProgressSteps = useMemo(() => {
+    if (!detail) return [];
+    return buildRouteProgressSteps({
+      rows: routeProgressRows,
+      stops: routeProgressStops,
+      routeStatus: detail.route.status,
+      routeInProcess: isEnProceso,
+      routeComplete: isCompleta,
+    });
+  }, [
+    detail,
+    isCompleta,
+    isEnProceso,
+    routeProgressRows,
+    routeProgressStops,
+  ]);
+
+  const routeProgressAccent = isCompleta
+    ? "#10B981"
+    : isEnProceso
+      ? C.naranja
+      : C.azul;
 
   useEffect(() => {
     if (!detail) return;
-    progressAnim.setValue(0);
     sheetOpacity.setValue(0);
     sheetSlide.setValue(28);
     detailsOpacity.setValue(0);
     detailsSlide.setValue(20);
 
     Animated.parallel([
-      Animated.timing(progressAnim, {
-        toValue: progressTarget,
-        duration: isCompleta ? 1500 : 820,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }),
       Animated.timing(sheetOpacity, {
         toValue: 1,
         duration: 420,
@@ -334,30 +338,12 @@ export default function DriverRouteDetailScreen() {
     detailsOpacity,
     detailsSlide,
     isCompleta,
-    progressAnim,
-    progressTarget,
     sheetOpacity,
     sheetSlide,
   ]);
 
   useEffect(() => {
     if (!isEnProceso) return;
-    const progressLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(progressPulse, {
-          toValue: 1,
-          duration: 1100,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-        Animated.timing(progressPulse, {
-          toValue: 0,
-          duration: 1100,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-      ]),
-    );
     const dotLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(statusDotPulse, {
@@ -374,19 +360,24 @@ export default function DriverRouteDetailScreen() {
         }),
       ]),
     );
-    progressLoop.start();
     dotLoop.start();
     return () => {
-      progressLoop.stop();
       dotLoop.stop();
     };
-  }, [isEnProceso, progressPulse, statusDotPulse]);
+  }, [isEnProceso, statusDotPulse]);
 
   useEffect(() => {
     if (!isCompleta || completaFxPlayedRef.current) return;
     completaFxPlayedRef.current = true;
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [isCompleta]);
+
+  const toggleProducts = useCallback((destId: string) => {
+    setProductsCollapsedByDestId((prev) => ({
+      ...prev,
+      [destId]: !(prev[destId] ?? true),
+    }));
+  }, []);
 
   if (loading && !detail) {
     return (
@@ -427,21 +418,12 @@ export default function DriverRouteDetailScreen() {
   const { route } = detail;
   const firstDest = routeOrderDestinations[0];
   const vehicle = firstDest?.vehicle;
-  const driver = firstDest?.assignedDriver;
   const vehicleLine = vehicle
     ? `${vehicle.model} · ${vehicle.plateNumber}`
     : "";
   const statusLabel = driverRouteStatusLabelEs(route.status);
   const badgeTone = statusBadgeTone(route.status);
   const whenLabel = formatWhen(route.createdAtCdmx);
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
-  const progressGlowOpacity = progressPulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.75, 1],
-  });
   const statusDotScale = statusDotPulse.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 1.35],
@@ -453,49 +435,51 @@ export default function DriverRouteDetailScreen() {
 
   return (
     <View style={styles.safe}>
-      <View style={styles.mapLayer} pointerEvents="box-none">
+      <View
+        style={styles.mapLayer}
+        pointerEvents={Platform.OS === "android" ? "none" : "box-none"}
+      >
         <DriverRouteTripMapWebView
           model={mapModel}
           fill
+          interactive={Platform.OS === "ios"}
           fitPadding={mapFitPadding}
-          celebrationMode={isCompleta}
+          celebrationMode={false}
           mapFitOptions={
             isCompleta
-              ? undefined
-              : { maxZoom: 16, zoomBoost: false, animateDraw: true }
+              ? {
+                  maxZoom: 15,
+                  minZoom: 12,
+                  zoomBoost: false,
+                  zoomOut: MAP_FIT_ZOOM_OUT,
+                  animateDraw: false,
+                  strokeColor: "#10B981",
+                  panUp: 100,
+                }
+              : {
+                  maxZoom: 16,
+                  minZoom: 12,
+                  zoomBoost: false,
+                  zoomOut: MAP_FIT_ZOOM_OUT,
+                  animateDraw: true,
+                  strokeColor: "#EA7600",
+                  panUp: 88,
+                }
           }
         />
-        {isEnProceso ? (
-          <View
-            style={[styles.completedBadgeWrap, { top: insets.top + 78 }]}
-            pointerEvents="none"
-          >
-            <DriverRouteInProgressDetailBadge
-              deliveredStops={stopDeliveryCounts.delivered}
-              pendingStops={stopDeliveryCounts.pending}
-            />
-          </View>
-        ) : null}
-        {isCompleta ? (
-          <View
-            style={[styles.completedBadgeWrap, { top: insets.top + 78 }]}
-            pointerEvents="none"
-          >
-            <DriverRouteCompletedDetailBadge stopCount={routeOrderDestinations.length} />
-          </View>
-        ) : null}
         {isCompleta ? <DriverRouteConfettiLayer active pieceCount={16} fallDistance={420} /> : null}
       </View>
 
       <ScrollView
         style={styles.scrollOverlay}
-        pointerEvents="box-none"
+        pointerEvents={Platform.OS === "android" ? "auto" : "box-none"}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={Platform.OS !== "android"}
         contentContainerStyle={{ paddingBottom: dockHeight + 24 }}
       >
-        <View style={{ height: mapSpacerHeight }} pointerEvents="none" />
+        <View style={{ height: mapSpacerHeight }} />
 
         <Animated.View
           style={{
@@ -503,21 +487,28 @@ export default function DriverRouteDetailScreen() {
             transform: [{ translateY: sheetSlide }],
           }}
         >
-          <RouteGlassCard>
-            <View style={styles.sheetTop}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.sheetTitle}>
-                  {statusHeadline(route.status)}
-                </Text>
-                <Text style={styles.sheetSubtitle}>
-                  {statusSubline(
-                    route.status,
-                    routeOrderDestinations.length,
-                    totalUnits,
-                    whenLabel,
-                  )}
-                </Text>
-              </View>
+          <RouteGlassPanel
+            style={styles.statusSheetShadow}
+            contentStyle={styles.statusSheetInner}
+          >
+            <DriverRouteStatusCard
+              routeComplete={isCompleta}
+              routeInProcess={isEnProceso}
+              deliveredStopCount={stopDeliveryCounts.delivered}
+              totalStopCount={routeOrderDestinations.length}
+              progressSteps={routeProgressSteps}
+              progressAccentColor={routeProgressAccent}
+            />
+
+            <View style={styles.sheetMetaRow}>
+              <Text style={styles.sheetSubtitle}>
+                {statusSubline(
+                  route.status,
+                  routeOrderDestinations.length,
+                  totalUnits,
+                  whenLabel,
+                )}
+              </Text>
               <View style={[styles.statusBadge, { borderColor: badgeTone.borderColor }]}>
                 {isEnProceso ? (
                   <Animated.View
@@ -538,21 +529,17 @@ export default function DriverRouteDetailScreen() {
               </View>
             </View>
 
-            <View style={styles.progressTrack}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: progressWidth,
-                    backgroundColor: isCompleta ? C.verdeHover : C.naranja,
-                    opacity: isEnProceso ? progressGlowOpacity : 1,
-                  },
-                ]}
-              />
-            </View>
-
             <Text style={styles.sheetWhen}>{whenLabel}</Text>
-          </RouteGlassCard>
+
+            {vehicleLine ? (
+              <View style={styles.infoRow}>
+                <InfoPill
+                  icon={<Car size={16} color={C.gris} variant="Bold" />}
+                  text={vehicleLine}
+                />
+              </View>
+            ) : null}
+          </RouteGlassPanel>
         </Animated.View>
 
         <Animated.View
@@ -562,44 +549,48 @@ export default function DriverRouteDetailScreen() {
             ...styles.detailsSection,
           }}
         >
-          <RouteGlassCard paddingBottom={20}>
-            <Text style={styles.detailsTitle}>Detalle del recorrido</Text>
-            <DriverRouteDetailTripRows
-              embedded
-              originName={route.originWarehouseName}
-              destinations={routeOrderDestinations}
-            />
+          <RouteGlassPanel
+            style={styles.deliveriesSheetShadow}
+            contentStyle={styles.deliveriesSheetInner}
+          >
+            <View style={styles.deliveriesHeader}>
+              <Text style={styles.detailsTitle}>Envíos y traspasos</Text>
+              <Text style={styles.deliveriesCount}>
+                {routeOrderDestinations.length}{" "}
+                {routeOrderDestinations.length === 1 ? "registro" : "registros"}
+              </Text>
+            </View>
 
-            {driver || vehicleLine ? (
-              <View style={styles.infoRow}>
-                {driver ? (
-                  <InfoPill
-                    icon={<Profile2User size={16} color={C.gris} variant="Bold" />}
-                    text={driverFullName(driver)}
-                  />
-                ) : null}
-                {vehicleLine ? (
-                  <InfoPill
-                    icon={<Car size={16} color={C.gris} variant="Bold" />}
-                    text={vehicleLine}
-                  />
-                ) : null}
-              </View>
-            ) : null}
+            <View style={styles.deliveryCards}>
+              {routeOrderDestinations.map((dest, index) => (
+                <DriverRouteGlassDeliveryCard
+                  key={dest.id}
+                  destination={dest}
+                  displayNum={index + 1}
+                  originLabel={route.originWarehouseName}
+                  routeInProcess={isEnProceso}
+                  routeComplete={isCompleta}
+                  productsCollapsed={productsCollapsedByDestId[dest.id] ?? true}
+                  onToggleProducts={() => toggleProducts(dest.id)}
+                />
+              ))}
+            </View>
 
             {isCompleta ? <DriverRouteDetailAuditCards detail={detail} embedded /> : null}
-          </RouteGlassCard>
+          </RouteGlassPanel>
         </Animated.View>
       </ScrollView>
 
       <View
         style={[styles.fixedHeader, { paddingTop: insets.top + 2 }]}
         pointerEvents="box-none"
+        collapsable={false}
       >
         <HeaderTitle
-          title={route.folio}
-          subtitle={`Origen · ${route.originWarehouseName}`}
+          title="Mi ruta"
+          subtitle={route.folio}
           tone="light"
+          overlayOnMap
           backgroundColor="transparent"
         />
       </View>
@@ -646,72 +637,46 @@ const styles = StyleSheet.create({
   scrollOverlay: {
     flex: 1,
     zIndex: 2,
+    elevation: Platform.OS === "android" ? 12 : 2,
     backgroundColor: "transparent",
   },
   mapLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
-  },
-  completedBadgeWrap: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    zIndex: 2,
+    elevation: 0,
   },
   fixedHeader: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 3,
+    zIndex: 4,
+    elevation: 24,
   },
-  floatingSheetShadow: {
+  deliveriesSheetShadow: {
     marginHorizontal: 16,
-    borderRadius: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: C.marron,
-        shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.24,
-        shadowRadius: 28,
-      },
-      android: { elevation: 18 },
-      default: {},
-    }),
   },
-  floatingSheetWrap: {
-    borderRadius: 24,
-    overflow: "hidden",
+  statusSheetShadow: {
+    marginHorizontal: 16,
   },
-  floatingSheetBlur: {
-    borderRadius: 24,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.72)",
+  statusSheetInner: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 16,
   },
-  floatingSheetInner: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 18,
-  },
-  sheetTop: {
+  sheetMetaRow: {
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
-  },
-  sheetTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: C.ink,
-    letterSpacing: -0.3,
-    lineHeight: 28,
+    gap: 10,
   },
   sheetSubtitle: {
-    marginTop: 6,
-    fontSize: 14,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
     fontWeight: "500",
     color: C.corteza,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   statusBadge: {
     flexDirection: "row",
@@ -732,35 +697,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
   },
-  progressTrack: {
-    marginTop: 18,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: "rgba(162, 171, 182, 0.28)",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-    minWidth: 12,
-  },
   sheetWhen: {
-    marginTop: 12,
+    marginTop: 10,
     fontSize: 12,
     fontWeight: "600",
     color: C.gris,
     textTransform: "capitalize",
-  },
-  detailsSection: {
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  detailsTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: C.ink,
-    letterSpacing: -0.3,
-    lineHeight: 28,
   },
   infoRow: {
     marginTop: 14,
@@ -784,6 +726,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.ink,
     lineHeight: 18,
+  },
+  deliveriesSheetInner: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 20,
+  },
+  deliveriesHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 14,
+  },
+  deliveriesCount: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.gris,
+  },
+  deliveryCards: {
+    gap: 10,
+  },
+  detailsSection: {
+    paddingTop: 14,
+    paddingBottom: 32,
+  },
+  detailsTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: C.ink,
+    letterSpacing: -0.3,
+    lineHeight: 24,
   },
   pickupDock: {
     position: "absolute",

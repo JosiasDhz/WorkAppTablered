@@ -2,6 +2,7 @@ import type { LatLng } from "../../../maps/types";
 import { decodeGoogleEncodedPolyline } from "../../../maps/decodeGoogleEncodedPolyline";
 import type { DriverRouteAssignmentDemo } from "../driverDemo/driverRouteAssignmentDemo.types";
 import { destinationsInRouteTravelOrder } from "./driverRouteDestinationsTravelOrder";
+import { buildDriverRoutePinSvgDataUrl } from "./driverRouteMapPinIcon";
 
 export type TripMapStopMarker = {
   latitude: number;
@@ -9,6 +10,7 @@ export type TripMapStopMarker = {
   color: string;
   visitOrder: number;
   label: string;
+  iconUrl?: string;
 };
 
 export type TripMapOrigin = {
@@ -49,19 +51,30 @@ export function tripMapModelFromAssignment(
   assignment: DriverRouteAssignmentDemo,
 ): TripMapModel {
   const encoded = firstPolylineEncoded(assignment.route);
-  const path = encoded ? decodeGoogleEncodedPolyline(encoded) : [];
+  let path = encoded ? decodeGoogleEncodedPolyline(encoded) : [];
   const sorted = destinationsInRouteTravelOrder(assignment);
   const stops: TripMapStopMarker[] = [];
   for (const dest of sorted) {
     const rec = dest.records[0];
     if (!rec) continue;
+    const color = dest.pinColorHex || "#EA580C";
     stops.push({
       latitude: rec.latitude,
       longitude: rec.longitude,
-      color: dest.pinColorHex || "#EA580C",
+      color,
       visitOrder: dest.visitOrder,
       label: formatStopLabel(dest),
+      iconUrl: buildDriverRoutePinSvgDataUrl({
+        fillColor: color,
+        numberText: String(dest.visitOrder),
+      }),
     });
+  }
+  if (path.length < 2 && stops.length >= 2) {
+    path = stops.map((stop) => ({
+      latitude: stop.latitude,
+      longitude: stop.longitude,
+    }));
   }
   return { path, stops };
 }

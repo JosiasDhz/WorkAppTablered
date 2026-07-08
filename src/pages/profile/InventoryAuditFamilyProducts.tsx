@@ -23,6 +23,7 @@ import {
 import {
   getFamilyAuditProducts,
   patchFamilyAuditCounts,
+  auditFamilyDisplayLabel,
   type AuditDetailFamily,
   type AuditProductLine,
   type InventoryAuditStatus,
@@ -110,11 +111,10 @@ function ProductRow({
 export default function InventoryAuditFamilyProducts() {
   const navigation = useNavigation<any>();
   const route = useRoute();
-  const { auditId, familyId, deptName, brandName } = route.params as {
+  const { auditId, familyId, locationLabel } = route.params as {
     auditId: string;
     familyId: string;
-    deptName?: string;
-    brandName?: string;
+    locationLabel?: string;
   };
 
   const listRef = useRef<FlatList<AuditProductLine>>(null);
@@ -288,7 +288,7 @@ export default function InventoryAuditFamilyProducts() {
       setFamily(res.family);
       setAuditStatus(res.audit.status as InventoryAuditStatus);
       if (payload.length > 0) mergeSavedLines(payload);
-      Alert.alert("Marca completada", "El conteo de esta marca quedó cerrado.", [
+      Alert.alert("Ubicación completada", "El conteo de esta ubicación quedó cerrado.", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (e: unknown) {
@@ -339,7 +339,8 @@ export default function InventoryAuditFamilyProducts() {
   }, []);
 
   const headerTitle =
-    deptName && brandName ? `${deptName} · ${brandName}` : "Productos de la marca";
+    locationLabel ??
+    (family ? auditFamilyDisplayLabel(family) : "Productos de la ubicación");
 
   const pct =
     family && family.totalProducts > 0
@@ -377,7 +378,7 @@ export default function InventoryAuditFamilyProducts() {
         <>
           {familyComplete ? (
             <View style={styles.doneBanner}>
-              <Text style={styles.doneBannerText}>Esta marca ya está completada (solo lectura).</Text>
+              <Text style={styles.doneBannerText}>Esta ubicación ya está completada (solo lectura).</Text>
             </View>
           ) : null}
           {auditReadOnly && !familyComplete ? (
@@ -405,7 +406,7 @@ export default function InventoryAuditFamilyProducts() {
           <Text style={styles.totalHint}>
             {debouncedSearch
               ? `${total} resultado${total !== 1 ? "s" : ""} para “${debouncedSearch}”`
-              : `Mostrando ${lines.length} de ${total} en esta marca`}
+              : `Mostrando ${lines.length} de ${total} en esta ubicación`}
           </Text>
         </>
       ) : null}
@@ -483,7 +484,7 @@ export default function InventoryAuditFamilyProducts() {
                     ? "Sin datos"
                     : debouncedSearch
                       ? `Nada coincide con “${debouncedSearch}”.`
-                      : "No hay productos en esta marca."}
+                      : "No hay productos en esta ubicación."}
                 </Text>
               </View>
             }
