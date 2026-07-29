@@ -25,6 +25,7 @@ import {
 import {
   driverRouteConfirmProgress,
   flattenDriverRouteConfirmLines,
+  driverRouteNeedsDriverReceipt,
 } from "../../domain/driverRouteConfirmLines";
 import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
 import { getDriverRouteAssignmentDetail } from "./driverDemo/resolveDriverRouteAssignmentDetail";
@@ -98,6 +99,11 @@ export default function DriverRouteProductPickupScreen() {
       return;
     }
     if (DRIVER_ROUTES_FLOW_USE_DEMO) return;
+    const flatLines = flattenDriverRouteConfirmLines(detail.destinations);
+    if (driverRouteNeedsDriverReceipt(flatLines)) {
+      navigation.replace("DriverRouteConfirmMercancia", { routeId });
+      return;
+    }
     if (status !== "CONFIRMADA" && status !== "LEVANTAMIENTO") return;
     if (status === "LEVANTAMIENTO") return;
     if (!confirmProgress?.allConfirmed) return;
@@ -199,7 +205,9 @@ export default function DriverRouteProductPickupScreen() {
   }
 
   const { route } = detail;
-  const needsConfirm = confirmProgress != null && !confirmProgress.allConfirmed;
+  const needsConfirm =
+    detail != null &&
+    driverRouteNeedsDriverReceipt(flattenDriverRouteConfirmLines(detail.destinations));
   const showStartDock = !needsConfirm && canStartRoute;
   const scrollBottomPad = showStartDock ? routeSwipeDockH + 20 : 40;
 

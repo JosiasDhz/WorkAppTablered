@@ -109,11 +109,3 @@ export async function addMyDocumentFile(documentTypeId: string, fileId: string) 
 export async function upsertMyDocument(documentTypeId: string, fileId: string) {
   return addMyDocumentFile(documentTypeId, fileId);
 }
-
-export async function removeMyDocumentFile(documentTypeId: string, fileId: string) {
-  const { data } = await http.delete<ExpedienteDocumentDetailDto>(
-    `${prefix}/my/documents/${documentTypeId}/files/${fileId}`,
-    { timeout: 45000 },
-  );
-  return data;
-}

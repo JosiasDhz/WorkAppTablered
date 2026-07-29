@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -21,10 +21,13 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { navigateToDriverRouteDetail } from "../../../routes/navigateDriverRoutesFromProfileTab";
 import {
+  ArrowRight2,
   Box1,
   Calendar1,
   Car,
   Location,
+  MoneyRecive,
+  Notification,
   Routing2,
   TickCircle,
   Truck,
@@ -48,6 +51,14 @@ type DriverAssignedRoutesHubProps = {
 const C = TableRedColors;
 const MAP_PREVIEW_HEIGHT = 124;
 const VIVID_GREEN = DELIVERY_ROUTE_PROGRESS_ACCENT.complete;
+
+type HubTab = "in-progress" | "pending" | "completed";
+type HubTabDef = { key: HubTab; label: string; color: string };
+const HUB_TABS: HubTabDef[] = [
+  { key: "in-progress", label: "En curso", color: "#2563EB" },
+  { key: "pending", label: "Pendientes", color: "#D97706" },
+  { key: "completed", label: "Finalizadas", color: "#10B981" },
+];
 
 function formatRouteWhen(iso: string): string {
   try {
@@ -112,68 +123,6 @@ function routeTicketTheme(
   };
 }
 
-function AnimatedStatCard(props: {
-  label: string;
-  value: number;
-  accent: string;
-  icon: React.ReactNode;
-  delayMs: number;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(16)).current;
-  const valueScale = useRef(new Animated.Value(0.88)).current;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          friction: 8,
-          tension: 72,
-          useNativeDriver: true,
-        }),
-        Animated.spring(valueScale, {
-          toValue: 1,
-          friction: 7,
-          tension: 90,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, props.delayMs);
-    return () => clearTimeout(timer);
-  }, [opacity, props.delayMs, translateY, valueScale]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.statCell,
-        { opacity, transform: [{ translateY }] },
-      ]}
-    >
-      <View style={styles.statTopRow}>
-        <View style={[styles.statIconCircle, { backgroundColor: `${props.accent}18` }]}>
-          {props.icon}
-        </View>
-        <Animated.Text
-          style={[
-            styles.statNum,
-            { color: props.accent, transform: [{ scale: valueScale }] },
-          ]}
-        >
-          {props.value}
-        </Animated.Text>
-      </View>
-      <Text style={styles.statLbl}>{props.label}</Text>
-    </Animated.View>
-  );
-}
-
 function parseVehicleSummary(summary: string): { model: string; plate: string | null } {
   const parts = summary
     .split("·")
@@ -183,15 +132,6 @@ function parseVehicleSummary(summary: string): { model: string; plate: string | 
     return { model: parts[0]!, plate: parts.slice(1).join(" · ") };
   }
   return { model: summary.trim(), plate: null };
-}
-
-function CompactMetricTile(props: { icon: React.ReactNode; value: string }) {
-  return (
-    <View style={ticketStyles.compactMetric}>
-      {props.icon}
-      <Text style={ticketStyles.compactMetricValue}>{props.value}</Text>
-    </View>
-  );
 }
 
 function RouteTicket({
@@ -277,6 +217,8 @@ function RouteTicket({
     }).start();
   };
 
+  const hasCashPending = model.cashPendingHandoverMxn > 0 && !model.cashHandedOver;
+
   return (
     <Animated.View
       style={{
@@ -293,86 +235,150 @@ function RouteTicket({
         accessibilityLabel={`Ver detalle de ruta ${item.folio}`}
       >
         <View style={ticketStyles.clip}>
-          <View style={ticketStyles.mapHero}>
+          <View style={ticketStyles.mapCard}>
+            <View style={[ticketStyles.accentBar, { backgroundColor: accent }]} />
             <DriverRouteCardMapPreview
               routeId={item.id}
-              height={MAP_PREVIEW_HEIGHT}
+              height={120}
               routeComplete={model.isCompleta}
               routeInProcess={model.isEnProceso}
             />
-            <Animated.View
-              style={[
-                ticketStyles.mapBadge,
-                {
-                  backgroundColor: accent,
-                  transform: pulse ? [{ scale: badgeScale }] : undefined,
-                },
-              ]}
-            >
-              <View style={ticketStyles.mapBadgeDot} />
-              <Text style={ticketStyles.mapBadgeTxt}>{badgeLabel}</Text>
-            </Animated.View>
           </View>
 
-          <View style={ticketStyles.body}>
-            <Text style={ticketStyles.folio}>{item.folio}</Text>
-            <View style={ticketStyles.titleRow}>
-              <Text style={ticketStyles.warehouse} numberOfLines={1}>
-                {item.originWarehouseName}
-              </Text>
-              {vehicleParts?.model || vehicleParts?.plate ? (
-                <View style={ticketStyles.vehicleInline}>
-                  <Text style={ticketStyles.titleSep}>·</Text>
-                  <Car size={12} color={C.corteza} variant="Bold" />
-                  {vehicleParts.model ? (
-                    <Text style={ticketStyles.vehicleInlineTxt} numberOfLines={1}>
-                      {vehicleParts.model}
-                    </Text>
-                  ) : null}
-                  {vehicleParts.plate ? (
-                    <>
-                      <Text style={ticketStyles.titleSep}>·</Text>
-                      <Text style={ticketStyles.plateInlineTxt} numberOfLines={1}>
-                        {vehicleParts.plate}
-                      </Text>
-                    </>
-                  ) : null}
+          <View style={ticketStyles.infoCard}>
+            <View style={ticketStyles.chipsRow}>
+              <Animated.View
+                style={[
+                  ticketStyles.statusChip,
+                  {
+                    backgroundColor: accent,
+                    transform: pulse ? [{ scale: badgeScale }] : undefined,
+                  },
+                ]}
+              >
+                <View style={ticketStyles.statusDot} />
+                <Text style={ticketStyles.statusTxt}>{badgeLabel}</Text>
+              </Animated.View>
+              {hasCashPending ? (
+                <View style={ticketStyles.cashChip}>
+                  <MoneyRecive size={9} color="#92400E" variant="Bold" />
+                  <Text style={ticketStyles.cashChipTxt}>Caja</Text>
                 </View>
               ) : null}
             </View>
-            <Text
-              style={[
-                ticketStyles.confirmHint,
-                hintMuted ? ticketStyles.confirmHintMuted : { color: accent },
-              ]}
-            >
-              {hint}
-            </Text>
+            <View style={ticketStyles.infoTop}>
+              <View style={ticketStyles.infoHeader}>
+                <Text style={ticketStyles.folio}>{item.folio}</Text>
+                <Text style={ticketStyles.warehouse} numberOfLines={1}>
+                  {item.originWarehouseName}
+                </Text>
+              </View>
+              <View style={[ticketStyles.arrowCircle, { backgroundColor: `${accent}18` }]}>
+                <ArrowRight2 size={14} color={accent} variant="Linear" />
+              </View>
+            </View>
+
+            {vehicleParts ? (
+              <View style={ticketStyles.vehicleRow}>
+                <Car size={11} color={C.gris} variant="Bold" />
+                <Text style={ticketStyles.vehicleTxt} numberOfLines={1}>
+                  {vehicleParts.model}
+                  {vehicleParts.plate ? ` · ${vehicleParts.plate}` : ""}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={ticketStyles.metricsRow}>
-              <View style={ticketStyles.dateTile}>
-                <Calendar1 size={13} color={C.corteza} variant="Linear" />
-                <Text style={ticketStyles.dateTileTxt} numberOfLines={1}>
+              <View style={ticketStyles.metric}>
+                <Location size={12} color={C.gris} variant="Linear" />
+                <Text style={ticketStyles.metricVal}>
+                  {item.assignedDestinationsCount}
+                </Text>
+              </View>
+              <View style={ticketStyles.metricSep} />
+              <View style={ticketStyles.metric}>
+                <Box1 size={12} color={C.gris} variant="Linear" />
+                <Text style={ticketStyles.metricVal}>
+                  {item.assignedTotalUnits}
+                </Text>
+              </View>
+              <View style={ticketStyles.metricSep} />
+              <View style={ticketStyles.metric}>
+                <Calendar1 size={11} color={C.gris} variant="Linear" />
+                <Text style={ticketStyles.metricDate} numberOfLines={1}>
                   {formatRouteWhen(item.createdAtCdmx)}
                 </Text>
               </View>
-              {item.assignedDestinationsCount > 0 ? (
-                <CompactMetricTile
-                  icon={<Location size={13} color={C.corteza} variant="Linear" />}
-                  value={String(item.assignedDestinationsCount)}
-                />
-              ) : null}
-              {item.assignedTotalUnits > 0 ? (
-                <CompactMetricTile
-                  icon={<Box1 size={13} color={C.corteza} variant="Linear" />}
-                  value={String(item.assignedTotalUnits)}
-                />
-              ) : null}
             </View>
           </View>
         </View>
       </Pressable>
     </Animated.View>
+  );
+}
+
+function HubTabBar(props: {
+  selected: HubTab;
+  counts: Record<HubTab, number>;
+  hasCashPendingInCompleted: boolean;
+  onSelect: (tab: HubTab) => void;
+}) {
+  return (
+    <View style={tabBarStyles.container}>
+      <View style={tabBarStyles.row}>
+      {HUB_TABS.map((tab) => {
+        const active = tab.key === props.selected;
+        const count = props.counts[tab.key];
+        const showDot =
+          tab.key === "completed" && props.hasCashPendingInCompleted && !active;
+        return (
+          <Pressable
+            key={tab.key}
+            style={[
+              tabBarStyles.tab,
+              active
+                ? { backgroundColor: tab.color }
+                : undefined,
+            ]}
+            onPress={() => props.onSelect(tab.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+          >
+            <Text
+              style={[
+                tabBarStyles.tabTxt,
+                active ? tabBarStyles.tabTxtActive : tabBarStyles.tabTxtInactive,
+              ]}
+            >
+              {tab.label}
+            </Text>
+            {count > 0 ? (
+              <View
+                style={[
+                  tabBarStyles.tabCount,
+                  active
+                    ? tabBarStyles.tabCountActive
+                    : tabBarStyles.tabCountInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    tabBarStyles.tabCountTxt,
+                    active
+                      ? tabBarStyles.tabCountTxtActive
+                      : tabBarStyles.tabCountTxtInactive,
+                  ]}
+                >
+                  {count}
+                </Text>
+              </View>
+            ) : null}
+            {showDot ? <View style={tabBarStyles.alertDot} /> : null}
+          </Pressable>
+        );
+      })}
+      </View>
+    </View>
   );
 }
 
@@ -410,42 +416,40 @@ export function DriverAssignedRoutesHub({
   const tabBarHeight = useBottomTabBarHeight();
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-16)).current;
+  const [activeTab, setActiveTab] = useState<HubTab>("in-progress");
 
   const { inRoute, ready, pendingConfirm, completed } = useMemo(
     () => partitionDriverHubRoutes(routes.items),
     [routes.items],
   );
 
+  const tabCounts = useMemo<Record<HubTab, number>>(
+    () => ({
+      "in-progress": inRoute.length,
+      pending: pendingConfirm.length + ready.length,
+      completed: completed.length,
+    }),
+    [completed.length, inRoute.length, pendingConfirm.length, ready.length],
+  );
+
+  const hasCashPendingInCompleted = useMemo(
+    () =>
+      completed.some(
+        (r) =>
+          Number(r.driverCashPendingHandoverMxn ?? 0) > 0 &&
+          !r.driverCashHandoverAtCdmx,
+      ),
+    [completed],
+  );
+
+  const onTabSelect = useCallback((tab: HubTab) => {
+    setActiveTab(tab);
+  }, []);
+
   const hubItems = useMemo(
     () => [...inRoute, ...ready, ...pendingConfirm, ...completed],
     [completed, inRoute, pendingConfirm, ready],
   );
-
-  const activeHubItems = useMemo(
-    () => [...inRoute, ...ready, ...pendingConfirm],
-    [inRoute, pendingConfirm, ready],
-  );
-
-  const totalStops = useMemo(
-    () => activeHubItems.reduce((s, r) => s + (r.assignedDestinationsCount || 0), 0),
-    [activeHubItems],
-  );
-
-  const activeSummary = useMemo(() => {
-    if (inRoute.length > 0) {
-      return `${inRoute.length} ${inRoute.length === 1 ? "ruta activa" : "rutas activas"}`;
-    }
-    if (ready.length > 0) {
-      return `${ready.length} ${ready.length === 1 ? "lista para salir" : "listas para salir"}`;
-    }
-    if (pendingConfirm.length > 0) {
-      return `${pendingConfirm.length} por confirmar`;
-    }
-    if (completed.length > 0) {
-      return `${completed.length} ${completed.length === 1 ? "finalizada" : "finalizadas"}`;
-    }
-    return null;
-  }, [completed.length, inRoute.length, pendingConfirm.length, ready.length]);
 
   const routeById = useMemo(() => {
     const map = new Map<string, DriverAssignedRouteRecord>();
@@ -455,11 +459,12 @@ export function DriverAssignedRoutesHub({
     return map;
   }, [routes.items]);
 
-  const sections = useMemo(
+  const allSections = useMemo(
     () =>
       [
         {
           key: "in-route",
+          group: "in-progress" as HubTab,
           title: "En ruta",
           accent: C.naranja,
           icon: <Routing2 size={15} color={C.naranja} variant="Bold" />,
@@ -467,6 +472,7 @@ export function DriverAssignedRoutesHub({
         },
         {
           key: "ready",
+          group: "pending" as HubTab,
           title: "Listas para salir",
           accent: VIVID_GREEN,
           icon: <TickCircle size={15} color={VIVID_GREEN} variant="Bold" />,
@@ -474,6 +480,7 @@ export function DriverAssignedRoutesHub({
         },
         {
           key: "pending",
+          group: "pending" as HubTab,
           title: "Mercancía por confirmar",
           accent: C.azul,
           icon: <Box1 size={15} color={C.azul} variant="Bold" />,
@@ -481,6 +488,7 @@ export function DriverAssignedRoutesHub({
         },
         {
           key: "completed",
+          group: "completed" as HubTab,
           title: "Finalizadas",
           accent: VIVID_GREEN,
           icon: <TickCircle size={15} color={VIVID_GREEN} variant="Bold" />,
@@ -488,6 +496,11 @@ export function DriverAssignedRoutesHub({
         },
       ].filter((section) => section.items.length > 0),
     [completed, inRoute, pendingConfirm, ready],
+  );
+
+  const sections = useMemo(
+    () => allSections.filter((s) => s.group === activeTab),
+    [activeTab, allSections],
   );
 
   useEffect(() => {
@@ -518,60 +531,48 @@ export function DriverAssignedRoutesHub({
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      <View style={styles.headerShell}>
-        <LinearGradient
-          colors={[C.marron, C.corteza, "#5C534B"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <Animated.View
-          style={{
+      <Animated.View
+        style={[
+          styles.headerBar,
+          {
+            paddingTop: insets.top + 12,
             opacity: headerOpacity,
             transform: [{ translateY: headerSlide }],
-          }}
-        >
-          <View style={[styles.topBand, { paddingTop: insets.top + 4 }]}>
-            <View style={styles.topBandInner}>
-              <View style={styles.avatarRing}>
-                <Image source={avatarSource} style={styles.avatar} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.kicker}>Operaciones</Text>
-                <Text style={styles.title}>Mis rutas</Text>
-                <Text style={styles.sub} numberOfLines={1}>
-                  Hola, {userName}
-                  {activeSummary ? ` · ${activeSummary}` : ""}
-                </Text>
-              </View>
-            </View>
+          },
+        ]}
+      >
+        <View style={styles.headerBottom}>
+          <View style={styles.avatarRing}>
+            <Image source={avatarSource} style={styles.avatar} />
           </View>
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>Mis rutas</Text>
+            <Text style={styles.sub} numberOfLines={1}>
+              Gestiona tus entregas del día
+            </Text>
+          </View>
+          <Pressable
+            style={styles.notifBtn}
+            onPress={() => {}}
+            accessibilityRole="button"
+            accessibilityLabel="Notificaciones"
+          >
+            <View style={styles.notifDot} />
+            <Notification size={20} color={C.ink} variant="Bold" />
+          </Pressable>
+        </View>
+      </Animated.View>
 
-          <View style={styles.statsRow}>
-            <AnimatedStatCard
-              label="Por confirmar"
-              value={pendingConfirm.length}
-              accent={DELIVERY_ROUTE_PROGRESS_ACCENT.pending}
-              icon={<Box1 size={12} color={DELIVERY_ROUTE_PROGRESS_ACCENT.pending} variant="Bold" />}
-              delayMs={50}
-            />
-            <AnimatedStatCard
-              label="Listas"
-              value={ready.length}
-              accent={VIVID_GREEN}
-              icon={<TickCircle size={12} color={VIVID_GREEN} variant="Bold" />}
-              delayMs={110}
-            />
-            <AnimatedStatCard
-              label="Paradas"
-              value={totalStops}
-              accent={C.naranja}
-              icon={<Location size={12} color={C.naranja} variant="Bold" />}
-              delayMs={170}
-            />
-          </View>
-        </Animated.View>
-      </View>
+      {!routes.error && hubItems.length > 0 ? (
+        <View style={styles.tabBarFixed}>
+          <HubTabBar
+            selected={activeTab}
+            counts={tabCounts}
+            hasCashPendingInCompleted={hasCashPendingInCompleted}
+            onSelect={onTabSelect}
+          />
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.listScroll}
@@ -586,7 +587,7 @@ export function DriverAssignedRoutesHub({
           />
         }
         contentContainerStyle={{
-          paddingTop: 14,
+          paddingTop: 8,
           paddingBottom: tabBarHeight + 36,
           paddingHorizontal: 14,
         }}
@@ -629,29 +630,29 @@ export function DriverAssignedRoutesHub({
           </View>
         ) : null}
 
+        {!routes.error && sections.length === 0 && hubItems.length > 0 ? (
+          <View style={styles.tabEmpty}>
+            <Text style={styles.tabEmptyTxt}>
+              No hay rutas en esta categoría
+            </Text>
+          </View>
+        ) : null}
+
         {!routes.error
-          ? sections.map((section) => (
-              <HubSection
-                key={section.key}
-                title={section.title}
-                accent={section.accent}
-                count={section.items.length}
-                icon={section.icon}
-              >
-                {section.items.map((item) => {
-                  const currentIndex = ticketIndex;
-                  ticketIndex += 1;
-                  return (
-                    <RouteTicket
-                      key={item.id}
-                      item={item}
-                      index={currentIndex}
-                      onPress={() => openRoute(item.id)}
-                    />
-                  );
-                })}
-              </HubSection>
-            ))
+          ? sections.map((section) =>
+              section.items.map((item) => {
+                const currentIndex = ticketIndex;
+                ticketIndex += 1;
+                return (
+                  <RouteTicket
+                    key={item.id}
+                    item={item}
+                    index={currentIndex}
+                    onPress={() => openRoute(item.id)}
+                  />
+                );
+              }),
+            )
           : null}
       </ScrollView>
     </SafeAreaView>
@@ -660,264 +661,235 @@ export function DriverAssignedRoutesHub({
 
 const ticketStyles = StyleSheet.create({
   wrap: {
-    marginBottom: 14,
-    borderRadius: 18,
-    backgroundColor: C.white,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    shadowColor: C.marron,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
-    overflow: "hidden",
+    marginBottom: 16,
   },
   clip: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  mapCard: {
+    width: 130,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
     overflow: "hidden",
-    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  mapHero: {
-    position: "relative",
-    backgroundColor: C.crema,
-  },
-  mapBadge: {
+  accentBar: {
     position: "absolute",
-    top: 10,
-    right: 10,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    zIndex: 2,
+  },
+  chipsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
+  },
+  infoCard: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 4,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  infoTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  infoHeader: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  arrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  mapBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.white,
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#FFFFFF",
   },
-  mapBadgeTxt: {
-    fontSize: 10,
+  statusTxt: {
+    fontSize: 9,
     fontWeight: "800",
-    color: C.white,
-    letterSpacing: 0.2,
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
-  body: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 14,
-    gap: 2,
+  cashChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  cashChipTxt: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#92400E",
   },
   folio: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 9,
+    fontWeight: "700",
     color: C.gris,
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-  titleRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 4,
-  },
   warehouse: {
-    flexShrink: 1,
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "900",
     color: C.ink,
     letterSpacing: -0.3,
   },
-  titleSep: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#CBD5E1",
-  },
-  vehicleInline: {
+  vehicleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    flexShrink: 0,
   },
-  vehicleInlineTxt: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: C.corteza,
-    flexShrink: 1,
-    maxWidth: 72,
-  },
-  plateInlineTxt: {
+  vehicleTxt: {
+    flex: 1,
     fontSize: 11,
     fontWeight: "600",
     color: C.gris,
-    flexShrink: 1,
-    maxWidth: 88,
-  },
-  confirmHint: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 16,
-  },
-  confirmHintMuted: {
-    color: "#64748B",
   },
   metricsRow: {
-    marginTop: 10,
-    flexDirection: "row",
-    alignItems: "stretch",
-    gap: 8,
-  },
-  dateTile: {
-    flex: 1,
-    minWidth: 0,
+    marginTop: 6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
   },
-  dateTileTxt: {
-    flex: 1,
-    fontSize: 10,
-    fontWeight: "700",
-    color: C.corteza,
-    lineHeight: 13,
-  },
-  compactMetric: {
-    width: 52,
+  metric: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingHorizontal: 6,
-    paddingVertical: 8,
+    gap: 3,
   },
-  compactMetricValue: {
+  metricVal: {
     fontSize: 12,
     fontWeight: "800",
     color: C.corteza,
+  },
+  metricDate: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: C.gris,
+    flexShrink: 1,
+  },
+  metricSep: {
+    width: 1,
+    height: 12,
+    backgroundColor: "#E2E8F0",
+    marginHorizontal: 8,
   },
 });
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: C.crema,
+    backgroundColor: "#F1F5F9",
   },
-  headerShell: {
+  headerBar: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: "#F1F5F9",
     zIndex: 2,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    paddingBottom: 10,
-    overflow: "hidden",
+  },
+  headerBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tabBarFixed: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    backgroundColor: "#F1F5F9",
+    zIndex: 1,
   },
   listScroll: {
     flex: 1,
   },
-  topBand: {
-    paddingTop: 4,
-    paddingBottom: 6,
-    paddingHorizontal: 14,
-    marginBottom: 4,
-  },
-  topBandInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   avatarRing: {
-    padding: 2,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: C.naranja,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 24,
+    overflow: "hidden",
   },
   avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: C.ink,
+    letterSpacing: -0.6,
+  },
+  sub: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "500",
+    color: C.gris,
+  },
+  notifBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-  },
-  kicker: {
-    color: C.naranja,
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-  },
-  title: {
-    marginTop: 0,
-    color: C.white,
-    fontSize: 19,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-    lineHeight: 22,
-  },
-  sub: {
-    marginTop: 1,
-    color: "rgba(255,255,255,0.78)",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  statsRow: {
-    flexDirection: "row",
-    marginHorizontal: 14,
-    gap: 6,
-  },
-  statCell: {
-    flex: 1,
     backgroundColor: C.white,
-    borderRadius: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
     alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 2,
   },
-  statTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-  },
-  statIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statNum: {
-    fontSize: 17,
-    fontWeight: "800",
-    lineHeight: 20,
-  },
-  statLbl: {
-    marginTop: 2,
-    fontSize: 8,
-    fontWeight: "700",
-    color: C.gris,
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-    textAlign: "center",
+  notifDot: {
+    position: "absolute",
+    top: 8,
+    right: 9,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: C.naranja,
+    zIndex: 1,
+    borderWidth: 1.5,
+    borderColor: C.white,
   },
   sectionBlock: {
     marginBottom: 10,
@@ -1034,5 +1006,93 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 21,
     maxWidth: 300,
+  },
+  tabEmpty: {
+    paddingVertical: 32,
+    alignItems: "center",
+  },
+  tabEmptyTxt: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.gris,
+  },
+});
+
+const tabBarStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "#3D3630",
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "transparent",
+  },
+  tabActive: {
+    backgroundColor: C.marron,
+    borderColor: C.marron,
+  },
+  tabTxt: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  tabTxtActive: {
+    color: C.white,
+  },
+  tabTxtInactive: {
+    color: "rgba(255,255,255,0.7)",
+  },
+  tabCount: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  tabCountActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  tabCountInactive: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  tabCountTxt: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  tabCountTxtActive: {
+    color: C.white,
+  },
+  tabCountTxtInactive: {
+    color: "rgba(255,255,255,0.6)",
+  },
+  alertDot: {
+    position: "absolute",
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.naranja,
+    borderWidth: 2,
+    borderColor: "#3D3630",
   },
 });

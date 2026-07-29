@@ -163,7 +163,7 @@ export const PERMISSION_CATEGORY_OPTIONS: Array<{
 ];
 
 export const PERMISSION_CATEGORY_PICKER_OPTIONS = PERMISSION_CATEGORY_OPTIONS.filter(
-  (option) => option.value !== "VACATION",
+  (option) => option.value !== "VACATION" && option.value !== "SICKNESS",
 );
 
 export const BEREAVEMENT_RELATIONSHIP_OPTIONS: Array<{

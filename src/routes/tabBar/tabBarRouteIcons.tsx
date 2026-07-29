@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import {
   ScanBarcode,
   Activity,
@@ -7,52 +7,60 @@ import {
 } from "iconsax-react-native";
 import {
   TAB_BAR_PRIMARY,
-  TAB_BAR_SIDE_ICON,
   TAB_BAR_LAYOUT,
   fabShadow,
 } from "./tabBarConstants";
 
 type SideProps = { focused: boolean; label: string };
 
-const sideWrap = {
-  alignItems: "center" as const,
-  justifyContent: "center" as const,
-  paddingHorizontal: TAB_BAR_LAYOUT.sideTapPadding,
-  paddingVertical: 4,
-  minWidth: 44,
-};
+const FOCUSED_COLOR = "#FFFFFF";
+const UNFOCUSED_COLOR = "rgba(255,255,255,0.45)";
 
-const labelStyle = (focused: boolean, forceWhite?: boolean) => ({
-  fontSize: 9,
-  fontWeight: (focused ? "700" : "500") as "700" | "500",
-  marginTop: 1,
-  color: forceWhite ? "#FFFFFF" : focused ? TAB_BAR_PRIMARY : TAB_BAR_SIDE_ICON,
+const sideStyles = StyleSheet.create({
+  wrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 60,
+  },
+  label: {
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 3,
+  },
 });
 
-export function SideUserProfileTab({ focused, label, forceWhite }: SideProps & { forceWhite?: boolean }) {
+export function SideUserProfileTab({ focused, label }: SideProps) {
   return (
-    <View style={sideWrap}>
+    <View style={sideStyles.wrap}>
       <User
         size={TAB_BAR_LAYOUT.sideIconSize}
-        color={forceWhite ? "#FFFFFF" : focused ? TAB_BAR_PRIMARY : TAB_BAR_SIDE_ICON}
+        color={focused ? FOCUSED_COLOR : UNFOCUSED_COLOR}
         variant={focused ? "Bold" : "Linear"}
       />
-      <Text style={labelStyle(focused, forceWhite)} numberOfLines={1}>
+      <Text
+        style={[sideStyles.label, { color: focused ? FOCUSED_COLOR : UNFOCUSED_COLOR }]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </View>
   );
 }
 
-export function SideActivityTab({ focused, label, forceWhite }: SideProps & { forceWhite?: boolean }) {
+export function SideActivityTab({ focused, label }: SideProps) {
   return (
-    <View style={sideWrap}>
+    <View style={sideStyles.wrap}>
       <Activity
         size={TAB_BAR_LAYOUT.sideIconSize}
-        color={forceWhite ? "#FFFFFF" : focused ? TAB_BAR_PRIMARY : TAB_BAR_SIDE_ICON}
+        color={focused ? FOCUSED_COLOR : UNFOCUSED_COLOR}
         variant={focused ? "Bold" : "Linear"}
       />
-      <Text style={labelStyle(focused, forceWhite)} numberOfLines={1}>
+      <Text
+        style={[sideStyles.label, { color: focused ? FOCUSED_COLOR : UNFOCUSED_COLOR }]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </View>

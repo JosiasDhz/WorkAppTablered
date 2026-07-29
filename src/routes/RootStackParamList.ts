@@ -10,5 +10,7 @@ export type RootStackParamList = {
   DriverRouteConfirmMercancia: { routeId: string };
   DriverRouteProductPickup: { routeId: string };
   DriverRouteNavFirstStop: { routeId: string };
+  DriverRouteReportIncident: { routeId: string };
+  DriverCollections: undefined;
   Login: undefined;
 };

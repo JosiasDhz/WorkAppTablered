@@ -10,6 +10,13 @@ import {
   isDriverRouteAwaitingWarehouseConfirmation,
 } from "./driverRouteConfirmation";
 
+function formatCashLabel(amount: number): string {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(amount);
+}
+
 export type DriverRouteListCardModel = {
   operationalStatusLabel: string;
   isEnProceso: boolean;
@@ -29,6 +36,8 @@ export type DriverRouteListCardModel = {
   summaryTitle: string;
   summarySubtitle: string | null;
   summaryCountSuffix: string | null;
+  cashPendingHandoverMxn: number;
+  cashHandedOver: boolean;
 };
 
 function isDriverRouteFullyConfirmed(
@@ -157,7 +166,7 @@ export function buildDriverRouteListCardModel(
     driverPendingOnly,
     warehousePendingOnly,
   });
-  const summaryStripKind = resolveSummaryStripKind({
+  let summaryStripKind = resolveSummaryStripKind({
     isCompleta,
     isEnProceso,
     driverFullyConfirmed,
@@ -169,7 +178,14 @@ export function buildDriverRouteListCardModel(
   let summarySubtitle: string | null = null;
   let summaryCountSuffix: string | null = null;
 
-  if (isCompleta) {
+  const cashPendingHandoverMxn = Math.max(0, Number(route.driverCashPendingHandoverMxn ?? 0));
+  const cashHandedOver = Boolean(route.driverCashHandoverAtCdmx);
+
+  if (isCompleta && cashPendingHandoverMxn > 0) {
+    summaryTitle = "Pendiente de entregar a caja";
+    summarySubtitle = formatCashLabel(cashPendingHandoverMxn);
+    summaryStripKind = "cash-pending";
+  } else if (isCompleta) {
     summaryTitle = "Ruta finalizada";
   } else if (isEnProceso) {
     summaryTitle = "Entregas en curso";
@@ -211,6 +227,8 @@ export function buildDriverRouteListCardModel(
     summaryTitle,
     summarySubtitle,
     summaryCountSuffix,
+    cashPendingHandoverMxn,
+    cashHandedOver,
   };
 }
 

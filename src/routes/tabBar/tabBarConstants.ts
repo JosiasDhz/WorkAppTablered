@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 export const TAB_BAR_PRIMARY = "#EA7600";
 export const TAB_BAR_PRIMARY_DEEP = "#C86800";
 export const TAB_BAR_ACCENT = "#F7B917";
-export const TAB_BAR_SIDE_ICON = "#5C5855";
+export const TAB_BAR_SIDE_ICON = "#FFFFFF";
 
 export const TAB_BAR_BLUR = {
   iosIntensity: 82,

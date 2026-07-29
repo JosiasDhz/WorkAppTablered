@@ -7,7 +7,7 @@ import { tripMapModelFromAssignment } from "../driverRoute/tripMapModelFromAssig
 import type { TripMapModel } from "../driverRoute/tripMapModelFromAssignment";
 
 const PREVIEW_HEIGHT = 118;
-const CARD_MAP_PADDING = { top: 10, right: 10, bottom: 10, left: 10 };
+const CARD_MAP_PADDING = { top: 30, right: 30, bottom: 30, left: 30 };
 
 type Props = {
   routeId: string;

@@ -13,7 +13,7 @@ export type DriverRouteCelebrationMapOptions = {
 const NO_KEY_HTML = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <style>html,body,#map{margin:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-.msg{display:flex;height:100%;align-items:center;justify-content:center;padding:24px;text-align:center;color:#64748b;font-size:14px;line-height:1.45;background:#0f172a;}
+.msg{display:flex;height:100%;align-items:center;justify-content:center;padding:24px;text-align:center;color:#64748b;font-size:14px;line-height:1.45;background:#e2e8f0;}
 </style></head><body><div id="map" class="msg">Define EXPO_PUBLIC_GOOGLE_MAPS_API_KEY para ver el mapa.</div></body></html>`;
 
 const SHELL = `<!DOCTYPE html>
@@ -22,7 +22,7 @@ const SHELL = `<!DOCTYPE html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <style>
-html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#0f172a;}
+html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#e2e8f0;}
 </style>
 </head>
 <body>

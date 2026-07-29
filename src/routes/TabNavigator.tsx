@@ -28,8 +28,10 @@ import AuditLossDocuments from "../pages/profile/AuditLossDocuments";
 import AuditLossDocumentDetail from "../pages/profile/AuditLossDocumentDetail";
 import DriverRouteDetailScreen from "../pages/profile/DriverRouteDetailScreen";
 import DriverRouteConfirmMercanciaScreen from "../pages/profile/DriverRouteConfirmMercanciaScreen";
+import DriverRouteReportIncidentScreen from "../pages/profile/DriverRouteReportIncidentScreen";
 import DriverRouteProductPickupScreen from "../pages/profile/DriverRouteProductPickupScreen";
 import DriverRouteNavFirstStopScreen from "../pages/profile/DriverRouteNavFirstStopScreen";
+import DriverCollectionsScreen from "../pages/profile/DriverCollectionsScreen";
 
 const Tabs = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -65,7 +67,7 @@ const TabNavigator = () => {
       >
         <Tabs.Screen
           name="ProfileStack"
-          options={{ headerTitle: "Actividad" }}
+          options={{ headerTitle: "Rutas" }}
           component={ProfileNavigator}
         />
 
@@ -200,6 +202,16 @@ const AppNavigator = () => {
             <Stack.Screen
               name="DriverRouteNavFirstStop"
               component={DriverRouteNavFirstStopScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DriverRouteReportIncident"
+              component={DriverRouteReportIncidentScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DriverCollections"
+              component={DriverCollectionsScreen}
               options={{ headerShown: false }}
             />
           </React.Fragment>

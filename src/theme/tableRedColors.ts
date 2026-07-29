@@ -46,6 +46,7 @@ export type DriverRouteSummaryStripKind =
   | "in-process"
   | "ready"
   | "complete"
+  | "cash-pending"
   | "info";
 
 export type DriverRouteSummaryStripTone = {
@@ -165,6 +166,18 @@ export const DRIVER_ROUTE_SUMMARY_STRIP_TONES: Record<
     countText: TableRedColors.white,
     countSuffix: "rgba(255,255,255,0.82)",
     pulse: false,
+  },
+  "cash-pending": {
+    containerBg: "#FFFBEB",
+    containerBorder: "#FDE68A",
+    accent: "#D97706",
+    iconBg: "#D97706",
+    title: "#92400E",
+    subtitle: "#D97706",
+    countBg: "#D97706",
+    countText: TableRedColors.white,
+    countSuffix: "rgba(255,255,255,0.82)",
+    pulse: true,
   },
   info: {
     containerBg: "rgba(162, 171, 182, 0.1)",

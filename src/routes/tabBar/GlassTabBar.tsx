@@ -3,16 +3,14 @@ import {
   Animated,
   View,
   LayoutChangeEvent,
-  Platform,
   StyleSheet,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { CommonActions } from "@react-navigation/native";
 import {
   BottomTabBarHeightCallbackContext,
   type BottomTabBarProps,
 } from "@react-navigation/bottom-tabs";
-import { TAB_BAR_BLUR, TAB_BAR_LAYOUT, tabBarShadow } from "./tabBarConstants";
+import { TAB_BAR_LAYOUT, tabBarShadow } from "./tabBarConstants";
 import { TabBarNavButton } from "./TabBarNavButton";
 import { useTabBarMotion } from "./TabBarMotionContext";
 import {
@@ -36,6 +34,8 @@ export function GlassTabBar({
   const [cardOpen, setCardOpen] = useState(false);
   const { cardAnim, renderCard } = useQrCardSheetAnimation(cardOpen);
   const tabAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const [barRowWidth, setBarRowWidth] = useState(0);
   useBrightnessBoostWhile(cardOpen);
 
   const onBarLayout = (e: LayoutChangeEvent) => {
@@ -56,6 +56,10 @@ export function GlassTabBar({
       useNativeDriver: true,
     }).start();
   }, [collapsed, tabAnim]);
+
+  const onBarRowLayout = useCallback((e: LayoutChangeEvent) => {
+    setBarRowWidth(e.nativeEvent.layout.width);
+  }, []);
 
   const closeCard = useCallback(() => {
     setCardOpen(false);
@@ -114,6 +118,28 @@ export function GlassTabBar({
   const optUserProfile = descriptors[userProfileRoute.key].options;
   const optActivity = descriptors[activityRoute.key].options;
 
+  const sideTarget = focusUserProfile ? 1 : 0;
+  const showSlidePill = focusActivity || focusUserProfile;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: sideTarget,
+      friction: 7,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [sideTarget, slideAnim]);
+
+  const PILL_INSET = 18;
+  const clusterWidth = barRowWidth > 0
+    ? (barRowWidth - TAB_BAR_LAYOUT.fabCenterSlotWidth - TAB_BAR_LAYOUT.innerPaddingH * 2) / 2
+    : 0;
+  const pillWidth = clusterWidth > 0 ? clusterWidth - PILL_INSET * 2 : 0;
+  const pillSlideX = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, clusterWidth + TAB_BAR_LAYOUT.fabCenterSlotWidth],
+  });
+
   const overlayOpacity = cardAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 1],
@@ -152,31 +178,15 @@ export function GlassTabBar({
               },
             ]}
           >
-            <BlurView
-              intensity={
-                Platform.OS === "ios"
-                  ? TAB_BAR_BLUR.iosIntensity
-                  : TAB_BAR_BLUR.androidIntensity
-              }
-              tint="light"
-              {...(Platform.OS === "android"
-                ? {
-                    experimentalBlurMethod: "dimezisBlurView" as const,
-                    blurReductionFactor: TAB_BAR_BLUR.androidBlurReductionFactor,
-                  }
-                : {})}
+            <View
               style={{
                 borderRadius: TAB_BAR_LAYOUT.pillRadius,
                 overflow: "hidden",
-                borderWidth: cardOpen ? 0 : 1.2,
-                borderColor: "rgba(255, 255, 255, 0.9)",
-                backgroundColor:
-                  Platform.OS === "ios"
-                    ? TAB_BAR_BLUR.overlayIos
-                    : TAB_BAR_BLUR.overlayAndroid,
+                backgroundColor: "#3D3630",
               }}
             >
               <View
+                onLayout={onBarRowLayout}
                 style={[
                   styles.barRow,
                   {
@@ -188,6 +198,17 @@ export function GlassTabBar({
                   },
                 ]}
               >
+                {showSlidePill && pillWidth > 0 ? (
+                  <Animated.View
+                    style={[
+                      styles.slidePill,
+                      {
+                        width: pillWidth,
+                        transform: [{ translateX: pillSlideX }],
+                      },
+                    ]}
+                  />
+                ) : null}
                 <View style={styles.barCluster}>
                   <TabBarNavButton
                     focused={focusActivity}
@@ -207,7 +228,7 @@ export function GlassTabBar({
                   >
                     <SideActivityTab
                       focused={focusActivity}
-                      label="Actividad"
+                      label="Rutas"
                     />
                   </TabBarNavButton>
                 </View>
@@ -242,7 +263,7 @@ export function GlassTabBar({
                   </TabBarNavButton>
                 </View>
               </View>
-            </BlurView>
+            </View>
           </View>
 
           <View
@@ -296,6 +317,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-evenly",
+  },
+  slidePill: {
+    position: "absolute",
+    left: TAB_BAR_LAYOUT.innerPaddingH + 18,
+    top: 8,
+    bottom: 8,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   fabSlot: {
     position: "absolute",

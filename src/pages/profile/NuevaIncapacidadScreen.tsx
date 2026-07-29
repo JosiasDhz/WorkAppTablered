@@ -233,7 +233,7 @@ export default function NuevaIncapacidadScreen() {
       );
       return;
     }
-    if (selectedReason.requiresEvidence && evidence.length === 0) {
+    if (evidence.length === 0) {
       Alert.alert("Evidencia requerida", "Adjunta al menos una imagen o PDF.");
       return;
     }
@@ -249,11 +249,15 @@ export default function NuevaIncapacidadScreen() {
         });
         if (uploaded?.id) fileIds.push(uploaded.id);
       }
+      if (fileIds.length === 0) {
+        Alert.alert("Evidencia requerida", "No se pudo subir la evidencia. Intenta de nuevo.");
+        return;
+      }
       await createIncapacityRequest({
         reasonId: selectedReason.id,
         startDate: startLabel,
         endDate: endLabel,
-        fileIds: fileIds.length > 0 ? fileIds : undefined,
+        fileIds,
       });
       Alert.alert("Solicitud enviada", "Tu incapacidad quedó pendiente de revisión.", [
         {
@@ -305,8 +309,7 @@ export default function NuevaIncapacidadScreen() {
         )}
         {selectedReason ? (
           <Text style={styles.hint}>
-            Máx. {selectedReason.maxDays} día(s)
-            {selectedReason.requiresEvidence ? " · Requiere evidencia" : " · Sin evidencia"}
+            Máx. {selectedReason.maxDays} día(s) · Requiere evidencia
           </Text>
         ) : null}
 
@@ -328,42 +331,38 @@ export default function NuevaIncapacidadScreen() {
           </Text>
         ) : null}
 
-        {selectedReason?.requiresEvidence ? (
-          <>
-            <Text style={[styles.label, { marginTop: 20 }]}>Evidencias</Text>
-            <Text style={styles.hint}>Imágenes o PDF (máx. {MAX_EVIDENCE})</Text>
-            <View style={styles.attachRow}>
-              <Pressable style={styles.attachBtn} onPress={() => void addImage()}>
-                <AttachSquare size={18} color={COLORS.accent} variant="Linear" />
-                <Text style={styles.attachBtnText}>Imagen</Text>
-              </Pressable>
-              <Pressable style={styles.attachBtn} onPress={() => void addPdf()}>
-                <DocumentText size={18} color={COLORS.accent} variant="Linear" />
-                <Text style={styles.attachBtnText}>PDF</Text>
-              </Pressable>
-            </View>
-            {evidence.map((item) => (
-              <View key={item.id} style={styles.evidenceCard}>
-                {item.isPdf ? (
-                  <View style={styles.pdfPreview}>
-                    <DocumentText size={28} color={COLORS.accent} variant="Linear" />
-                    <Text style={styles.pdfName} numberOfLines={2}>
-                      {item.name}
-                    </Text>
-                  </View>
-                ) : (
-                  <Image source={{ uri: item.uri }} style={styles.thumb} />
-                )}
-                <Pressable
-                  style={styles.removeBtn}
-                  onPress={() => removeEvidence(item.id)}
-                >
-                  <Trash size={18} color="#DC2626" variant="Linear" />
-                </Pressable>
+        <Text style={[styles.label, { marginTop: 20 }]}>Evidencias</Text>
+        <Text style={styles.hint}>Imágenes o PDF (máx. {MAX_EVIDENCE}) · obligatorio</Text>
+        <View style={styles.attachRow}>
+          <Pressable style={styles.attachBtn} onPress={() => void addImage()}>
+            <AttachSquare size={18} color={COLORS.accent} variant="Linear" />
+            <Text style={styles.attachBtnText}>Imagen</Text>
+          </Pressable>
+          <Pressable style={styles.attachBtn} onPress={() => void addPdf()}>
+            <DocumentText size={18} color={COLORS.accent} variant="Linear" />
+            <Text style={styles.attachBtnText}>PDF</Text>
+          </Pressable>
+        </View>
+        {evidence.map((item) => (
+          <View key={item.id} style={styles.evidenceCard}>
+            {item.isPdf ? (
+              <View style={styles.pdfPreview}>
+                <DocumentText size={28} color={COLORS.accent} variant="Linear" />
+                <Text style={styles.pdfName} numberOfLines={2}>
+                  {item.name}
+                </Text>
               </View>
-            ))}
-          </>
-        ) : null}
+            ) : (
+              <Image source={{ uri: item.uri }} style={styles.thumb} />
+            )}
+            <Pressable
+              style={styles.removeBtn}
+              onPress={() => removeEvidence(item.id)}
+            >
+              <Trash size={18} color="#DC2626" variant="Linear" />
+            </Pressable>
+          </View>
+        ))}
 
         <Pressable
           style={[styles.submitBtn, submitting && styles.submitDisabled]}
@@ -403,7 +402,7 @@ export default function NuevaIncapacidadScreen() {
                     <Text style={styles.reasonOptionName}>{reason.name}</Text>
                     <Text style={styles.reasonOptionMeta}>
                       Máx. {reason.maxDays} día(s)
-                      {reason.requiresEvidence ? " · Requiere evidencia" : " · Sin evidencia"}
+                      {reason.requiresEvidence ? " · Requiere evidencia" : " · Evidencia"}
                     </Text>
                   </Pressable>
                 );

@@ -186,7 +186,6 @@ export default function NuevoPermisoScreen() {
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [requestedHours, setRequestedHours] = useState("2");
   const [requestedDays, setRequestedDays] = useState(1);
-  const [includeSundays, setIncludeSundays] = useState(false);
   const [bereavementRelationship, setBereavementRelationship] =
     useState<BereavementRelationship>("PARENT");
   const [balance, setBalance] = useState<PermissionBalanceSnapshot | null>(null);
@@ -216,9 +215,6 @@ export default function NuevoPermisoScreen() {
     const target = new Date(permissionDate);
     target.setHours(0, 0, 0, 0);
     const diff = Math.floor((target.getTime() - today.getTime()) / 86400000);
-    if (category === "SICKNESS" && diff < 3) {
-      return "La enfermedad requiere aviso con al menos 3 días de anticipación.";
-    }
     if (category === "VACATION" && diff < 30) {
       return "Las vacaciones requieren aviso con al menos 30 días de anticipación.";
     }
@@ -226,7 +222,6 @@ export default function NuevoPermisoScreen() {
   }, [category, permissionDate]);
 
   const showDaysField =
-    category === "SICKNESS" ||
     category === "FULL_DAY" ||
     category === "PERSONAL_ERRAND" ||
     category === "BEREAVEMENT" ||
@@ -359,7 +354,6 @@ export default function NuevoPermisoScreen() {
         requestedHours:
           category === "HOURLY" ? Number(requestedHours.replace(",", ".")) : undefined,
         requestedDays,
-        includeSundays: category === "SICKNESS" ? includeSundays : undefined,
         bereavementRelationship:
           category === "BEREAVEMENT" ? bereavementRelationship : undefined,
         fileIds,
@@ -411,12 +405,6 @@ export default function NuevoPermisoScreen() {
                   label="Día compl."
                   used={balance.fullDaysUsedQuarter}
                   remaining={balance.fullDaysRemainingQuarter}
-                  unit="d"
-                />
-                <BalancePill
-                  label="Enfermedad"
-                  used={balance.sicknessDaysUsedQuarter}
-                  remaining={balance.sicknessDaysRemainingQuarter}
                   unit="d"
                 />
                 <BalancePill
@@ -490,18 +478,6 @@ export default function NuevoPermisoScreen() {
                 suffix="días"
               />
             </>
-          ) : null}
-
-          {category === "SICKNESS" ? (
-            <Pressable
-              style={styles.checkboxRow}
-              onPress={() => setIncludeSundays((prev) => !prev)}
-            >
-              <View style={[styles.checkbox, includeSundays && styles.checkboxChecked]}>
-                {includeSundays ? <Text style={styles.checkMark}>✓</Text> : null}
-              </View>
-              <Text style={styles.checkboxLabel}>Incluir domingos en el conteo</Text>
-            </Pressable>
           ) : null}
 
           {category === "BEREAVEMENT" ? (

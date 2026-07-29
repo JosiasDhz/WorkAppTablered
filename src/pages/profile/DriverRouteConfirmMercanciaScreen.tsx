@@ -14,20 +14,27 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ArrowRight2 } from "iconsax-react-native";
+import { ArrowRight2, Warning2 } from "iconsax-react-native";
 import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
+import type { DriverIncidentReason } from "../../types/driverIncidents";
 import {
-  buildDriverRouteConfirmPayload,
+  buildDriverRouteReceiptPayload,
   driverRouteConfirmProgress,
   flattenDriverRouteConfirmLines,
+  allDriverRouteReceiptQtyCaptured,
+  driverRouteReceiptHasDiscrepancy,
   isDriverRouteLineConfirmable,
   isDriverRouteLineConfirmed,
 } from "../../domain/driverRouteConfirmLines";
-import { confirmDriverRouteDeliveries } from "../../services/deliveryRoutesService";
+import { confirmDriverRouteReceipt } from "../../services/driverIncidentsService";
 import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
 import { DriverRouteWorkerCodeModal } from "./driverRoute/DriverRouteWorkerCodeModal";
+import {
+  DriverRouteLineIncidentModal,
+  type LineIncidentDraft,
+} from "./driverRoute/DriverRouteLineIncidentModal";
 import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
 
@@ -66,6 +73,13 @@ function emptyQtyMap(lineIds: string[]): Record<string, string> {
   return o;
 }
 
+function reasonLabel(reason: DriverIncidentReason | undefined): string {
+  if (reason === "faltante_recepcion") return "Faltante";
+  if (reason === "danado_recepcion") return "Dañado";
+  if (reason === "danado_transito") return "Dañado en ruta";
+  return "Incidencia";
+}
+
 export default function DriverRouteConfirmMercanciaScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -82,6 +96,12 @@ export default function DriverRouteConfirmMercanciaScreen() {
   const progress = useMemo(() => driverRouteConfirmProgress(lines), [lines]);
 
   const [qtyByLineId, setQtyByLineId] = useState<Record<string, string>>({});
+  const [damagedByLineId, setDamagedByLineId] = useState<Record<string, string>>({});
+  const [commentByLineId, setCommentByLineId] = useState<Record<string, string>>({});
+  const [reasonByLineId, setReasonByLineId] = useState<
+    Record<string, DriverIncidentReason | undefined>
+  >({});
+  const [incidentLineId, setIncidentLineId] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [workerCodeModalOpen, setWorkerCodeModalOpen] = useState(false);
@@ -92,51 +112,128 @@ export default function DriverRouteConfirmMercanciaScreen() {
   );
 
   useEffect(() => {
-    setQtyByLineId(emptyQtyMap(confirmableLines.map((l) => l.id)));
+    const ids = confirmableLines.map((l) => l.id);
+    setQtyByLineId(emptyQtyMap(ids));
+    setDamagedByLineId(emptyQtyMap(ids));
+    setCommentByLineId(emptyQtyMap(ids));
+    setReasonByLineId({});
   }, [confirmableLines]);
 
-  const allConfirmQtyMatched = useMemo(() => {
-    if (confirmableLines.length === 0) return false;
-    return confirmableLines.every((line) => {
-      const raw = (qtyByLineId[line.id] ?? "").trim();
-      if (!/\d/.test(raw)) return false;
-      return parseQty(raw) === line.quantity;
-    });
-  }, [confirmableLines, qtyByLineId]);
+  const allQtyCaptured = useMemo(
+    () => allDriverRouteReceiptQtyCaptured(confirmableLines, qtyByLineId),
+    [confirmableLines, qtyByLineId],
+  );
+
+  const hasDiscrepancy = useMemo(
+    () =>
+      driverRouteReceiptHasDiscrepancy(
+        confirmableLines,
+        qtyByLineId,
+        damagedByLineId,
+      ),
+    [confirmableLines, qtyByLineId, damagedByLineId],
+  );
 
   const setQty = useCallback((lineId: string, text: string) => {
     setQtyByLineId((prev) => ({ ...prev, [lineId]: text }));
+    setReasonByLineId((prev) => {
+      if (!prev[lineId]) return prev;
+      const next = { ...prev };
+      delete next[lineId];
+      return next;
+    });
+    setDamagedByLineId((prev) => ({ ...prev, [lineId]: "" }));
   }, []);
+
+  const incidentLine = useMemo(
+    () => lines.find((line) => line.id === incidentLineId) ?? null,
+    [incidentLineId, lines],
+  );
+
+  const incidentInitial = useMemo((): LineIncidentDraft | null => {
+    if (!incidentLineId) return null;
+    const reason = reasonByLineId[incidentLineId];
+    if (!reason) return null;
+    return {
+      reason,
+      receivedQuantity: parseQty(qtyByLineId[incidentLineId] ?? "0"),
+      damagedQuantity: parseQty(damagedByLineId[incidentLineId] ?? "0"),
+      comment: commentByLineId[incidentLineId] ?? "",
+    };
+  }, [
+    commentByLineId,
+    damagedByLineId,
+    incidentLineId,
+    qtyByLineId,
+    reasonByLineId,
+  ]);
+
+  const applyIncident = useCallback((lineId: string, draft: LineIncidentDraft) => {
+    setQtyByLineId((prev) => ({ ...prev, [lineId]: String(draft.receivedQuantity) }));
+    setDamagedByLineId((prev) => ({
+      ...prev,
+      [lineId]: draft.damagedQuantity > 0 ? String(draft.damagedQuantity) : "",
+    }));
+    setCommentByLineId((prev) => ({ ...prev, [lineId]: draft.comment }));
+    setReasonByLineId((prev) => ({ ...prev, [lineId]: draft.reason }));
+    setIncidentLineId(null);
+  }, []);
+
+  const clearIncident = useCallback((lineId: string) => {
+    setReasonByLineId((prev) => {
+      const next = { ...prev };
+      delete next[lineId];
+      return next;
+    });
+    setDamagedByLineId((prev) => ({ ...prev, [lineId]: "" }));
+    setCommentByLineId((prev) => ({ ...prev, [lineId]: "" }));
+    setQtyByLineId((prev) => ({ ...prev, [lineId]: "" }));
+    setIncidentLineId(null);
+  }, []);
+
+  const goVehicleCheck = useCallback(() => {
+    navigation.navigate("DriverRouteProductPickup", { routeId });
+  }, [navigation, routeId]);
+
+  const finishConfirmAndContinue = useCallback(() => {
+    setWorkerCodeModalOpen(false);
+    goVehicleCheck();
+  }, [goVehicleCheck]);
 
   const handleConfirm = useCallback(
     async (workerCode: string) => {
-      if (!allConfirmQtyMatched || confirmBusy) return;
+      if (!allQtyCaptured || confirmBusy) return;
       if (DRIVER_ROUTES_FLOW_USE_DEMO) {
         Toast.show({ type: "success", text1: "Mercancía confirmada (demo)" });
         finishConfirmAndContinue();
         return;
       }
-      const payload = buildDriverRouteConfirmPayload(confirmableLines);
-      if (
-        payload.cartItemDeliveryIds.length === 0 &&
-        payload.transferIds.length === 0
-      ) {
-        setConfirmError("No hay partidas válidas para confirmar");
-        setWorkerCodeModalOpen(true);
-        return;
-      }
+      const payloadLines = buildDriverRouteReceiptPayload(
+        confirmableLines,
+        qtyByLineId,
+        damagedByLineId,
+        commentByLineId,
+        reasonByLineId,
+      );
       setConfirmBusy(true);
       setConfirmError(null);
       try {
-        const res = await confirmDriverRouteDeliveries(routeId, {
+        const res = await confirmDriverRouteReceipt(routeId, {
           workerCode,
-          ...payload,
+          lines: payloadLines,
         });
-        setQtyByLineId(emptyQtyMap(confirmableLines.map((l) => l.id)));
+        const ids = confirmableLines.map((l) => l.id);
+        setQtyByLineId(emptyQtyMap(ids));
+        setDamagedByLineId(emptyQtyMap(ids));
+        setCommentByLineId(emptyQtyMap(ids));
+        setReasonByLineId({});
         Toast.show({
           type: "success",
           text1: "Mercancía confirmada",
-          text2: `${res.confirmedCount} partida${res.confirmedCount === 1 ? "" : "s"} registrada${res.confirmedCount === 1 ? "" : "s"}.`,
+          text2:
+            res.incidentCount > 0
+              ? `${res.confirmedCount} partida(s) · ${res.incidentCount} incidencia(s) registrada(s).`
+              : `${res.confirmedCount} partida${res.confirmedCount === 1 ? "" : "s"} registrada${res.confirmedCount === 1 ? "" : "s"}.`,
         });
         await refresh();
         finishConfirmAndContinue();
@@ -148,22 +245,39 @@ export default function DriverRouteConfirmMercanciaScreen() {
       }
     },
     [
-      allConfirmQtyMatched,
+      allQtyCaptured,
+      commentByLineId,
       confirmBusy,
       confirmableLines,
+      damagedByLineId,
       finishConfirmAndContinue,
+      qtyByLineId,
+      reasonByLineId,
       refresh,
       routeId,
     ],
   );
 
   const openConfirmModal = useCallback(() => {
-    if (!allConfirmQtyMatched) {
+    if (!allQtyCaptured) {
       Toast.show({
         type: "info",
         text1: "Cantidades pendientes",
-        text2: "Registra la misma cantidad asignada en cada producto.",
+        text2: "Confirma cada producto o reporta una incidencia.",
       });
+      return;
+    }
+    const missingIncident = confirmableLines.find((line) => {
+      const received = parseQty(qtyByLineId[line.id] ?? "");
+      return received < line.quantity && !reasonByLineId[line.id];
+    });
+    if (missingIncident) {
+      Toast.show({
+        type: "info",
+        text1: "Falta reportar incidencia",
+        text2: "Toca el botón de advertencia e indica cantidad y motivo.",
+      });
+      setIncidentLineId(missingIncident.id);
       return;
     }
     setConfirmError(null);
@@ -172,16 +286,14 @@ export default function DriverRouteConfirmMercanciaScreen() {
       return;
     }
     setWorkerCodeModalOpen(true);
-  }, [allConfirmQtyMatched, handleConfirm, sessionWorkerCode]);
-
-  const goVehicleCheck = useCallback(() => {
-    navigation.navigate("DriverRouteProductPickup", { routeId });
-  }, [navigation, routeId]);
-
-  const finishConfirmAndContinue = useCallback(() => {
-    setWorkerCodeModalOpen(false);
-    goVehicleCheck();
-  }, [goVehicleCheck]);
+  }, [
+    allQtyCaptured,
+    confirmableLines,
+    handleConfirm,
+    qtyByLineId,
+    reasonByLineId,
+    sessionWorkerCode,
+  ]);
 
   const dockBottomPad = Math.max(insets.bottom, 12);
 
@@ -211,7 +323,8 @@ export default function DriverRouteConfirmMercanciaScreen() {
   }
 
   const { route } = detail;
-  const showVehicleDock = progress.allConfirmed;
+  const showVehicleDock =
+    progress.allConfirmed && progress.confirmedCount > 0 && confirmableLines.length === 0;
   const showConfirmDock = !progress.allConfirmed && confirmableLines.length > 0;
   const scrollBottomPad =
     (showVehicleDock ? 72 : showConfirmDock ? 72 : 24) + dockBottomPad;
@@ -229,113 +342,182 @@ export default function DriverRouteConfirmMercanciaScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
         >
-        <ScrollView
-          contentContainerStyle={[styles.scrollPad, { paddingBottom: scrollBottomPad }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.progressCard}>
-            <Text style={styles.progressTitle}>Recepción de mercancía</Text>
-            <Text style={styles.progressSub}>
-              Escribe la misma cantidad asignada en cada producto para confirmar.
-            </Text>
-          </View>
+          <ScrollView
+            contentContainerStyle={[styles.scrollPad, { paddingBottom: scrollBottomPad }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.progressCard}>
+              <Text style={styles.progressTitle}>Recepción de mercancía</Text>
+              <Text style={styles.progressSub}>
+                Si todo está bien, captura la cantidad completa. Si hay faltante o daño,
+                toca el botón de advertencia para reportar la incidencia.
+              </Text>
+              {hasDiscrepancy ? (
+                <Text style={[styles.progressSub, { color: "#B45309", marginTop: 8 }]}>
+                  Hay incidencias: se avisará al almacenista al confirmar.
+                </Text>
+              ) : null}
+            </View>
 
-          {lines.map((line) => {
-            const confirmable = isDriverRouteLineConfirmable(line);
-            const confirmed = isDriverRouteLineConfirmed(line);
-            const addr = formatAddress(line);
-            const raw = qtyByLineId[line.id] ?? "";
-            const parsed = parseQty(raw);
-            const hasQty = /\d/.test(raw.trim());
-            const over = hasQty && parsed > line.quantity;
-            const under = hasQty && parsed < line.quantity;
-            return (
-              <View
-                key={line.id}
-                style={styles.lineCard}
-              >
-                <View style={styles.lineTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.prodName} numberOfLines={3}>
-                      {line.productName}
-                    </Text>
-                    <Text style={styles.folio}>{line.saleFolio}</Text>
-                    {addr ? (
-                      <Text style={styles.addr} numberOfLines={2}>
-                        {addr}
+            {lines.map((line) => {
+              const confirmable = isDriverRouteLineConfirmable(line);
+              const confirmed = isDriverRouteLineConfirmed(line);
+              const addr = formatAddress(line);
+              const raw = qtyByLineId[line.id] ?? "";
+              const parsed = parseQty(raw);
+              const hasQty = /\d/.test(raw.trim());
+              const over = hasQty && parsed > line.quantity;
+              const under = hasQty && parsed < line.quantity;
+              const hasIncident = Boolean(reasonByLineId[line.id]);
+              return (
+                <View
+                  key={line.id}
+                  style={[
+                    styles.lineCard,
+                    hasIncident ? styles.lineCardIncident : null,
+                  ]}
+                >
+                  <View style={styles.lineTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.prodName} numberOfLines={3}>
+                        {line.productName}
                       </Text>
+                      <Text style={styles.folio}>{line.saleFolio}</Text>
+                      {addr ? (
+                        <Text style={styles.addr} numberOfLines={2}>
+                          {addr}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {confirmable ? (
+                      <Pressable
+                        style={[
+                          styles.warnBtn,
+                          hasIncident ? styles.warnBtnOn : null,
+                        ]}
+                        onPress={() => setIncidentLineId(line.id)}
+                        accessibilityLabel="Reportar incidencia del producto"
+                      >
+                        <Warning2
+                          size={18}
+                          color={hasIncident ? "#FFFFFF" : "#C2410C"}
+                          variant="Bold"
+                        />
+                      </Pressable>
                     ) : null}
                   </View>
+
+                  {confirmable ? (
+                    <View style={styles.qtyRow}>
+                      <View style={styles.qtyCol}>
+                        <Text style={styles.qtyLbl}>En ruta</Text>
+                        <Text style={styles.qtyExpected}>{line.quantity}</Text>
+                      </View>
+                      <View style={[styles.qtyCol, styles.qtyColInput]}>
+                        <Text style={styles.qtyLbl}>Confirmado</Text>
+                        <TextInput
+                          value={raw}
+                          onChangeText={(t) => setQty(line.id, t)}
+                          placeholder="-"
+                          placeholderTextColor="#94A3B8"
+                          keyboardType="number-pad"
+                          inputMode="numeric"
+                          maxLength={6}
+                          editable={!hasIncident}
+                          style={[
+                            styles.input,
+                            over || under || hasIncident ? styles.inputWarn : null,
+                            hasIncident ? styles.inputLocked : null,
+                          ]}
+                          accessibilityLabel={`Cantidad a confirmar para ${line.productName}`}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.qtyRow}>
+                      <View style={styles.qtyCol}>
+                        <Text style={styles.qtyLbl}>Cantidad</Text>
+                        <Text style={styles.qtyExpected}>{line.quantity}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {confirmable ? (
+                    <Pressable
+                      style={styles.incidentLink}
+                      onPress={() => setIncidentLineId(line.id)}
+                    >
+                      <Warning2 size={16} color="#C2410C" variant="Bold" />
+                      <Text style={styles.incidentLinkTxt}>
+                        {hasIncident
+                          ? `Incidencia: ${reasonLabel(reasonByLineId[line.id])}`
+                          : "Reportar incidencia (faltante / daño)"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {hasIncident ? (
+                    <View style={styles.incidentSummary}>
+                      <Text style={styles.incidentSummaryTxt}>
+                        {(() => {
+                          const damaged = parseQty(damagedByLineId[line.id] ?? "0");
+                          const received = parseQty(raw || "0");
+                          if (reasonByLineId[line.id] === "danado_recepcion") {
+                            return `${damaged} de ${line.quantity} dañadas`;
+                          }
+                          const missing = Math.max(0, line.quantity - received);
+                          return `${missing} de ${line.quantity} faltantes`;
+                        })()}
+                      </Text>
+                      {(commentByLineId[line.id] ?? "").trim() ? (
+                        <Text style={styles.incidentComment} numberOfLines={2}>
+                          {commentByLineId[line.id]}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {over ? (
+                    <Text style={styles.warn}>
+                      No puede superar lo asignado ({line.quantity}).
+                    </Text>
+                  ) : null}
+                  {under && !hasIncident ? (
+                    <Text style={styles.warn}>
+                      Cantidad menor: usa “Reportar incidencia” para indicar el motivo.
+                    </Text>
+                  ) : null}
+                  {confirmed ? (
+                    <View style={styles.badgeRow}>
+                      <Text style={styles.badgeConfirmed}>Confirmado por chofer</Text>
+                    </View>
+                  ) : !confirmable ? (
+                    <View style={styles.badgeRow}>
+                      <Text style={styles.badgeWarehouse}>Esperando almacén</Text>
+                    </View>
+                  ) : null}
                 </View>
-                {confirmable ? (
-                  <View style={styles.qtyRow}>
-                    <View style={styles.qtyCol}>
-                      <Text style={styles.qtyLbl}>En ruta</Text>
-                      <Text style={styles.qtyExpected}>{line.quantity}</Text>
-                    </View>
-                    <View style={[styles.qtyCol, styles.qtyColInput]}>
-                      <Text style={styles.qtyLbl}>Confirmado</Text>
-                      <TextInput
-                        value={raw}
-                        onChangeText={(t) => setQty(line.id, t)}
-                        placeholder="-"
-                        placeholderTextColor="#94A3B8"
-                        keyboardType="number-pad"
-                        inputMode="numeric"
-                        maxLength={6}
-                        style={[styles.input, over || under ? styles.inputWarn : null]}
-                        accessibilityLabel={`Cantidad a confirmar para ${line.productName}`}
-                      />
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.qtyRow}>
-                    <View style={styles.qtyCol}>
-                      <Text style={styles.qtyLbl}>Cantidad</Text>
-                      <Text style={styles.qtyExpected}>{line.quantity}</Text>
-                    </View>
-                  </View>
-                )}
-                {over ? (
-                  <Text style={styles.warn}>
-                    No puede superar lo asignado ({line.quantity}).
-                  </Text>
-                ) : null}
-                {under ? (
-                  <Text style={styles.warn}>
-                    Debe coincidir con lo asignado ({line.quantity}).
-                  </Text>
-                ) : null}
-                {confirmed ? (
-                  <View style={styles.badgeRow}>
-                    <Text style={styles.badgeConfirmed}>Confirmado por chofer</Text>
-                  </View>
-                ) : !confirmable ? (
-                  <View style={styles.badgeRow}>
-                    <Text style={styles.badgeWarehouse}>Esperando almacén</Text>
-                  </View>
-                ) : null}
+              );
+            })}
+
+            {!allQtyCaptured && confirmableLines.length > 0 ? (
+              <View style={styles.pendingWrap}>
+                <Text style={styles.pendingTitle}>Antes de confirmar</Text>
+                <Text style={styles.pendingItem}>
+                  Confirma cada producto o reporta incidencia con el botón de advertencia.
+                </Text>
               </View>
-            );
-          })}
-          {!allConfirmQtyMatched && confirmableLines.length > 0 ? (
-            <View style={styles.pendingWrap}>
-              <Text style={styles.pendingTitle}>Antes de confirmar</Text>
-              <Text style={styles.pendingItem}>
-                Registra las cantidades recibidas en cada producto pendiente.
-              </Text>
-            </View>
-          ) : null}
-        </ScrollView>
+            ) : null}
+          </ScrollView>
         </KeyboardAvoidingView>
 
         {showConfirmDock ? (
           <View style={[styles.dock, { paddingBottom: dockBottomPad }]}>
             <Pressable
-              style={[styles.dockBtn, !allConfirmQtyMatched ? styles.dockBtnDisabled : null]}
+              style={[styles.dockBtn, !allQtyCaptured ? styles.dockBtnDisabled : null]}
               onPress={openConfirmModal}
-              disabled={!allConfirmQtyMatched}
+              disabled={!allQtyCaptured}
             >
               <Text style={styles.dockBtnTxt}>Confirmar mercancía</Text>
             </Pressable>
@@ -367,6 +549,22 @@ export default function DriverRouteConfirmMercanciaScreen() {
           }}
           onConfirm={handleConfirm}
         />
+
+        {incidentLine ? (
+          <DriverRouteLineIncidentModal
+            visible
+            productName={incidentLine.productName}
+            expectedQuantity={incidentLine.quantity}
+            initial={incidentInitial}
+            onClose={() => setIncidentLineId(null)}
+            onSave={(draft) => applyIncident(incidentLine.id, draft)}
+            onClear={
+              incidentInitial
+                ? () => clearIncident(incidentLine.id)
+                : undefined
+            }
+          />
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -396,7 +594,13 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   progressTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
-  progressSub: { marginTop: 6, fontSize: 13, fontWeight: "600", color: "#64748B", lineHeight: 18 },
+  progressSub: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+    lineHeight: 18,
+  },
   lineCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
@@ -405,10 +609,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
+  lineCardIncident: {
+    borderColor: "#FDBA74",
+    backgroundColor: "#FFFBEB",
+  },
   lineTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   prodName: { fontSize: 14, fontWeight: "700", color: "#0F172A", lineHeight: 19 },
   folio: { marginTop: 4, fontSize: 12, fontWeight: "700", color: "#64748B" },
   addr: { marginTop: 4, fontSize: 12, fontWeight: "600", color: "#94A3B8" },
+  warnBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FDBA74",
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  warnBtnOn: {
+    backgroundColor: "#EA7600",
+    borderColor: "#EA7600",
+  },
   qtyRow: { marginTop: 12, flexDirection: "row", gap: 12 },
   qtyCol: { flex: 1 },
   qtyColInput: { maxWidth: 120 },
@@ -436,6 +658,46 @@ const styles = StyleSheet.create({
     borderColor: "#F97316",
     backgroundColor: "#FFF7ED",
   },
+  inputLocked: {
+    opacity: 0.85,
+  },
+  incidentLink: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FDBA74",
+    backgroundColor: "#FFF7ED",
+  },
+  incidentLinkTxt: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#C2410C",
+  },
+  incidentSummary: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  incidentSummaryTxt: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#9A3412",
+  },
+  incidentComment: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#C2410C",
+  },
   warn: {
     marginTop: 8,
     fontSize: 12,
@@ -454,8 +716,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FED7AA",
   },
-  pendingTitle: { fontSize: 13, fontWeight: "800", color: "#9A3412", marginBottom: 6 },
-  pendingItem: { fontSize: 13, fontWeight: "600", color: "#C2410C", lineHeight: 18 },
+  pendingTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#9A3412",
+    marginBottom: 6,
+  },
+  pendingItem: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#C2410C",
+    lineHeight: 18,
+  },
   dock: {
     position: "absolute",
     left: 0,

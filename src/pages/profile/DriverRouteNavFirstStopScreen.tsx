@@ -164,6 +164,7 @@ export default function DriverRouteNavFirstStopScreen() {
     folio: string;
     deliveredStops: number;
     mapModel: ReturnType<typeof tripMapModelFromAssignment>;
+    cashPendingMxn: number;
   } | null>(null);
   const [deliveredByRecordId, setDeliveredByRecordId] = useState<Record<string, string>>({});
   const [deliveryEvidencePhotos, setDeliveryEvidencePhotos] =
@@ -214,6 +215,7 @@ export default function DriverRouteNavFirstStopScreen() {
         folio: detail.route.folio,
         deliveredStops: ordered.length,
         mapModel: tripMapModelFromAssignment(detail),
+        cashPendingMxn: Math.max(0, Number(detail.route.driverCashPendingHandoverMxn) || 0),
       });
       return;
     }
@@ -306,8 +308,7 @@ export default function DriverRouteNavFirstStopScreen() {
   const cashHandoverAmountMxn = cashHandoverCompleted
     ? Math.max(0, Number(detail?.route.driverCashHandoverAmountMxn) || 0)
     : cashHandoverPendingMxn;
-  const canFinalizeRoute =
-    endFuelComplete && (cashHandoverPendingMxn <= 0 || cashHandoverCompleted);
+  const canFinalizeRoute = endFuelComplete;
 
   const fitPadding = useMemo((): MapFitPadding => {
     const bottomSheetRatio = 0.34;
@@ -599,6 +600,7 @@ export default function DriverRouteNavFirstStopScreen() {
         folio: celebrationFolio,
         deliveredStops: ordered.length,
         mapModel: celebrationMapModel,
+        cashPendingMxn: cashHandoverPendingMxn,
       });
       if (!DRIVER_ROUTES_DETAIL_USE_DEMO) {
         void refresh();
@@ -652,6 +654,7 @@ export default function DriverRouteNavFirstStopScreen() {
         folio={routeCelebration.folio}
         deliveredStops={routeCelebration.deliveredStops}
         mapModel={routeCelebration.mapModel}
+        cashPendingMxn={routeCelebration.cashPendingMxn}
         onFinish={() => {
           navigation.dispatch(
             CommonActions.reset({
@@ -846,21 +849,29 @@ export default function DriverRouteNavFirstStopScreen() {
             ) : null}
             {flow === "end_fuel" ? (
               <ScrollView
-                style={{ maxHeight: deliveryFocusScrollMaxH }}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 16 }}
               >
                 <DriverRouteVehicleCheckPhotos
                   photos={endVehiclePhotos}
                   onChange={setEndVehiclePhotos}
                   phase="end"
                 />
-                <DriverRouteCashHandoverPanel
-                  amountMxn={cashHandoverAmountMxn}
-                  busy={handoverBusy}
-                  completed={cashHandoverCompleted}
-                  onConfirm={() => void confirmCashHandover()}
-                />
+                {cashHandoverPendingMxn > 0 && !cashHandoverCompleted ? (
+                  <View style={styles.cashPendingBanner}>
+                    <Text style={styles.cashPendingText}>
+                      Tienes{" "}
+                      <Text style={styles.cashPendingAmount}>
+                        {new Intl.NumberFormat("es-MX", {
+                          style: "currency",
+                          currency: "MXN",
+                        }).format(cashHandoverPendingMxn)}
+                      </Text>{" "}
+                      por entregar a caja. Puedes hacerlo desde "Mis cobros".
+                    </Text>
+                  </View>
+                ) : null}
                 <TouchableOpacity
                   style={[
                     styles.sigPrimaryBtn,
@@ -1283,7 +1294,26 @@ const styles = StyleSheet.create({
   },
   endFuelBtn: {
     marginTop: 16,
+    marginBottom: 4,
     flex: undefined,
     width: "100%",
+  },
+  cashPendingBanner: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    marginBottom: 4,
+  },
+  cashPendingText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#92400E",
+    lineHeight: 18,
+  },
+  cashPendingAmount: {
+    fontWeight: "900",
+    color: "#D97706",
   },
 });

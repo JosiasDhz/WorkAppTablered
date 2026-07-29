@@ -84,7 +84,7 @@ export async function createIncapacityRequest(payload: {
   reasonId: string;
   startDate: string;
   endDate: string;
-  fileIds?: string[];
+  fileIds: string[];
 }) {
   const { data } = await http.post<IncapacityRequestDto>(
     "/workforce-incapacity-requests",

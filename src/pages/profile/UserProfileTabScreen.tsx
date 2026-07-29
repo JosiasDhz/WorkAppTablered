@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, type ComponentType } from "react";
 import {
   Image,
   Platform,
@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import {
+  ArrowRight2,
   Barcode,
   Calendar1,
   CodeCircle,
@@ -59,8 +60,65 @@ const COLORS = {
   text: "#0F172A",
   muted: "#6B7280",
   border: "#EEF1F4",
-  accent: "#EA7600",
+  divider: "#F1F3F5",
+  accent: TAB_BAR_PRIMARY,
+  accentSoft: "#FFF1E0",
+  accentDeep: "#C45F00",
+  iconTint: "#FFF4E8",
 };
+
+type IconProps = {
+  size?: number;
+  color?: string;
+  variant?: "Linear" | "Outline" | "Bold" | "Bulk" | "Broken" | "TwoTone";
+};
+
+type MenuAction = "none" | "MisRegistros" | "MisPermisos" | "MisIncapacidades" | "MisExpediente" | "Inventory" | "InventoryAudit" | "InventoryAuditLossDocuments";
+
+type MenuItem = {
+  id: string;
+  label: string;
+  icon: ComponentType<IconProps>;
+  action: MenuAction;
+};
+
+type MenuSectionData = {
+  id: string;
+  title: string;
+  items: MenuItem[];
+};
+
+const MENU_SECTIONS: MenuSectionData[] = [
+  {
+    id: "cuenta",
+    title: "Cuenta",
+    items: [
+      { id: "edit", label: "Editar perfil", icon: Edit2, action: "none" },
+      { id: "registros", label: "Mis registros", icon: Calendar1, action: "MisRegistros" },
+      { id: "permisos", label: "Mis permisos", icon: DocumentText1, action: "MisPermisos" },
+      { id: "incapacidades", label: "Mis incapacidades", icon: Health, action: "MisIncapacidades" },
+      { id: "expediente", label: "Mi expediente", icon: FolderOpen, action: "MisExpediente" },
+    ],
+  },
+  {
+    id: "preferencias",
+    title: "Preferencias",
+    items: [
+      { id: "apariencia", label: "Apariencia", icon: Setting4, action: "none" },
+      { id: "dispositivos", label: "Gestionar dispositivos", icon: Profile2User, action: "none" },
+      { id: "password", label: "Cambiar contraseña", icon: Coin, action: "none" },
+    ],
+  },
+  {
+    id: "admin",
+    title: "Administración",
+    items: [
+      { id: "productos", label: "Productos (Admin)", icon: Barcode, action: "Inventory" },
+      { id: "auditoria", label: "Auditoría inventario", icon: CodeCircle, action: "InventoryAudit" },
+      { id: "actas", label: "Actas auditoría", icon: DocumentText1, action: "InventoryAuditLossDocuments" },
+    ],
+  },
+];
 
 function buildUserDisplayNameFull(user: any, seller: any): string {
   const fromUser = [user?.name, user?.lastName, user?.secondLastName]
@@ -93,6 +151,59 @@ function resolveRoleLabel(user: any, seller: any): string {
     return mapWorkerRoleLabelEs(up.name.trim());
   }
   return "Usuario";
+}
+
+function MenuRow({
+  item,
+  isLast,
+  onPress,
+}: {
+  item: MenuItem;
+  isLast: boolean;
+  onPress: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <TouchableOpacity
+      activeOpacity={0.72}
+      onPress={onPress}
+      style={[styles.menuRow, !isLast && styles.menuRowBorder]}
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
+    >
+      <View style={styles.menuInner}>
+        <View style={styles.menuIconWrap}>
+          <Icon size={17} color={COLORS.accentDeep} variant="Linear" />
+        </View>
+        <Text style={styles.menuLabel}>{item.label}</Text>
+      </View>
+      <ArrowRight2 size={16} color="#B0B7C3" variant="Linear" />
+    </TouchableOpacity>
+  );
+}
+
+function MenuSection({
+  section,
+  onItemPress,
+}: {
+  section: MenuSectionData;
+  onItemPress: (item: MenuItem) => void;
+}) {
+  return (
+    <View style={styles.sectionBlock}>
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <View style={styles.sectionCard}>
+        {section.items.map((item, index) => (
+          <MenuRow
+            key={item.id}
+            item={item}
+            isLast={index === section.items.length - 1}
+            onPress={() => onItemPress(item)}
+          />
+        ))}
+      </View>
+    </View>
+  );
 }
 
 export default function UserProfileTabScreen() {
@@ -145,16 +256,15 @@ export default function UserProfileTabScreen() {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [email]);
 
-  const heroHeight = HERO_BASE + insets.top;
+  const onMenuItemPress = useCallback(
+    (item: MenuItem) => {
+      if (item.action === "none") return;
+      navigation.navigate(item.action as never);
+    },
+    [navigation],
+  );
 
-  const profileMenu = [
-    { id: "m3", label: "Apariencia", icon: Setting4 },
-    { id: "m5", label: "Gestionar dispositivos", icon: Profile2User },
-    { id: "m6", label: "Cambiar contrasena", icon: Coin },
-    { id: "m7", label: "Productos (Admin)", icon: Barcode },
-    { id: "m8", label: "Auditoria inventario", icon: CodeCircle },
-    { id: "m9", label: "Actas auditoría", icon: DocumentText1 },
-  ];
+  const heroHeight = HERO_BASE + insets.top;
 
   const blurTint = hasUserPhoto ? ("dark" as const) : ("light" as const);
   const blurIntensity = Platform.OS === "ios" ? (hasUserPhoto ? 55 : 72) : hasUserPhoto ? 64 : 88;
@@ -237,7 +347,9 @@ export default function UserProfileTabScreen() {
               <Text style={styles.nameCenter} numberOfLines={2}>
                 {name}
               </Text>
-              <Text style={styles.roleCenter}>{roleLabel}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+              </View>
               {email ? (
                 <Pressable
                   onLongPress={copyEmail}
@@ -274,109 +386,24 @@ export default function UserProfileTabScreen() {
               }
             >
               <View style={styles.menuBlock}>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.menuRow}
-                  onPress={() => {}}
-                >
-                  <View style={styles.menuInner}>
-                    <View style={styles.menuIconWrap}>
-                      <Edit2 size={16} color={COLORS.text} variant="Linear" />
-                    </View>
-                    <Text style={styles.menuLabel}>Editar perfil</Text>
-                  </View>
-                  <Text style={styles.menuChevron}>›</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.menuRow}
-                  onPress={() => navigation.navigate("MisRegistros" as never)}
-                >
-                  <View style={styles.menuInner}>
-                    <View style={styles.menuIconWrap}>
-                      <Calendar1 size={16} color={COLORS.text} variant="Linear" />
-                    </View>
-                    <Text style={styles.menuLabel}>Mis registros</Text>
-                  </View>
-                  <Text style={styles.menuChevron}>›</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.menuRow}
-                  onPress={() => navigation.navigate("MisPermisos" as never)}
-                >
-                  <View style={styles.menuInner}>
-                    <View style={styles.menuIconWrap}>
-                      <DocumentText1 size={16} color={COLORS.text} variant="Linear" />
-                    </View>
-                    <Text style={styles.menuLabel}>Mis permisos</Text>
-                  </View>
-                  <Text style={styles.menuChevron}>›</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.menuRow}
-                  onPress={() => navigation.navigate("MisIncapacidades" as never)}
-                >
-                  <View style={styles.menuInner}>
-                    <View style={styles.menuIconWrap}>
-                      <Health size={16} color={COLORS.text} variant="Linear" />
-                    </View>
-                    <Text style={styles.menuLabel}>Mis incapacidades</Text>
-                  </View>
-                  <Text style={styles.menuChevron}>›</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.menuRow}
-                  onPress={() => navigation.navigate("MisExpediente" as never)}
-                >
-                  <View style={styles.menuInner}>
-                    <View style={styles.menuIconWrap}>
-                      <FolderOpen size={16} color={COLORS.text} variant="Linear" />
-                    </View>
-                    <Text style={styles.menuLabel}>Mi expediente</Text>
-                  </View>
-                  <Text style={styles.menuChevron}>›</Text>
-                </TouchableOpacity>
-                {profileMenu.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.9}
-                      style={styles.menuRow}
-                      onPress={() => {
-                        if (item.id === "m7") {
-                          navigation.navigate("Inventory" as never);
-                        }
-                        if (item.id === "m8") {
-                          navigation.navigate("InventoryAudit" as never);
-                        }
-                        if (item.id === "m9") {
-                          navigation.navigate("InventoryAuditLossDocuments" as never);
-                        }
-                      }}
-                    >
-                      <View style={styles.menuInner}>
-                        <View style={styles.menuIconWrap}>
-                          <Icon size={16} color={COLORS.text} variant="Linear" />
-                        </View>
-                        <Text style={styles.menuLabel}>{item.label}</Text>
-                      </View>
-                      <Text style={styles.menuChevron}>›</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {MENU_SECTIONS.map((section) => (
+                  <MenuSection
+                    key={section.id}
+                    section={section}
+                    onItemPress={onMenuItemPress}
+                  />
+                ))}
               </View>
 
               <TouchableOpacity
                 onPress={handleLogout}
-                activeOpacity={0.9}
+                activeOpacity={0.75}
                 style={styles.logoutBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar sesión"
               >
-                <Logout size={22} color={TAB_BAR_PRIMARY} variant="Linear" />
-                <Text style={styles.logoutText}>Cerrar sesion</Text>
+                <Logout size={18} color={COLORS.accent} variant="Linear" />
+                <Text style={styles.logoutText}>Cerrar sesión</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -456,7 +483,7 @@ const styles = StyleSheet.create({
   },
   sheetCard: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.bg,
     borderTopLeftRadius: SHEET_TOP_RADIUS,
     borderTopRightRadius: SHEET_TOP_RADIUS,
     overflow: "hidden",
@@ -468,11 +495,14 @@ const styles = StyleSheet.create({
   },
   sheetIdentity: {
     paddingHorizontal: 20,
-    paddingTop: SHEET_OVERLAP + 20,
-    paddingBottom: 8,
+    paddingTop: SHEET_OVERLAP + 18,
+    paddingBottom: 4,
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
   },
   menuScroll: {
     flex: 1,
+    backgroundColor: COLORS.bg,
   },
   avatarFloat: {
     position: "absolute",
@@ -510,24 +540,28 @@ const styles = StyleSheet.create({
   },
   nameCenter: {
     marginTop: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     textAlign: "center",
-    fontSize: 24,
-    fontWeight: "900",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
     color: COLORS.text,
     alignSelf: "stretch",
   },
-  roleCenter: {
-    marginTop: 4,
-    paddingHorizontal: 24,
-    textAlign: "center",
-    fontSize: 13,
+  roleBadge: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: COLORS.accentSoft,
+  },
+  roleBadgeText: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#9CA3AF",
-    alignSelf: "stretch",
+    color: COLORS.accentDeep,
   },
   emailPressable: {
-    marginTop: 6,
+    marginTop: 8,
     alignSelf: "stretch",
     paddingVertical: 4,
     borderRadius: 8,
@@ -539,63 +573,76 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     textAlign: "center",
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: COLORS.muted,
   },
   menuBlock: {
-    marginTop: 20,
-    gap: 10,
+    marginTop: 16,
+    gap: 18,
   },
-  menuRow: {
-    borderRadius: 14,
+  sectionBlock: {
+    gap: 8,
+  },
+  sectionTitle: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: COLORS.muted,
+  },
+  sectionCard: {
     backgroundColor: COLORS.surface,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
+    overflow: "hidden",
+  },
+  menuRow: {
     paddingHorizontal: 14,
     paddingVertical: 13,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  menuRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
   menuInner: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    minWidth: 0,
+    marginRight: 10,
   },
   menuIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#F2F4F7",
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: COLORS.iconTint,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 9,
+    marginRight: 11,
   },
   menuLabel: {
     color: COLORS.text,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  menuChevron: {
-    color: "#9CA3AF",
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
+    flexShrink: 1,
   },
   logoutBtn: {
-    marginTop: 20,
+    marginTop: 22,
     marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "#F2D0B2",
+    paddingVertical: 12,
+    gap: 8,
   },
   logoutText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "700",
-    color: TAB_BAR_PRIMARY,
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.accent,
   },
 });

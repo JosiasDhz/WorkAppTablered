@@ -26,6 +26,8 @@ export type DriverAssignedRouteRecord = {
   pendingWarehouseConfirmationLinesCount?: number;
   pendingWarehouseConfirmationUnits?: number;
   driverConfirmedLinesCount?: number;
+  driverCashPendingHandoverMxn?: number;
+  driverCashHandoverAtCdmx?: string | null;
 };
 
 export type DriverAssignedRoutesResponse = {
@@ -44,6 +46,51 @@ export async function fetchDriverAssignedRoutes(params?: {
 }) {
   const { data } = await http.get<DriverAssignedRoutesResponse>(
     "/driver-routes/assigned",
+    { params },
+  );
+  return data;
+}
+
+export type DriverCollectionRecord = {
+  destinationId: string;
+  routeId: string;
+  routeFolio: string;
+  routeStatus: string;
+  saleFolio: string | null;
+  addressLine: string | null;
+  pendingAmountMxn: number;
+  receivedMxn: number;
+  changeMxn: number;
+  netMxn: number;
+  recordedAtCdmx: string | null;
+  collectorWorkerCode: string | null;
+  collectorWorkerName: string | null;
+  routeCashHandedOver: boolean;
+  routeCashHandoverAtCdmx: string | null;
+  collectionStatus: "POR_COBRAR" | "COBRADO" | "ENTREGADO_CAJA";
+};
+
+export type DriverCollectionsResponse = {
+  records: DriverCollectionRecord[];
+  totalRecords: number;
+  summary: {
+    totalPorCobrarMxn: number;
+    totalCobradoMxn: number;
+    totalEntregadoCajaMxn: number;
+    countPorCobrar: number;
+    countCobrado: number;
+    countEntregadoCaja: number;
+  };
+};
+
+export async function fetchDriverCollections(params?: {
+  limit?: number;
+  offset?: number;
+  term?: string;
+  status?: "PENDING" | "DELIVERED";
+}) {
+  const { data } = await http.get<DriverCollectionsResponse>(
+    "/driver-routes/my-collections",
     { params },
   );
   return data;

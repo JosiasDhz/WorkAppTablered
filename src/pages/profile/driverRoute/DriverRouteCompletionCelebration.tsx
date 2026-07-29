@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { TickCircle, Truck } from "iconsax-react-native";
+import { MoneyRecive, TickCircle, Truck } from "iconsax-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { TripMapModel } from "./tripMapModelFromAssignment";
@@ -24,13 +24,22 @@ type DriverRouteCompletionCelebrationProps = {
   folio: string;
   deliveredStops: number;
   mapModel: TripMapModel;
+  cashPendingMxn?: number;
   onFinish: () => void;
 };
+
+function formatCashMxn(n: number): string {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(n);
+}
 
 export function DriverRouteCompletionCelebration({
   folio,
   deliveredStops,
   mapModel,
+  cashPendingMxn = 0,
   onFinish,
 }: DriverRouteCompletionCelebrationProps) {
   const { height: winH } = useWindowDimensions();
@@ -184,22 +193,9 @@ export function DriverRouteCompletionCelebration({
         {...(Platform.OS === "android" ? { androidLayerType: "hardware" as const } : {})}
       />
 
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.backdropTint,
-          {
-            opacity: backdrop.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.42],
-            }),
-          },
-        ]}
-      />
-
       <LinearGradient
-        colors={["rgba(15,23,42,0.05)", "rgba(15,23,42,0.55)", "rgba(15,23,42,0.92)"]}
-        locations={[0, 0.45, 1]}
+        colors={["transparent", "transparent", "rgba(255,255,255,0.55)", "rgba(255,255,255,0.92)"]}
+        locations={[0, 0.38, 0.58, 0.75]}
         style={styles.gradient}
         pointerEvents="none"
       />
@@ -211,7 +207,7 @@ export function DriverRouteCompletionCelebration({
           style={[
             styles.card,
             {
-              maxHeight: Math.min(winH * 0.58, 460),
+              maxHeight: Math.min(winH * 0.5, 420),
               opacity: backdrop,
               transform: [{ translateY: cardY }, { scale: cardScale }],
             },
@@ -238,8 +234,24 @@ export function DriverRouteCompletionCelebration({
             ¡Ruta completada!
           </Animated.Text>
           <Animated.Text style={[styles.subtitle, { opacity: titleOpacity }]}>
-            Todas las entregas quedaron registradas.
+            {cashPendingMxn > 0
+              ? "Entregas registradas. Tienes efectivo pendiente."
+              : "Todas las entregas quedaron registradas."}
           </Animated.Text>
+
+          {cashPendingMxn > 0 ? (
+            <Animated.View style={[styles.cashBanner, { opacity: metaOpacity }]}>
+              <MoneyRecive size={18} color="#D97706" variant="Bold" />
+              <View style={styles.cashBannerCopy}>
+                <Text style={styles.cashBannerAmount}>
+                  {formatCashMxn(cashPendingMxn)}
+                </Text>
+                <Text style={styles.cashBannerHint}>
+                  Pendiente de entregar a caja
+                </Text>
+              </View>
+            </Animated.View>
+          ) : null}
 
           <Animated.View style={[styles.metaRow, { opacity: metaOpacity }]}>
             <View style={styles.metaChip}>
@@ -276,15 +288,11 @@ export function DriverRouteCompletionCelebration({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#0F172A",
+    backgroundColor: "#e2e8f0",
   },
   map: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#0F172A",
-  },
-  backdropTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#022C22",
+    backgroundColor: "transparent",
   },
   gradient: {
     ...StyleSheet.absoluteFillObject,
@@ -292,24 +300,24 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: "flex-end",
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   card: {
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 28,
-    paddingBottom: 22,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.22,
-        shadowRadius: 24,
+        shadowColor: "#0F172A",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
       },
-      android: { elevation: 14 },
+      android: { elevation: 10 },
     }),
   },
   badgeWrap: {
@@ -383,9 +391,9 @@ const styles = StyleSheet.create({
   },
   finishBtn: {
     width: "100%",
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: "#10B981",
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -397,5 +405,31 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#FFFFFF",
     letterSpacing: 0.2,
+  },
+  cashBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  cashBannerCopy: {
+    flex: 1,
+  },
+  cashBannerAmount: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#D97706",
+  },
+  cashBannerHint: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#92400E",
   },
 });

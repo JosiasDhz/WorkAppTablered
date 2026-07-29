@@ -12,6 +12,7 @@ import {
   Clock,
   Location,
   Map1,
+  MoneyRecive,
   Routing2,
   TickCircle,
   Truck,
@@ -52,9 +53,11 @@ function SummaryStrip(props: {
           ? Truck
           : kind === "complete"
             ? TickCircle
-            : kind === "ready"
-              ? Location
-              : Box1;
+            : kind === "cash-pending"
+              ? MoneyRecive
+              : kind === "ready"
+                ? Location
+                : Box1;
 
   return (
     <View
@@ -261,14 +264,14 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 14,
     borderRadius: 18,
-    backgroundColor: TableRedColors.crema,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     overflow: "hidden",
-    shadowColor: TableRedColors.marron,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowColor: "#1a1a1a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   header: {
     flexDirection: "row",

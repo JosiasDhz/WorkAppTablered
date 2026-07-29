@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Car } from "iconsax-react-native";
+import { Car, MoneyRecive } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
@@ -23,6 +23,7 @@ import { driverRouteStatusLabelEs } from "../../domain/driverRoutePending";
 import {
   driverRouteConfirmProgress,
   flattenDriverRouteConfirmLines,
+  driverRouteNeedsDriverReceipt,
 } from "../../domain/driverRouteConfirmLines";
 import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
 import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
@@ -64,6 +65,10 @@ function formatWhen(iso: string | null | undefined): string {
   } catch {
     return iso;
   }
+}
+
+function formatMxn(n: number): string {
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 }
 
 function canShowPickupDock(status: string): boolean {
@@ -179,16 +184,17 @@ export default function DriverRouteDetailScreen() {
   const goPickup = useCallback(async () => {
     if (!detail) return;
     const id = detail.route.id;
+    const flatLines = flattenDriverRouteConfirmLines(detail.destinations);
     if (DRIVER_ROUTES_FLOW_USE_DEMO) {
       navigation.navigate("DriverRouteProductPickup", { routeId: id });
       return;
     }
-    if (confirmProgress && !confirmProgress.allConfirmed) {
+    if (driverRouteNeedsDriverReceipt(flatLines)) {
       navigation.navigate("DriverRouteConfirmMercancia", { routeId: id });
       return;
     }
     navigation.navigate("DriverRouteProductPickup", { routeId: id });
-  }, [navigation, detail, confirmProgress]);
+  }, [navigation, detail]);
 
   const goNavDeliveries = useCallback(() => {
     if (!detail) return;
@@ -428,10 +434,11 @@ export default function DriverRouteDetailScreen() {
     inputRange: [0, 1],
     outputRange: [1, 1.35],
   });
-  const pickupSwipeHint =
-    confirmProgress && !confirmProgress.allConfirmed
-      ? "Desliza para iniciar conteo"
-      : "Desliza para verificar vehículo";
+  const pickupSwipeHint = driverRouteNeedsDriverReceipt(
+    flattenDriverRouteConfirmLines(detail.destinations),
+  )
+    ? "Desliza para confirmar mercancía"
+    : "Desliza para verificar vehículo";
 
   return (
     <View style={styles.safe}>
@@ -540,6 +547,43 @@ export default function DriverRouteDetailScreen() {
               </View>
             ) : null}
           </RouteGlassPanel>
+
+          {(() => {
+            const cashPending = Math.max(
+              0,
+              Number(detail.route.driverCashPendingHandoverMxn) || 0,
+            );
+            const handedOver = Boolean(detail.route.driverCashHandoverAtCdmx);
+            if (isCompleta && cashPending > 0 && !handedOver) {
+              return (
+                <View style={styles.cashPendingBanner}>
+                  <MoneyRecive size={20} color="#D97706" variant="Bold" />
+                  <View style={styles.cashPendingCopy}>
+                    <Text style={styles.cashPendingAmount}>
+                      {formatMxn(cashPending)}
+                    </Text>
+                    <Text style={styles.cashPendingHint}>
+                      Pendiente de entregar a caja · ve a "Mis cobros"
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+            return null;
+          })()}
+
+          {isEnProceso ? (
+            <TouchableOpacity
+              style={styles.reportIncidentBtn}
+              onPress={() =>
+                navigation.navigate("DriverRouteReportIncident", {
+                  routeId: detail.route.id,
+                })
+              }
+            >
+              <Text style={styles.reportIncidentTxt}>Reportar daño en ruta</Text>
+            </TouchableOpacity>
+          ) : null}
         </Animated.View>
 
         <Animated.View
@@ -813,5 +857,48 @@ const styles = StyleSheet.create({
     color: C.white,
     fontWeight: "800",
     fontSize: 14,
+  },
+  cashPendingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 12,
+    marginHorizontal: 16,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 14,
+    padding: 14,
+  },
+  cashPendingCopy: {
+    flex: 1,
+  },
+  cashPendingAmount: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#D97706",
+  },
+  cashPendingHint: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#92400E",
+    lineHeight: 16,
+  },
+  reportIncidentBtn: {
+    marginTop: 12,
+    marginHorizontal: 16,
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FDBA74",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  reportIncidentTxt: {
+    color: "#C2410C",
+    fontSize: 15,
+    fontWeight: "800",
   },
 });

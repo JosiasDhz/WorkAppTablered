@@ -7,9 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { Camera, CloseCircle } from "iconsax-react-native";
+import { Camera, CloseCircle, GalleryImport } from "iconsax-react-native";
 import {
   captureDriverRouteVehiclePhoto,
+  pickDriverRouteVehiclePhotoFromLibrary,
   type DriverRouteVehiclePhoto,
 } from "./captureDriverRouteVehiclePhoto";
 
@@ -39,6 +40,21 @@ export function DriverRouteDeliveryEvidencePhotos({
     setCapturing(true);
     try {
       const photo = await captureDriverRouteVehiclePhoto();
+      if (photo) {
+        onChange([...photos, photo]);
+      }
+    } finally {
+      busyRef.current = false;
+      setCapturing(false);
+    }
+  }, [onChange, photos]);
+
+  const pickFromGallery = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setCapturing(true);
+    try {
+      const photo = await pickDriverRouteVehiclePhotoFromLibrary();
       if (photo) {
         onChange([...photos, photo]);
       }
@@ -82,14 +98,30 @@ export function DriverRouteDeliveryEvidencePhotos({
             onPress={() => void addPhoto()}
             disabled={capturing}
             accessibilityRole="button"
-            accessibilityLabel="Agregar foto de entrega"
+            accessibilityLabel="Tomar foto de entrega"
           >
             {capturing ? (
               <ActivityIndicator color="#EA7600" />
             ) : (
               <>
                 <Camera size={24} color="#64748B" variant="Linear" />
-                <Text style={styles.addTxt}>Agregar foto</Text>
+                <Text style={styles.addTxt}>Tomar foto</Text>
+              </>
+            )}
+          </Pressable>
+          <Pressable
+            style={[styles.addBtn, styles.addBtnGallery, capturing ? styles.addBtnBusy : null]}
+            onPress={() => void pickFromGallery()}
+            disabled={capturing}
+            accessibilityRole="button"
+            accessibilityLabel="Adjuntar foto de galería"
+          >
+            {capturing ? (
+              <ActivityIndicator color="#EA7600" />
+            ) : (
+              <>
+                <GalleryImport size={24} color="#EA7600" variant="Linear" />
+                <Text style={styles.addTxtGallery}>Adjuntar de galería</Text>
               </>
             )}
           </Pressable>
@@ -171,6 +203,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: "#64748B",
+    textAlign: "center",
+    paddingHorizontal: 4,
+  },
+  addBtnGallery: {
+    borderColor: "#FDBA74",
+    backgroundColor: "#FFF7ED",
+  },
+  addTxtGallery: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#EA7600",
     textAlign: "center",
     paddingHorizontal: 4,
   },

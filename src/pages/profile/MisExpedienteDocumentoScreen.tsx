@@ -24,10 +24,8 @@ import { apiBaseUrl } from "../../api/http-common";
 import {
   addMyDocumentFile,
   getMyExpedienteDocument,
-  removeMyDocumentFile,
   uploadExpedienteEvidenceFile,
   type ExpedienteDocumentDetailDto,
-  type ExpedienteDocumentFileEntryDto,
   type ExpedienteFileRefDto,
 } from "../../services/workforceExpedienteService";
 import { prepareEvidenceImageForUpload } from "../../utils/prepareEvidenceImageForUpload";
@@ -132,7 +130,6 @@ export default function MisExpedienteDocumentoScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [removingFileId, setRemovingFileId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
@@ -330,32 +327,6 @@ export default function MisExpedienteDocumentoScreen() {
     }
   };
 
-  const handleRemove = (entry: ExpedienteDocumentFileEntryDto) => {
-    Alert.alert("Eliminar archivo", "¿Quitar este archivo del expediente?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar",
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            setRemovingFileId(entry.file.id);
-            try {
-              const updated = await removeMyDocumentFile(
-                documentTypeId,
-                entry.file.id,
-              );
-              applyDetail(updated);
-            } catch (err: unknown) {
-              Alert.alert("Error", toErrorMessage(err));
-            } finally {
-              setRemovingFileId(null);
-            }
-          })();
-        },
-      },
-    ]);
-  };
-
   const files = detail?.files ?? [];
   const savedCount = files.length;
   const pendingCount = pendingFiles.length;
@@ -505,20 +476,6 @@ export default function MisExpedienteDocumentoScreen() {
                           <Text style={styles.unavailable}>Vista no disponible</Text>
                         </View>
                       )}
-                      <Pressable
-                        style={styles.deleteBtn}
-                        disabled={removingFileId === file.id}
-                        onPress={() => handleRemove(entry)}
-                      >
-                        {removingFileId === file.id ? (
-                          <ActivityIndicator color="#DC2626" size="small" />
-                        ) : (
-                          <>
-                            <Trash size={16} color="#DC2626" variant="Linear" />
-                            <Text style={styles.deleteBtnText}>Eliminar</Text>
-                          </>
-                        )}
-                      </Pressable>
                     </View>
                   );
                 })}
