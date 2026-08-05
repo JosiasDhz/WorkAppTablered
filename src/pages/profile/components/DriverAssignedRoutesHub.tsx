@@ -25,6 +25,7 @@ import {
   Box1,
   Calendar1,
   Car,
+  CloseCircle,
   Location,
   MoneyRecive,
   Notification,
@@ -52,12 +53,13 @@ const C = TableRedColors;
 const MAP_PREVIEW_HEIGHT = 124;
 const VIVID_GREEN = DELIVERY_ROUTE_PROGRESS_ACCENT.complete;
 
-type HubTab = "in-progress" | "pending" | "completed";
+type HubTab = "in-progress" | "pending" | "completed" | "cancelled";
 type HubTabDef = { key: HubTab; label: string; color: string };
 const HUB_TABS: HubTabDef[] = [
   { key: "in-progress", label: "En curso", color: "#2563EB" },
   { key: "pending", label: "Pendientes", color: "#D97706" },
   { key: "completed", label: "Finalizadas", color: "#10B981" },
+  { key: "cancelled", label: "Canceladas", color: "#E11D48" },
 ];
 
 function formatRouteWhen(iso: string): string {
@@ -87,6 +89,15 @@ function routeTicketTheme(
   item: DriverAssignedRouteRecord,
   model: ReturnType<typeof buildDriverRouteListCardModel>,
 ): RouteTicketTheme {
+  if (model.isCancelada) {
+    return {
+      accent: "#E11D48",
+      badgeLabel: model.operationalStatusLabel,
+      hint: model.cancellationReason ?? model.summaryTitle,
+      hintMuted: false,
+      pulse: false,
+    };
+  }
   if (model.isCompleta) {
     return {
       accent: VIVID_GREEN,
@@ -242,6 +253,7 @@ function RouteTicket({
               height={120}
               routeComplete={model.isCompleta}
               routeInProcess={model.isEnProceso}
+              routeCancelled={model.isCancelada}
             />
           </View>
 
@@ -288,6 +300,19 @@ function RouteTicket({
               </View>
             ) : null}
 
+            {hint ? (
+              <Text
+                style={[
+                  ticketStyles.hintTxt,
+                  hintMuted ? ticketStyles.hintTxtMuted : undefined,
+                  model.isCancelada ? ticketStyles.hintTxtCancelled : undefined,
+                ]}
+                numberOfLines={2}
+              >
+                {hint}
+              </Text>
+            ) : null}
+
             <View style={ticketStyles.metricsRow}>
               <View style={ticketStyles.metric}>
                 <Location size={12} color={C.gris} variant="Linear" />
@@ -325,59 +350,61 @@ function HubTabBar(props: {
 }) {
   return (
     <View style={tabBarStyles.container}>
-      <View style={tabBarStyles.row}>
-      {HUB_TABS.map((tab) => {
-        const active = tab.key === props.selected;
-        const count = props.counts[tab.key];
-        const showDot =
-          tab.key === "completed" && props.hasCashPendingInCompleted && !active;
-        return (
-          <Pressable
-            key={tab.key}
-            style={[
-              tabBarStyles.tab,
-              active
-                ? { backgroundColor: tab.color }
-                : undefined,
-            ]}
-            onPress={() => props.onSelect(tab.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-          >
-            <Text
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={tabBarStyles.row}
+      >
+        {HUB_TABS.map((tab) => {
+          const active = tab.key === props.selected;
+          const count = props.counts[tab.key];
+          const showDot =
+            tab.key === "completed" && props.hasCashPendingInCompleted && !active;
+          return (
+            <Pressable
+              key={tab.key}
               style={[
-                tabBarStyles.tabTxt,
-                active ? tabBarStyles.tabTxtActive : tabBarStyles.tabTxtInactive,
+                tabBarStyles.tab,
+                active ? { backgroundColor: tab.color } : undefined,
               ]}
+              onPress={() => props.onSelect(tab.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
             >
-              {tab.label}
-            </Text>
-            {count > 0 ? (
-              <View
+              <Text
                 style={[
-                  tabBarStyles.tabCount,
-                  active
-                    ? tabBarStyles.tabCountActive
-                    : tabBarStyles.tabCountInactive,
+                  tabBarStyles.tabTxt,
+                  active ? tabBarStyles.tabTxtActive : tabBarStyles.tabTxtInactive,
                 ]}
               >
-                <Text
+                {tab.label}
+              </Text>
+              {count > 0 ? (
+                <View
                   style={[
-                    tabBarStyles.tabCountTxt,
+                    tabBarStyles.tabCount,
                     active
-                      ? tabBarStyles.tabCountTxtActive
-                      : tabBarStyles.tabCountTxtInactive,
+                      ? tabBarStyles.tabCountActive
+                      : tabBarStyles.tabCountInactive,
                   ]}
                 >
-                  {count}
-                </Text>
-              </View>
-            ) : null}
-            {showDot ? <View style={tabBarStyles.alertDot} /> : null}
-          </Pressable>
-        );
-      })}
-      </View>
+                  <Text
+                    style={[
+                      tabBarStyles.tabCountTxt,
+                      active
+                        ? tabBarStyles.tabCountTxtActive
+                        : tabBarStyles.tabCountTxtInactive,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              ) : null}
+              {showDot ? <View style={tabBarStyles.alertDot} /> : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -418,7 +445,7 @@ export function DriverAssignedRoutesHub({
   const headerSlide = useRef(new Animated.Value(-16)).current;
   const [activeTab, setActiveTab] = useState<HubTab>("in-progress");
 
-  const { inRoute, ready, pendingConfirm, completed } = useMemo(
+  const { inRoute, ready, pendingConfirm, completed, cancelled } = useMemo(
     () => partitionDriverHubRoutes(routes.items),
     [routes.items],
   );
@@ -428,8 +455,15 @@ export function DriverAssignedRoutesHub({
       "in-progress": inRoute.length,
       pending: pendingConfirm.length + ready.length,
       completed: completed.length,
+      cancelled: cancelled.length,
     }),
-    [completed.length, inRoute.length, pendingConfirm.length, ready.length],
+    [
+      cancelled.length,
+      completed.length,
+      inRoute.length,
+      pendingConfirm.length,
+      ready.length,
+    ],
   );
 
   const hasCashPendingInCompleted = useMemo(
@@ -447,8 +481,8 @@ export function DriverAssignedRoutesHub({
   }, []);
 
   const hubItems = useMemo(
-    () => [...inRoute, ...ready, ...pendingConfirm, ...completed],
-    [completed, inRoute, pendingConfirm, ready],
+    () => [...inRoute, ...ready, ...pendingConfirm, ...completed, ...cancelled],
+    [cancelled, completed, inRoute, pendingConfirm, ready],
   );
 
   const routeById = useMemo(() => {
@@ -494,8 +528,16 @@ export function DriverAssignedRoutesHub({
           icon: <TickCircle size={15} color={VIVID_GREEN} variant="Bold" />,
           items: completed,
         },
+        {
+          key: "cancelled",
+          group: "cancelled" as HubTab,
+          title: "Canceladas",
+          accent: "#E11D48",
+          icon: <CloseCircle size={15} color="#E11D48" variant="Bold" />,
+          items: cancelled,
+        },
       ].filter((section) => section.items.length > 0),
-    [completed, inRoute, pendingConfirm, ready],
+    [cancelled, completed, inRoute, pendingConfirm, ready],
   );
 
   const sections = useMemo(
@@ -625,7 +667,7 @@ export function DriverAssignedRoutesHub({
             <Text style={styles.emptyTitle}>Sin rutas asignadas</Text>
             <Text style={styles.emptySub}>
               Cuando tengas entregas en curso, mercancía por confirmar, rutas listas para
-              salir o finalizadas, aparecerán aquí.
+              salir, finalizadas o canceladas, aparecerán aquí.
             </Text>
           </View>
         ) : null}
@@ -633,7 +675,9 @@ export function DriverAssignedRoutesHub({
         {!routes.error && sections.length === 0 && hubItems.length > 0 ? (
           <View style={styles.tabEmpty}>
             <Text style={styles.tabEmptyTxt}>
-              No hay rutas en esta categoría
+              {activeTab === "cancelled"
+                ? "Aún no tienes rutas canceladas"
+                : "No hay rutas en esta categoría"}
             </Text>
           </View>
         ) : null}
@@ -786,6 +830,20 @@ const ticketStyles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     color: C.gris,
+  },
+  hintTxt: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.ink,
+    lineHeight: 16,
+  },
+  hintTxtMuted: {
+    fontWeight: "600",
+    color: C.gris,
+  },
+  hintTxtCancelled: {
+    color: "#BE123C",
   },
   metricsRow: {
     marginTop: 6,
@@ -1032,16 +1090,16 @@ const tabBarStyles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
     gap: 6,
+    flexGrow: 1,
   },
   tab: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: "transparent",

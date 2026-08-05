@@ -21,6 +21,7 @@ export type DriverRouteListCardModel = {
   operationalStatusLabel: string;
   isEnProceso: boolean;
   isCompleta: boolean;
+  isCancelada: boolean;
   destinations: number;
   lines: number;
   units: number;
@@ -38,6 +39,7 @@ export type DriverRouteListCardModel = {
   summaryCountSuffix: string | null;
   cashPendingHandoverMxn: number;
   cashHandedOver: boolean;
+  cancellationReason: string | null;
 };
 
 function isDriverRouteFullyConfirmed(
@@ -62,10 +64,12 @@ function isDriverRouteFullyConfirmed(
 function buildOperationalStatusLabel(input: {
   isCompleta: boolean;
   isEnProceso: boolean;
+  isCancelada: boolean;
   driverFullyConfirmed: boolean;
   warehousePendingOnly: boolean;
   driverPendingOnly: boolean;
 }): string {
+  if (input.isCancelada) return "Cancelada";
   if (input.isCompleta) return "Completa";
   if (input.isEnProceso) return "En ruta";
   if (input.driverFullyConfirmed) return "Lista";
@@ -114,10 +118,12 @@ function buildPendingSummary(
 function resolveToneKey(model: {
   isCompleta: boolean;
   isEnProceso: boolean;
+  isCancelada: boolean;
   driverFullyConfirmed: boolean;
   driverPendingOnly: boolean;
   warehousePendingOnly: boolean;
 }): DriverRouteCardToneKey {
+  if (model.isCancelada) return "marron";
   if (model.isCompleta) return "verde";
   if (model.isEnProceso) return "ocre";
   if (model.driverFullyConfirmed) return "verde";
@@ -129,16 +135,37 @@ function resolveToneKey(model: {
 function resolveSummaryStripKind(model: {
   isCompleta: boolean;
   isEnProceso: boolean;
+  isCancelada: boolean;
   driverFullyConfirmed: boolean;
   warehousePendingOnly: boolean;
   driverPendingOnly: boolean;
 }): DriverRouteSummaryStripKind {
+  if (model.isCancelada) return "info";
   if (model.isCompleta) return "complete";
   if (model.isEnProceso) return "in-process";
   if (model.driverFullyConfirmed) return "ready";
   if (model.warehousePendingOnly) return "pending-warehouse";
   if (model.driverPendingOnly) return "pending-driver";
   return "info";
+}
+
+export function extractCancellationReason(notes: string | null | undefined): string | null {
+  const raw = String(notes ?? "").trim();
+  if (!raw) return null;
+  const lines = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const motivoLine = [...lines]
+    .reverse()
+    .find((l) => /\[motivo chofer\]/i.test(l));
+  if (motivoLine) {
+    return motivoLine.replace(/^\[motivo chofer\]\s*/i, "").trim() || null;
+  }
+  const fallback = [...lines]
+    .reverse()
+    .find((l) => !/^\[ruta cancelada/i.test(l) && !/^\[chofer no entregó/i.test(l));
+  return fallback ?? null;
 }
 
 export function buildDriverRouteListCardModel(
@@ -156,12 +183,17 @@ export function buildDriverRouteListCardModel(
   const statusLabel = String(route.status ?? "").trim().toUpperCase();
   const isEnProceso = statusLabel === "EN_PROCESO";
   const isCompleta = statusLabel === "COMPLETA";
+  const isCancelada = statusLabel === "CANCELADA";
+  const cancellationReason = isCancelada
+    ? extractCancellationReason(route.notes)
+    : null;
   const summaryUnits =
     pendingDriverUnits > 0 ? pendingDriverUnits : pendingWarehouseUnits;
 
   const toneKey = resolveToneKey({
     isCompleta,
     isEnProceso,
+    isCancelada,
     driverFullyConfirmed,
     driverPendingOnly,
     warehousePendingOnly,
@@ -169,6 +201,7 @@ export function buildDriverRouteListCardModel(
   let summaryStripKind = resolveSummaryStripKind({
     isCompleta,
     isEnProceso,
+    isCancelada,
     driverFullyConfirmed,
     warehousePendingOnly,
     driverPendingOnly,
@@ -181,7 +214,10 @@ export function buildDriverRouteListCardModel(
   const cashPendingHandoverMxn = Math.max(0, Number(route.driverCashPendingHandoverMxn ?? 0));
   const cashHandedOver = Boolean(route.driverCashHandoverAtCdmx);
 
-  if (isCompleta && cashPendingHandoverMxn > 0) {
+  if (isCancelada) {
+    summaryTitle = "Envío no entregado";
+    summarySubtitle = cancellationReason;
+  } else if (isCompleta && cashPendingHandoverMxn > 0) {
     summaryTitle = "Pendiente de entregar a caja";
     summarySubtitle = formatCashLabel(cashPendingHandoverMxn);
     summaryStripKind = "cash-pending";
@@ -206,12 +242,14 @@ export function buildDriverRouteListCardModel(
     operationalStatusLabel: buildOperationalStatusLabel({
       isCompleta,
       isEnProceso,
+      isCancelada,
       driverFullyConfirmed,
       warehousePendingOnly,
       driverPendingOnly,
     }),
     isEnProceso,
     isCompleta,
+    isCancelada,
     destinations: Number(route.assignedDestinationsCount ?? 0),
     lines: Number(route.includedDeliveryLinesCount ?? 0),
     units: Number(route.assignedTotalUnits ?? 0),
@@ -229,6 +267,7 @@ export function buildDriverRouteListCardModel(
     summaryCountSuffix,
     cashPendingHandoverMxn,
     cashHandedOver,
+    cancellationReason,
   };
 }
 

@@ -267,6 +267,34 @@ export async function markDeliveryRouteStopDelivered(
   return data;
 }
 
+export type ReturnDeliveryRouteStopToReadyPayload = {
+  workerCode: string;
+  reason: string;
+  cartItemDeliveryIds?: string[];
+  transferIds?: string[];
+};
+
+export type ReturnDeliveryRouteStopToReadyResponse = {
+  routeId: string;
+  returnedCount: number;
+  deliveryIds: string[];
+  transferIds: string[];
+  removedDestinationIds: string[];
+  routeCancelled?: boolean;
+  routeStatus?: string;
+};
+
+export async function returnDeliveryRouteStopToReady(
+  routeId: string,
+  payload: ReturnDeliveryRouteStopToReadyPayload,
+): Promise<ReturnDeliveryRouteStopToReadyResponse> {
+  const { data } = await http.post<ReturnDeliveryRouteStopToReadyResponse>(
+    `/delivery-routes/saved/${routeId}/return-to-ready`,
+    payload,
+  );
+  return data;
+}
+
 export type FinalizeDeliveryRoutePayload = {
   workerCode: string;
   odometerReading: number;
@@ -282,6 +310,8 @@ export type FinalizeDeliveryRouteResponse = {
   routeEndOdometerReading: number;
   routeEndOdometerEvidenceFileId: string;
   routeEndFuelEvidenceFileId: string;
+  commissionEarnedMxn?: number;
+  commissionPendingPaymentMxn?: number;
 };
 
 export async function finalizeDeliveryRoute(
@@ -291,6 +321,20 @@ export async function finalizeDeliveryRoute(
   const { data } = await http.post<FinalizeDeliveryRouteResponse>(
     `/delivery-routes/saved/${routeId}/finalize`,
     payload,
+  );
+  return data;
+}
+
+export type DriverRouteMyCommissionResponse = {
+  commissionEarnedMxn: number;
+  commissionPendingPaymentMxn: number;
+};
+
+export async function getDriverRouteMyCommission(
+  routeId: string,
+): Promise<DriverRouteMyCommissionResponse> {
+  const { data } = await http.get<DriverRouteMyCommissionResponse>(
+    `/delivery-routes/saved/${routeId}/my-commission`,
   );
   return data;
 }

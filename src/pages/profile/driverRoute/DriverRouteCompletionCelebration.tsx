@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { MoneyRecive, TickCircle, Truck } from "iconsax-react-native";
+import { Coin, MoneyRecive, TickCircle, Truck } from "iconsax-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { TripMapModel } from "./tripMapModelFromAssignment";
@@ -25,6 +25,8 @@ type DriverRouteCompletionCelebrationProps = {
   deliveredStops: number;
   mapModel: TripMapModel;
   cashPendingMxn?: number;
+  commissionEarnedMxn?: number;
+  commissionPendingPaymentMxn?: number;
   onFinish: () => void;
 };
 
@@ -40,6 +42,8 @@ export function DriverRouteCompletionCelebration({
   deliveredStops,
   mapModel,
   cashPendingMxn = 0,
+  commissionEarnedMxn = 0,
+  commissionPendingPaymentMxn = 0,
   onFinish,
 }: DriverRouteCompletionCelebrationProps) {
   const { height: winH } = useWindowDimensions();
@@ -207,7 +211,7 @@ export function DriverRouteCompletionCelebration({
           style={[
             styles.card,
             {
-              maxHeight: Math.min(winH * 0.5, 420),
+              maxHeight: Math.min(winH * 0.58, 480),
               opacity: backdrop,
               transform: [{ translateY: cardY }, { scale: cardScale }],
             },
@@ -238,6 +242,34 @@ export function DriverRouteCompletionCelebration({
               ? "Entregas registradas. Tienes efectivo pendiente."
               : "Todas las entregas quedaron registradas."}
           </Animated.Text>
+
+          {commissionEarnedMxn > 0 ? (
+            <Animated.View style={[styles.commissionBanner, { opacity: metaOpacity }]}>
+              <Coin size={18} color="#059669" variant="Bold" />
+              <View style={styles.cashBannerCopy}>
+                <Text style={styles.commissionBannerAmount}>
+                  {formatCashMxn(commissionEarnedMxn)}
+                </Text>
+                <Text style={styles.commissionBannerHint}>
+                  Comisión generada · venta pagada
+                </Text>
+              </View>
+            </Animated.View>
+          ) : null}
+
+          {commissionPendingPaymentMxn > 0 ? (
+            <Animated.View style={[styles.commissionPendingBanner, { opacity: metaOpacity }]}>
+              <Coin size={18} color="#D97706" variant="Bold" />
+              <View style={styles.cashBannerCopy}>
+                <Text style={styles.commissionPendingAmount}>
+                  {formatCashMxn(commissionPendingPaymentMxn)}
+                </Text>
+                <Text style={styles.commissionPendingHint}>
+                  Se reflejará al realizar el pago · pendiente de cobro
+                </Text>
+              </View>
+            </Animated.View>
+          ) : null}
 
           {cashPendingMxn > 0 ? (
             <Animated.View style={[styles.cashBanner, { opacity: metaOpacity }]}>
@@ -418,6 +450,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FDE68A",
   },
+  commissionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
   cashBannerCopy: {
     flex: 1,
   },
@@ -427,6 +471,40 @@ const styles = StyleSheet.create({
     color: "#D97706",
   },
   cashBannerHint: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#92400E",
+  },
+  commissionBannerAmount: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#059669",
+  },
+  commissionBannerHint: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#065F46",
+  },
+  commissionPendingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  commissionPendingAmount: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#D97706",
+  },
+  commissionPendingHint: {
     marginTop: 2,
     fontSize: 12,
     fontWeight: "600",

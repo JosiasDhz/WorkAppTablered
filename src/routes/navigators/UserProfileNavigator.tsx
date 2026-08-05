@@ -9,6 +9,7 @@ import NuevaIncapacidadScreen from "../../pages/profile/NuevaIncapacidadScreen";
 import IncapacidadDetalleScreen from "../../pages/profile/IncapacidadDetalleScreen";
 import MisExpedienteScreen from "../../pages/profile/MisExpedienteScreen";
 import MisExpedienteDocumentoScreen from "../../pages/profile/MisExpedienteDocumentoScreen";
+import MisComisionesScreen from "../../pages/profile/MisComisionesScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +26,7 @@ export default function UserProfileNavigator() {
       <Stack.Screen name="IncapacidadDetalle" component={IncapacidadDetalleScreen} />
       <Stack.Screen name="MisExpediente" component={MisExpedienteScreen} />
       <Stack.Screen name="MisExpedienteDocumento" component={MisExpedienteDocumentoScreen} />
+      <Stack.Screen name="MisComisiones" component={MisComisionesScreen} />
     </Stack.Navigator>
   );
 }

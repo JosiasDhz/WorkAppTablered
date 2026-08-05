@@ -57,10 +57,13 @@ export function tripMapModelFromAssignment(
   for (const dest of sorted) {
     const rec = dest.records[0];
     if (!rec) continue;
+    const latitude = Number(rec.latitude);
+    const longitude = Number(rec.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
     const color = dest.pinColorHex || "#EA580C";
     stops.push({
-      latitude: rec.latitude,
-      longitude: rec.longitude,
+      latitude,
+      longitude,
       color,
       visitOrder: dest.visitOrder,
       label: formatStopLabel(dest),
@@ -75,6 +78,13 @@ export function tripMapModelFromAssignment(
       latitude: stop.latitude,
       longitude: stop.longitude,
     }));
+  } else if (path.length < 2 && stops.length === 1) {
+    path = [
+      {
+        latitude: stops[0].latitude,
+        longitude: stops[0].longitude,
+      },
+    ];
   }
   return { path, stops };
 }

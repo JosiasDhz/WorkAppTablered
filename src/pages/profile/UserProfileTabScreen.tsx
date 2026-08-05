@@ -28,6 +28,7 @@ import {
   Edit2,
   Logout,
   Notification,
+  PasswordCheck,
   Profile2User,
   Setting4,
 } from "iconsax-react-native";
@@ -73,7 +74,7 @@ type IconProps = {
   variant?: "Linear" | "Outline" | "Bold" | "Bulk" | "Broken" | "TwoTone";
 };
 
-type MenuAction = "none" | "MisRegistros" | "MisPermisos" | "MisIncapacidades" | "MisExpediente" | "Inventory" | "InventoryAudit" | "InventoryAuditLossDocuments";
+type MenuAction = "none" | "MisRegistros" | "MisPermisos" | "MisIncapacidades" | "MisExpediente" | "MisComisiones" | "Inventory" | "InventoryAudit" | "InventoryAuditLossDocuments";
 
 type MenuItem = {
   id: string;
@@ -94,6 +95,7 @@ const MENU_SECTIONS: MenuSectionData[] = [
     title: "Cuenta",
     items: [
       { id: "edit", label: "Editar perfil", icon: Edit2, action: "none" },
+      { id: "comisiones", label: "Mis comisiones", icon: Coin, action: "MisComisiones" },
       { id: "registros", label: "Mis registros", icon: Calendar1, action: "MisRegistros" },
       { id: "permisos", label: "Mis permisos", icon: DocumentText1, action: "MisPermisos" },
       { id: "incapacidades", label: "Mis incapacidades", icon: Health, action: "MisIncapacidades" },
@@ -106,7 +108,7 @@ const MENU_SECTIONS: MenuSectionData[] = [
     items: [
       { id: "apariencia", label: "Apariencia", icon: Setting4, action: "none" },
       { id: "dispositivos", label: "Gestionar dispositivos", icon: Profile2User, action: "none" },
-      { id: "password", label: "Cambiar contraseña", icon: Coin, action: "none" },
+      { id: "password", label: "Cambiar contraseña", icon: PasswordCheck, action: "none" },
     ],
   },
   {

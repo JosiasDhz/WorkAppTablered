@@ -20,6 +20,7 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { driverRouteStatusLabelEs } from "../../domain/driverRoutePending";
+import { extractCancellationReason } from "../../domain/driverRouteListCardModel";
 import {
   driverRouteConfirmProgress,
   flattenDriverRouteConfirmLines,
@@ -84,6 +85,9 @@ function statusBadgeTone(status: string): {
   dotColor: string;
   textColor: string;
 } {
+  if (status === "CANCELADA") {
+    return { borderColor: "#E11D48", dotColor: "#E11D48", textColor: "#BE123C" };
+  }
   if (status === "EN_PROCESO" || status === "LEVANTAMIENTO") {
     return { borderColor: C.naranja, dotColor: C.naranja, textColor: C.naranja };
   }
@@ -98,9 +102,14 @@ function statusSubline(
   stops: number,
   units: number,
   when: string,
+  cancellationReason?: string | null,
 ): string {
   const stopsLabel = `${stops} ${stops === 1 ? "parada" : "paradas"}`;
   const unitsLabel = units > 0 ? ` · ${units} uds.` : "";
+  if (status === "CANCELADA") {
+    if (cancellationReason) return cancellationReason;
+    return "Ruta cancelada — el envío volvió a listo para envío";
+  }
   if (status === "EN_PROCESO") {
     return `${stopsLabel}${unitsLabel} — sigue el orden de las paradas`;
   }
@@ -237,7 +246,10 @@ export default function DriverRouteDetailScreen() {
 
   const isCompleta = routeStatus === "COMPLETA";
   const isEnProceso = routeStatus === "EN_PROCESO";
-  const statusDotPulse = useRef(new Animated.Value(0)).current;
+  const isCancelada = routeStatus === "CANCELADA";
+  const cancellationReason = isCancelada
+    ? extractCancellationReason(detail?.route.notes)
+    : null;  const statusDotPulse = useRef(new Animated.Value(0)).current;
   const sheetOpacity = useRef(new Animated.Value(0)).current;
   const sheetSlide = useRef(new Animated.Value(28)).current;
   const detailsOpacity = useRef(new Animated.Value(0)).current;
@@ -297,9 +309,11 @@ export default function DriverRouteDetailScreen() {
 
   const routeProgressAccent = isCompleta
     ? "#10B981"
-    : isEnProceso
-      ? C.naranja
-      : C.azul;
+    : isCancelada
+      ? "#E11D48"
+      : isEnProceso
+        ? C.naranja
+        : C.azul;
 
   useEffect(() => {
     if (!detail) return;
@@ -514,6 +528,7 @@ export default function DriverRouteDetailScreen() {
                   routeOrderDestinations.length,
                   totalUnits,
                   whenLabel,
+                  cancellationReason,
                 )}
               </Text>
               <View style={[styles.statusBadge, { borderColor: badgeTone.borderColor }]}>
@@ -618,6 +633,12 @@ export default function DriverRouteDetailScreen() {
                   onToggleProducts={() => toggleProducts(dest.id)}
                 />
               ))}
+              {isCancelada && routeOrderDestinations.length === 0 ? (
+                <Text style={styles.cancelledEmptyHint}>
+                  Los envíos volvieron a listo para envío. El mapa conserva el
+                  recorrido planificado.
+                </Text>
+              ) : null}
             </View>
 
             {isCompleta ? <DriverRouteDetailAuditCards detail={detail} embedded /> : null}
@@ -790,6 +811,13 @@ const styles = StyleSheet.create({
   },
   deliveryCards: {
     gap: 10,
+  },
+  cancelledEmptyHint: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.gris,
+    lineHeight: 19,
+    paddingVertical: 8,
   },
   detailsSection: {
     paddingTop: 14,

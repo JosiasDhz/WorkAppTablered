@@ -14,6 +14,7 @@ type Props = {
   height?: number;
   routeComplete?: boolean;
   routeInProcess?: boolean;
+  routeCancelled?: boolean;
 };
 
 export function DriverRouteCardMapPreview({
@@ -21,6 +22,7 @@ export function DriverRouteCardMapPreview({
   height = PREVIEW_HEIGHT,
   routeComplete = false,
   routeInProcess = false,
+  routeCancelled = false,
 }: Props) {
   const [model, setModel] = useState<TripMapModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,12 @@ export function DriverRouteCardMapPreview({
     return <View style={[styles.fallback, { height }]} />;
   }
 
+  const strokeColor = routeCancelled
+    ? "#E11D48"
+    : routeComplete
+      ? "#10B981"
+      : "#EA7600";
+
   return (
     <View style={[styles.wrap, { height }]} pointerEvents="none">
       <DriverRouteTripMapWebView
@@ -65,7 +73,7 @@ export function DriverRouteCardMapPreview({
         mapFitOptions={{
           zoomBoost: true,
           animateDraw: false,
-          strokeColor: routeComplete ? "#10B981" : routeInProcess ? "#EA7600" : "#EA7600",
+          strokeColor,
         }}
         embedded
       />

@@ -46,20 +46,27 @@ export function DriverRouteGlassDeliveryCard(props: {
   const rec = destination.records[0];
   if (!rec) return null;
 
-  const isTransfer = destination.records.some((row) =>
-    isDriverRouteTransferLine({
-      id: row.id,
-      rowKind: row.rowKind,
-      transferId: row.transferId,
-      productName: row.productName,
-      saleFolio: row.saleFolio,
-      quantity: row.quantity,
-      deliveryStatus: row.deliveryStatus,
-    }),
+  const isSnapshot = destination.records.every(
+    (row) => String(row.rowKind ?? "") === "route_stop_snapshot",
   );
+  const isTransfer =
+    !isSnapshot &&
+    destination.records.some((row) =>
+      isDriverRouteTransferLine({
+        id: row.id,
+        rowKind: row.rowKind,
+        transferId: row.transferId,
+        productName: row.productName,
+        saleFolio: row.saleFolio,
+        quantity: row.quantity,
+        deliveryStatus: row.deliveryStatus,
+      }),
+    );
   const color = destination.pinColorHex || C.naranja;
-  const folio = rec.saleFolio?.trim() || "—";
-  const kindLabel = isTransfer ? "Traspaso" : "Venta";
+  const folio = isSnapshot
+    ? "Devuelto a listo"
+    : rec.saleFolio?.trim() || "—";
+  const kindLabel = isSnapshot ? "Parada" : isTransfer ? "Traspaso" : "Venta";
   const addressLabel = rec.mapSearchQuery || formatAddress(rec);
   const showDelivered = isDriverRouteStopDelivered({
     rows: destination.records.map((row) => ({

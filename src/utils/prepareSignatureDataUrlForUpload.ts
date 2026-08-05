@@ -2,6 +2,7 @@ import {
   cacheDirectory,
   deleteAsync,
   writeAsStringAsync,
+  EncodingType,
 } from "expo-file-system/legacy";
 
 type ParsedSignatureDataUrl = {
@@ -36,7 +37,9 @@ export async function prepareSignatureDataUrlForUpload(
 
   const name = `delivery-signature-${Date.now()}.${parsed.extension}`;
   const uri = `${cacheDir}${name}`;
-  await writeAsStringAsync(uri, parsed.base64, { encoding: "base64" });
+  await writeAsStringAsync(uri, parsed.base64, {
+    encoding: EncodingType.Base64,
+  });
 
   return {
     uri,

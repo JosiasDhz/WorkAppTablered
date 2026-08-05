@@ -43,6 +43,7 @@ type DriverRouteDeliveryCountPanelProps = {
   onChangeAmountReceived: (text: string) => void;
   onChangeEvidencePhotos: (photos: DriverRouteDeliveryEvidencePhotosState) => void;
   onContinue: () => void;
+  onReturnToReady?: () => void;
 };
 
 export function DriverRouteDeliveryCountPanel({
@@ -56,6 +57,7 @@ export function DriverRouteDeliveryCountPanel({
   onChangeAmountReceived,
   onChangeEvidencePhotos,
   onContinue,
+  onReturnToReady,
 }: DriverRouteDeliveryCountPanelProps) {
   const paymentRequired = isDeliveryPaymentRequired(payment);
   const allMatched = useMemo(
@@ -301,6 +303,16 @@ export function DriverRouteDeliveryCountPanel({
             variant="Bold"
           />
         </Pressable>
+        {onReturnToReady ? (
+          <Pressable
+            style={styles.returnBtn}
+            onPress={onReturnToReady}
+            accessibilityRole="button"
+            accessibilityLabel="No pude entregar, quitar de la ruta"
+          >
+            <Text style={styles.returnBtnTxt}>No pude entregar</Text>
+          </Pressable>
+        ) : null}
       </View>
     </KeyboardAwareScrollView>
   );
@@ -610,5 +622,20 @@ const styles = StyleSheet.create({
   },
   nextBtnTxtDisabled: {
     color: "#94A3B8",
+  },
+  returnBtn: {
+    marginTop: 10,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  returnBtnTxt: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#C2410C",
   },
 });

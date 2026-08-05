@@ -6,7 +6,7 @@ function routeStatus(route: DriverAssignedRouteRecord): string {
 }
 
 export function isDriverRouteHubVisible(route: DriverAssignedRouteRecord): boolean {
-  if (routeStatus(route) === "CANCELADA") return false;
+  if (routeStatus(route) === "CANCELADA") return true;
   const model = buildDriverRouteListCardModel(route);
   if (model.isCompleta) return true;
   return (
@@ -21,14 +21,19 @@ export function partitionDriverHubRoutes(routes: DriverAssignedRouteRecord[]): {
   ready: DriverAssignedRouteRecord[];
   pendingConfirm: DriverAssignedRouteRecord[];
   completed: DriverAssignedRouteRecord[];
+  cancelled: DriverAssignedRouteRecord[];
 } {
   const inRoute: DriverAssignedRouteRecord[] = [];
   const ready: DriverAssignedRouteRecord[] = [];
   const pendingConfirm: DriverAssignedRouteRecord[] = [];
   const completed: DriverAssignedRouteRecord[] = [];
+  const cancelled: DriverAssignedRouteRecord[] = [];
 
   for (const route of routes) {
-    if (routeStatus(route) === "CANCELADA") continue;
+    if (routeStatus(route) === "CANCELADA") {
+      cancelled.push(route);
+      continue;
+    }
     const model = buildDriverRouteListCardModel(route);
     if (model.isCompleta) {
       completed.push(route);
@@ -47,7 +52,7 @@ export function partitionDriverHubRoutes(routes: DriverAssignedRouteRecord[]): {
     }
   }
 
-  return { inRoute, ready, pendingConfirm, completed };
+  return { inRoute, ready, pendingConfirm, completed, cancelled };
 }
 
 export function resolveDriverHubRouteDestination(

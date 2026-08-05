@@ -162,7 +162,7 @@ export function driverRouteReceiptHasDiscrepancy(
   });
 }
 
-function isDriverRouteLineInTransit(line: DriverRouteConfirmLine): boolean {
+export function isDriverRouteLineInTransit(line: DriverRouteConfirmLine): boolean {
   return (
     String(line.deliveryStatus ?? "").trim().toUpperCase() ===
     "EN_PROCESO_DE_ENVIO"
