@@ -25,9 +25,10 @@ export type WorkerCheckTypeDto = {
 
 export type WorkerTodayCheckContext = {
   workDayYmd: string;
-  mode: "work_start" | "select_type" | "complete";
+  mode: "ready" | "work_start" | "select_type" | "complete";
   hasWorkStart: boolean;
   workStartType: WorkerCheckTypeDto | null;
+  autoCheckType: WorkerCheckTypeDto | null;
   selectableTypes: WorkerCheckTypeDto[];
   todayEvents: MyAttendanceEventDto[];
 };

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   LayoutChangeEvent,
   Platform,
   Pressable,
@@ -12,12 +13,13 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle } from "react-native-svg";
 import QRCode from "react-native-qrcode-svg";
-import { Card, InfoCircle } from "iconsax-react-native";
+import { Card, InfoCircle, TickCircle } from "iconsax-react-native";
 import { TAB_BAR_PRIMARY } from "../tabBarConstants";
 import { useWorkerAttendanceQr } from "./useWorkerAttendanceQr";
 import { AttendanceDateTimeStrip } from "./AttendanceDateTimeStrip";
 import { AttendanceNoticeFormModal } from "./AttendanceNoticeFormModal";
 import { AttendanceCheckTypeSelector } from "./AttendanceCheckTypeSelector";
+import { DriverRouteConfettiLayer } from "../../../pages/profile/driverRoute/DriverRouteConfettiLayer";
 
 const TIMER_ENDING_SECONDS = 5;
 const ENDING_HAPTIC_INTERVAL_MS = 500;
@@ -27,6 +29,7 @@ const TIMER_SIZE = 36;
 const TIMER_STROKE = 3.5;
 const TIMER_RADIUS = (TIMER_SIZE - TIMER_STROKE) / 2;
 const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
+const SUCCESS_GREEN = "#059669";
 
 export type CardQrSheetProps = {
   progress: Animated.Value;
@@ -46,13 +49,29 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
     selectedCheckTypeCode,
     setSelectedCheckTypeCode,
     checkTypeOptions,
+    checkSuccess,
   } = useWorkerAttendanceQr();
-  const isComplete = context?.mode === "complete";
+  const isComplete = false;
   const showTypeSelector =
-    !contextLoading && checkTypeOptions.length > 0 && !isComplete;
+    !contextLoading && checkTypeOptions.length > 0 && !checkSuccess;
+  const showLateNotice =
+    !contextLoading &&
+    Boolean(context) &&
+    !context?.hasWorkStart &&
+    !checkSuccess;
+
+  useEffect(() => {
+    if (!showLateNotice && noticeModalOpen) {
+      setNoticeModalOpen(false);
+    }
+  }, [showLateNotice, noticeModalOpen]);
   const timerOffset = TIMER_CIRCUMFERENCE * (1 - timerProgress);
   const timerFade = useRef(new Animated.Value(1)).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
+  const successBadgeRotate = useRef(new Animated.Value(-18)).current;
+  const successTitleOpacity = useRef(new Animated.Value(0)).current;
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const initializedCycleRef = useRef(false);
   const [qrPixelSize, setQrPixelSize] = useState(0);
@@ -61,7 +80,56 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
     secondsLeft <= TIMER_ENDING_SECONDS && secondsLeft >= 1;
 
   useEffect(() => {
-    if (!endingSoon) {
+    if (!checkSuccess) {
+      successScale.setValue(0);
+      successOpacity.setValue(0);
+      successBadgeRotate.setValue(-18);
+      successTitleOpacity.setValue(0);
+      return;
+    }
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    successScale.setValue(0);
+    successOpacity.setValue(0);
+    successBadgeRotate.setValue(-18);
+    successTitleOpacity.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(successOpacity, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(successScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 110,
+        useNativeDriver: true,
+      }),
+      Animated.spring(successBadgeRotate, {
+        toValue: 0,
+        friction: 6,
+        tension: 90,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.timing(successTitleOpacity, {
+      toValue: 1,
+      duration: 360,
+      delay: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [
+    checkSuccess,
+    successOpacity,
+    successScale,
+    successBadgeRotate,
+    successTitleOpacity,
+  ]);
+
+  useEffect(() => {
+    if (!endingSoon || checkSuccess) {
       return;
     }
     let step = 0;
@@ -76,7 +144,7 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
     pulse();
     const id = setInterval(pulse, ENDING_HAPTIC_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [endingSoon]);
+  }, [endingSoon, checkSuccess]);
 
   const onQrSquareLayout = useCallback((e: LayoutChangeEvent) => {
     const side = Math.round(e.nativeEvent.layout.width);
@@ -98,7 +166,7 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
   }, []);
 
   useEffect(() => {
-    if (secondsLeft > TIMER_ENDING_SECONDS || secondsLeft < 1) {
+    if (checkSuccess || secondsLeft > TIMER_ENDING_SECONDS || secondsLeft < 1) {
       pulseLoopRef.current?.stop();
       pulseLoopRef.current = null;
       pulseScale.setValue(1);
@@ -123,7 +191,7 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
     );
     pulseLoopRef.current = loop;
     loop.start();
-  }, [secondsLeft, pulseScale]);
+  }, [secondsLeft, pulseScale, checkSuccess]);
 
   useEffect(() => {
     if (!initializedCycleRef.current) {
@@ -186,16 +254,18 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
                 <Card size={22} color="#FFFFFF" variant="Bold" />
               </View>
               <View style={styles.headerTextWrap}>
-                <Text style={styles.title}>Qr de asistencia</Text>
+                <Text style={styles.title}>
+                  {checkSuccess ? "Chequeo exitoso" : "Qr de asistencia"}
+                </Text>
                 <Text style={styles.subtitle}>
-                  {isComplete
-                    ? "Sin chequeos pendientes hoy"
-                    : context?.mode === "select_type"
-                      ? "Elige el tipo y escanea en sucursal"
+                  {checkSuccess
+                    ? checkSuccess.warehouseName
+                    : selectedCheckTypeCode
+                      ? "Comida seleccionada: escanea en sucursal"
                       : "Escanea en sucursal"}
                 </Text>
               </View>
-              {!isComplete && payload ? (
+              {!isComplete && payload && !checkSuccess ? (
               <Animated.View style={[styles.countdownWrap, { opacity: timerFade }]}>
                 <Animated.View
                   style={{
@@ -250,7 +320,47 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
               <Text style={styles.contextError}>{contextError}</Text>
             ) : null}
             <View style={styles.qrWrap} onLayout={onQrSquareLayout}>
-              {isComplete ? (
+              {checkSuccess ? (
+                <View style={styles.successStage}>
+                  <DriverRouteConfettiLayer
+                    active
+                    pieceCount={18}
+                    fallDistance={280}
+                  />
+                  <View style={styles.successContent}>
+                    <Animated.View
+                      style={{
+                        opacity: successOpacity,
+                        transform: [
+                          { scale: successScale },
+                          {
+                            rotate: successBadgeRotate.interpolate({
+                              inputRange: [-18, 0],
+                              outputRange: ["-18deg", "0deg"],
+                            }),
+                          },
+                        ],
+                      }}
+                    >
+                      <View style={styles.successBadge}>
+                        <TickCircle size={64} color="#FFFFFF" variant="Bold" />
+                      </View>
+                    </Animated.View>
+                    <Animated.View
+                      style={[
+                        styles.successCopy,
+                        { opacity: successTitleOpacity },
+                      ]}
+                    >
+                      <Text style={styles.successTitle}>¡Chequeo exitoso!</Text>
+                      <Text style={styles.successSub}>
+                        {checkSuccess.warehouseName}
+                      </Text>
+                      <Text style={styles.successHint}>Generando nuevo QR…</Text>
+                    </Animated.View>
+                  </View>
+                </View>
+              ) : isComplete ? (
                 <View style={styles.completeWrap}>
                   <Text style={styles.completeTitle}>
                     Chequeos completados
@@ -293,20 +403,22 @@ export function CardQrSheet({ progress, onClose }: CardQrSheetProps) {
                 options={checkTypeOptions}
                 selectedCode={selectedCheckTypeCode}
                 onSelect={setSelectedCheckTypeCode}
-                disabled={contextLoading}
+                disabled={contextLoading || Boolean(checkSuccess)}
               />
             ) : null}
             <AttendanceDateTimeStrip />
-            <Pressable
-              style={styles.noticeBtn}
-              onPress={() => setNoticeModalOpen(true)}
-              accessibilityLabel="Avisar incidencia de asistencia"
-            >
-              <InfoCircle size={18} color={TAB_BAR_PRIMARY} variant="Bold" />
-              <Text style={styles.noticeBtnText}>
-                No checaré o llegaré tarde
-              </Text>
-            </Pressable>
+            {!showLateNotice ? null : (
+              <Pressable
+                style={styles.noticeBtn}
+                onPress={() => setNoticeModalOpen(true)}
+                accessibilityLabel="Avisar incidencia de asistencia"
+              >
+                <InfoCircle size={18} color={TAB_BAR_PRIMARY} variant="Bold" />
+                <Text style={styles.noticeBtnText}>
+                  No checaré o llegaré tarde
+                </Text>
+              </Pressable>
+            )}
           </View>
         </BlurView>
       </Animated.View>
@@ -441,6 +553,59 @@ const styles = StyleSheet.create({
     color: "#64748B",
     textAlign: "center",
     lineHeight: 18,
+  },
+  successWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successStage: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  successContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    zIndex: 2,
+  },
+  successCopy: {
+    marginTop: 14,
+    alignItems: "center",
+  },
+  successBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: SUCCESS_GREEN,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: SUCCESS_GREEN,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#065F46",
+    textAlign: "center",
+  },
+  successSub: {
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+    textAlign: "center",
+  },
+  successHint: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#047857",
+    textAlign: "center",
   },
   qrWrap: {
     width: "100%",

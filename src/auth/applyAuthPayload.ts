@@ -45,8 +45,12 @@ export async function applyAuthPayloadToClient(
       ? (user.avatar as { id: string })
       : null;
   if (avatar?.id) {
-    const file = await deps.getFile(avatar.id);
-    profileUrl = file?.url ?? "";
+    try {
+      const file = await deps.getFile(avatar.id);
+      profileUrl = file?.url ?? "";
+    } catch {
+      profileUrl = "";
+    }
   }
 
   const sellerNorm = seller ?? {};

@@ -1,7 +1,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 //esadsadasd
-export const apiBaseUrl = "http://192.168.0.228:9005";
+export const apiBaseUrl = "http://192.168.0.229:9005";
 // export const apiBaseUrl = "https://table-red.karimnot.dev";
 const baseURL = apiBaseUrl;
 

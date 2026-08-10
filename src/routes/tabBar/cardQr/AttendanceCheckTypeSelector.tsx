@@ -6,7 +6,7 @@ import { TAB_BAR_PRIMARY } from "../tabBarConstants";
 type Props = {
   options: WorkerCheckTypeDto[];
   selectedCode: string | null;
-  onSelect: (code: string) => void;
+  onSelect: (code: string | null) => void;
   disabled?: boolean;
 };
 
@@ -18,9 +18,14 @@ export function AttendanceCheckTypeSelector({
 }: Props) {
   if (options.length === 0) return null;
 
+  const hasMealOut = options.some((row) => row.code === "COMIDA_SALIDA");
+  const label = hasMealOut
+    ? "Presiona si es tu fin de comida"
+    : "Presiona si es tu inicio de comida";
+
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>Tipo de chequeo</Text>
+      <Text style={styles.label}>{label}</Text>
       <View style={styles.row}>
         {options.map((option) => {
           const selected = option.code === selectedCode;
@@ -28,7 +33,7 @@ export function AttendanceCheckTypeSelector({
             <Pressable
               key={option.code}
               disabled={disabled}
-              onPress={() => onSelect(option.code)}
+              onPress={() => onSelect(selected ? null : option.code)}
               style={[
                 styles.chip,
                 selected && styles.chipSelected,
@@ -65,8 +70,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#64748B",
     marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
   },
   row: {
     flexDirection: "row",

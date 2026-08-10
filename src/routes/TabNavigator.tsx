@@ -97,23 +97,36 @@ const AppNavigator = () => {
       const userSaved = await getFromStorage("tablered-user");
       const sellerSaved = await getFromStorage("tablered-seller");
       const tokenSaved = await getFromStorage("tablered-token");
-      if (!userSaved || !sellerSaved) return;
+      if (!userSaved || !tokenSaved) return;
 
       const user = JSON.parse(userSaved);
-      const seller = JSON.parse(sellerSaved);
-      let profileUrl = null;
-      if (user?.avatar?.id) {
-        profileUrl = await getFile(user?.avatar?.id);
-      }
+      const seller = sellerSaved ? JSON.parse(sellerSaved) : {};
 
       dispatch(
         restoreSesion({
           token: tokenSaved,
-          user: user,
-          seller: seller,
-          userAvatar: profileUrl?.url ?? "",
+          user,
+          seller,
+          userAvatar: "",
         }),
       );
+
+      if (user?.avatar?.id) {
+        try {
+          const profileUrl = await getFile(user.avatar.id);
+          if (profileUrl?.url) {
+            dispatch(
+              restoreSesion({
+                token: tokenSaved,
+                user,
+                seller,
+                userAvatar: profileUrl.url,
+              }),
+            );
+          }
+        } catch {
+        }
+      }
     } catch {
     } finally {
       setLoading(false);

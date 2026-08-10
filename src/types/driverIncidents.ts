@@ -1,9 +1,11 @@
 export type DriverIncidentReason =
   | "faltante_recepcion"
   | "danado_recepcion"
-  | "danado_transito";
+  | "danado_transito"
+  | "efectivo_no_entregado"
+  | "ruta_cancelada_chofer";
 
-export type DriverIncidentPhase = "recepcion" | "en_ruta";
+export type DriverIncidentPhase = "recepcion" | "en_ruta" | "post_ruta";
 
 export type DriverRouteReceiptLinePayload = {
   lineKind: "transfer" | "sale_delivery";
