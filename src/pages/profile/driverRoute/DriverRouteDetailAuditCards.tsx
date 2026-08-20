@@ -1,7 +1,5 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import {
-  Animated,
-  Easing,
   Image,
   ScrollView,
   StyleSheet,
@@ -16,13 +14,20 @@ import { useTableredFileImageHeaders } from "../../../hooks/useTableredFileImage
 import type { DriverRouteAssignmentDemo } from "../driverDemo/driverRouteAssignmentDemo.types";
 import { destinationsInRouteTravelOrder } from "./driverRouteDestinationsTravelOrder";
 import { driverRouteFileViewUrl, resolveDriverRouteSignatureUri } from "./driverRouteFileViewUrl";
-import { TableRedColors } from "../../../theme/tableRedColors";
 
-const C = TableRedColors;
+const COLORS = {
+  surface: "#FFFFFF",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  accent: "#EA7600",
+};
+
+const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
+const DONE = "#16A34A";
+const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
 
 type DriverRouteDetailAuditCardsProps = {
   detail: DriverRouteAssignmentDemo;
-  embedded?: boolean;
 };
 
 function formatWhen(iso: string | null | undefined): string {
@@ -44,48 +49,6 @@ function isDeliveredStatus(status: string): boolean {
   return s === "ENTREGADO" || s === "ENTREGADO_CHOFER";
 }
 
-function AuditCard(props: {
-  title: string;
-  children: React.ReactNode;
-  delayMs: number;
-  embedded?: boolean;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const slide = useRef(new Animated.Value(18)).current;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 360,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(slide, {
-          toValue: 0,
-          friction: 8,
-          tension: 72,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, props.delayMs);
-    return () => clearTimeout(timer);
-  }, [opacity, props.delayMs, slide]);
-
-  return (
-    <Animated.View
-      style={[
-        props.embedded ? styles.section : styles.card,
-        { opacity, transform: [{ translateY: slide }] },
-      ]}
-    >
-      <Text style={styles.cardTitle}>{props.title}</Text>
-      {props.children}
-    </Animated.View>
-  );
-}
-
 function AuditImagePreview(props: {
   uri: string;
   label: string;
@@ -95,9 +58,7 @@ function AuditImagePreview(props: {
 }) {
   const headers = useTableredFileImageHeaders(props.uri);
   const source = useMemo((): ImageSourcePropType => {
-    return headers
-      ? { uri: props.uri, headers }
-      : { uri: props.uri };
+    return headers ? { uri: props.uri, headers } : { uri: props.uri };
   }, [headers, props.uri]);
 
   return (
@@ -153,9 +114,50 @@ function MetricRow(props: { label: string; value: string }) {
   );
 }
 
+function EvidenceStrip({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.thumbRow}
+      nestedScrollEnabled
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+function AuditCard(props: {
+  icon: React.ReactNode;
+  wellBg: string;
+  title: string;
+  stamp?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <View style={[styles.iconWell, { backgroundColor: props.wellBg }]}>
+          {props.icon}
+        </View>
+        <View style={styles.cardCopy}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {props.title}
+          </Text>
+          {props.stamp ? (
+            <Text style={styles.cardStamp} numberOfLines={1}>
+              {props.stamp}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      {props.children}
+    </View>
+  );
+}
+
 export function DriverRouteDetailAuditCards({
   detail,
-  embedded = false,
 }: DriverRouteDetailAuditCardsProps) {
   const { route } = detail;
   const ordered = useMemo(() => destinationsInRouteTravelOrder(detail), [detail]);
@@ -224,138 +226,129 @@ export function DriverRouteDetailAuditCards({
     return null;
   }
 
-  let delay = 0;
-  const nextDelay = () => {
-    const current = delay;
-    delay += 120;
-    return current;
-  };
-
   return (
-    <View style={embedded ? styles.embeddedWrap : styles.wrap}>
+    <View style={styles.wrap}>
       {hasStartAudit ? (
-        <AuditCard title="Salida de ruta" delayMs={nextDelay()} embedded={embedded}>
-          <View style={styles.cardHeadRow}>
-            <Speedometer size={18} color={C.naranja} variant="Bold" />
-            <Text style={styles.cardHeadText}>Tacómetro al iniciar</Text>
-          </View>
+        <AuditCard
+          icon={<Speedometer size={20} color={COLORS.accent} variant="Linear" />}
+          wellBg={ACCENT_SOFT}
+          title="Salida de ruta"
+          stamp={
+            route.routeStartedAtCdmx
+              ? formatWhen(route.routeStartedAtCdmx)
+              : "Registrada"
+          }
+        >
           {route.routeStartOdometerReading != null ? (
             <MetricRow
               label="Kilometraje"
               value={`${route.routeStartOdometerReading.toLocaleString("es-MX")} km`}
             />
           ) : null}
-          {route.routeStartedAtCdmx ? (
-            <MetricRow label="Inicio" value={formatWhen(route.routeStartedAtCdmx)} />
-          ) : null}
           {route.routeStartOdometerEvidenceFileId ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.thumbRow}
-              nestedScrollEnabled
-            >
-              <EvidenceThumb fileId={route.routeStartOdometerEvidenceFileId} label="Tacómetro" />
-            </ScrollView>
+            <EvidenceStrip>
+              <EvidenceThumb
+                fileId={route.routeStartOdometerEvidenceFileId}
+                label="Tacómetro"
+              />
+            </EvidenceStrip>
           ) : null}
         </AuditCard>
       ) : null}
 
+      {deliveryEvidenceStops.map((stop) => (
+        <AuditCard
+          key={stop.key}
+          icon={<TickCircle size={20} color={DONE} variant="Linear" />}
+          wellBg={DONE_SOFT}
+          title={stop.title}
+          stamp={
+            stop.deliveredAt
+              ? formatWhen(stop.deliveredAt)
+              : stop.delivered
+                ? "Entregada"
+                : "Sin cierre"
+          }
+        >
+          {stop.address ? (
+            <Text style={styles.addr} numberOfLines={2}>
+              {stop.address}
+            </Text>
+          ) : null}
+          {stop.deliveredUnits > 0 ? (
+            <Text style={styles.qty}>
+              {stop.deliveredUnits}{" "}
+              {stop.deliveredUnits === 1 ? "ud. entregada" : "uds. entregadas"}
+            </Text>
+          ) : null}
+          {stop.delivered && stop.evidenceIds.length === 0 && !stop.signature ? (
+            <Text style={styles.missing}>
+              Sin fotos ni firma guardadas para esta parada.
+            </Text>
+          ) : null}
+          {stop.evidenceIds.length > 0 ? (
+            <EvidenceStrip>
+              {stop.evidenceIds.map((fileId, index) => (
+                <EvidenceThumb
+                  key={fileId}
+                  fileId={fileId}
+                  label={`Evidencia ${index + 1}`}
+                />
+              ))}
+            </EvidenceStrip>
+          ) : null}
+          {stop.signature ? (
+            <View style={styles.signatureBlock}>
+              <Text style={styles.evidenceLabel}>Firma del cliente</Text>
+              <SignaturePreview signature={stop.signature} label="Firma del cliente" />
+            </View>
+          ) : null}
+        </AuditCard>
+      ))}
+
       {hasEndAudit ? (
-        <AuditCard title="Cierre de ruta" delayMs={nextDelay()} embedded={embedded}>
-          <View style={styles.cardHeadRow}>
-            <GasStation size={18} color={C.verdeHover} variant="Bold" />
-            <Text style={styles.cardHeadText}>Combustible y tacómetro final</Text>
-          </View>
+        <AuditCard
+          icon={<GasStation size={20} color={DONE} variant="Linear" />}
+          wellBg={DONE_SOFT}
+          title="Cierre de ruta"
+          stamp={
+            route.routeCompletedAtCdmx
+              ? formatWhen(route.routeCompletedAtCdmx)
+              : "Cerrada"
+          }
+        >
           {route.routeEndOdometerReading != null ? (
             <MetricRow
               label="Kilometraje final"
               value={`${route.routeEndOdometerReading.toLocaleString("es-MX")} km`}
             />
           ) : null}
-          {route.routeCompletedAtCdmx ? (
-            <MetricRow label="Finalizada" value={formatWhen(route.routeCompletedAtCdmx)} />
+          {route.routeEndOdometerEvidenceFileId || route.routeEndFuelEvidenceFileId ? (
+            <EvidenceStrip>
+              {route.routeEndOdometerEvidenceFileId ? (
+                <EvidenceThumb
+                  fileId={route.routeEndOdometerEvidenceFileId}
+                  label="Tacómetro final"
+                />
+              ) : null}
+              {route.routeEndFuelEvidenceFileId ? (
+                <EvidenceThumb
+                  fileId={route.routeEndFuelEvidenceFileId}
+                  label="Combustible"
+                />
+              ) : null}
+            </EvidenceStrip>
           ) : null}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.thumbRow}
-            nestedScrollEnabled
-          >
-            {route.routeEndOdometerEvidenceFileId ? (
-              <EvidenceThumb
-                fileId={route.routeEndOdometerEvidenceFileId}
-                label="Tacómetro final"
-              />
-            ) : null}
-            {route.routeEndFuelEvidenceFileId ? (
-              <EvidenceThumb fileId={route.routeEndFuelEvidenceFileId} label="Combustible" />
-            ) : null}
-          </ScrollView>
-        </AuditCard>
-      ) : null}
-
-      {deliveryEvidenceStops.length > 0 ? (
-        <AuditCard title="Evidencias de entrega" delayMs={nextDelay()} embedded={embedded}>
-          {deliveryEvidenceStops.map((stop) => (
-            <View key={stop.key} style={styles.stopBlock}>
-              <View style={styles.stopHead}>
-                <TickCircle size={16} color={C.verdeHover} variant="Bold" />
-                <View style={styles.stopCopy}>
-                  <Text style={styles.stopTitle}>{stop.title}</Text>
-                  <Text style={styles.stopAddr} numberOfLines={2}>
-                    {stop.address}
-                  </Text>
-                  {stop.deliveredAt ? (
-                    <Text style={styles.stopWhen}>{formatWhen(stop.deliveredAt)}</Text>
-                  ) : null}
-                  {stop.deliveredUnits > 0 ? (
-                    <Text style={styles.stopQty}>
-                      {stop.deliveredUnits} {stop.deliveredUnits === 1 ? "ud. entregada" : "uds. entregadas"}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-
-              {stop.delivered && stop.evidenceIds.length === 0 && !stop.signature ? (
-                <Text style={styles.missingAudit}>
-                  Sin fotos ni firma guardadas para esta parada.
-                </Text>
-              ) : null}
-
-              {stop.evidenceIds.length > 0 ? (
-                <View style={styles.evidenceBlock}>
-                  <Text style={styles.evidenceBlockLabel}>Fotos de evidencia</Text>
-                  <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.thumbRow}
-            nestedScrollEnabled
-          >
-                    {stop.evidenceIds.map((fileId, index) => (
-                      <EvidenceThumb
-                        key={fileId}
-                        fileId={fileId}
-                        label={`Evidencia ${index + 1}`}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
-
-              {stop.signature ? (
-                <View style={styles.evidenceBlock}>
-                  <Text style={styles.evidenceBlockLabel}>Firma del cliente</Text>
-                  <SignaturePreview signature={stop.signature} label="Firma del cliente" />
-                </View>
-              ) : null}
-            </View>
-          ))}
         </AuditCard>
       ) : null}
 
       {deliveredStops.length > 0 ? (
-        <AuditCard title="Resumen" delayMs={nextDelay()} embedded={embedded}>
+        <AuditCard
+          icon={<TickCircle size={20} color={DONE} variant="Linear" />}
+          wellBg={DONE_SOFT}
+          title="Resumen"
+          stamp={`${deliveredStops.length} de ${ordered.length} paradas`}
+        >
           <MetricRow
             label="Paradas entregadas"
             value={`${deliveredStops.length} de ${ordered.length}`}
@@ -371,76 +364,76 @@ export function DriverRouteDetailAuditCards({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 14,
-    gap: 14,
-  },
-  embeddedWrap: {
-    marginTop: 4,
-  },
-  section: {
-    marginTop: 18,
-    paddingTop: 18,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.line,
+    gap: 12,
   },
   card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: "rgba(255,255,255,0.82)",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 14,
+    gap: 10,
   },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: C.ink,
-    letterSpacing: -0.2,
-    marginBottom: 10,
-  },
-  cardHeadRow: {
+  cardHead: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
+    gap: 12,
   },
-  cardHeadText: {
+  iconWell: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.ink,
+  },
+  cardStamp: {
+    marginTop: 3,
     fontSize: 13,
-    fontWeight: "700",
-    color: C.corteza,
+    fontWeight: "500",
+    color: COLORS.muted,
   },
   metricRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
-    paddingVertical: 6,
   },
   metricLabel: {
     fontSize: 13,
-    fontWeight: "600",
-    color: C.gris,
+    fontWeight: "500",
+    color: COLORS.muted,
   },
   metricValue: {
     flex: 1,
     textAlign: "right",
     fontSize: 13,
-    fontWeight: "800",
-    color: C.ink,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  addr: {
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 18,
+    color: COLORS.muted,
+  },
+  qty: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.accent,
+  },
+  missing: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
   },
   thumbRow: {
-    marginTop: 4,
     flexGrow: 0,
-  },
-  evidenceBlock: {
-    marginTop: 12,
-  },
-  evidenceBlockLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: C.gris,
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
   },
   thumbWrap: {
     width: 108,
@@ -450,58 +443,23 @@ const styles = StyleSheet.create({
     width: 108,
     height: 82,
     borderRadius: 12,
-    backgroundColor: "#E2E8F0",
+    backgroundColor: ACCENT_SOFT,
   },
   thumbLabel: {
     marginTop: 4,
     fontSize: 11,
     fontWeight: "600",
-    color: C.gris,
+    color: COLORS.muted,
   },
-  stopBlock: {
-    paddingTop: 10,
-    marginTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.line,
+  signatureBlock: {
+    gap: 8,
   },
-  stopHead: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  stopCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  stopTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: C.ink,
-  },
-  stopAddr: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: C.gris,
-    lineHeight: 17,
-  },
-  stopWhen: {
-    marginTop: 4,
+  evidenceLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: C.verdeHover,
-  },
-  stopQty: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: "700",
-    color: C.corteza,
-  },
-  missingAudit: {
-    marginTop: 10,
-    fontSize: 12,
-    fontWeight: "600",
-    color: C.gris,
-    fontStyle: "italic",
+    color: COLORS.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   signaturePreviewWrap: {
     width: "100%",
@@ -511,8 +469,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 108,
     borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: C.line,
+    backgroundColor: ACCENT_SOFT,
   },
 });

@@ -6,4 +6,11 @@ export type ProfileStackParamList = {
     sucursal?: string;
     date?: string;
   };
+  MisExpediente: undefined;
+  MisExpedienteDocumento: {
+    documentTypeId: string;
+    documentTypeName: string;
+    isRequired: boolean;
+  };
+  DriverRoutesHub: undefined;
 };

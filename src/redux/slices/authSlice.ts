@@ -12,6 +12,7 @@ const authSlice = createSlice({
       state.token = null;
       state.user = null;
       state.seller = null;
+      state.userAvatar = "";
     },
 
     restoreSesion: (state, action) => {

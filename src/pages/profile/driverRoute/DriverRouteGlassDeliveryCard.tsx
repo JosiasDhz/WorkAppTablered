@@ -1,15 +1,21 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { ArrowDown2, ArrowRight2, Box1, TickCircle } from "iconsax-react-native";
+import { SoftPressable } from "../../../components/SoftPressable";
 import type { DriverRouteAssignmentDemoDestination } from "../driverDemo/driverRouteAssignmentDemo.types";
 import { isDriverRouteTransferLine } from "../../../domain/driverRouteConfirmLines";
-import {
-  isDriverRouteStopDelivered,
-} from "./deliveryStopProgress";
-import { driverRouteGlassCardStyle, rgba } from "./driverRouteGlass";
-import { TableRedColors } from "../../../theme/tableRedColors";
+import { isDriverRouteStopDelivered } from "./deliveryStopProgress";
 
-const C = TableRedColors;
+const COLORS = {
+  surface: "#FFFFFF",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  accent: "#EA7600",
+};
+
+const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
+const DONE = "#16A34A";
+const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
 
 function formatAddress(rec: DriverRouteAssignmentDemoDestination["records"][0]): string {
   return [
@@ -41,8 +47,15 @@ export function DriverRouteGlassDeliveryCard(props: {
   productsCollapsed: boolean;
   onToggleProducts: () => void;
 }) {
-  const { destination, displayNum, originLabel, routeInProcess, routeComplete = false, productsCollapsed, onToggleProducts } =
-    props;
+  const {
+    destination,
+    displayNum,
+    originLabel,
+    routeInProcess,
+    routeComplete = false,
+    productsCollapsed,
+    onToggleProducts,
+  } = props;
   const rec = destination.records[0];
   if (!rec) return null;
 
@@ -62,7 +75,6 @@ export function DriverRouteGlassDeliveryCard(props: {
         deliveryStatus: row.deliveryStatus,
       }),
     );
-  const color = destination.pinColorHex || C.naranja;
   const folio = isSnapshot
     ? "Devuelto a listo"
     : rec.saleFolio?.trim() || "—";
@@ -102,294 +114,197 @@ export function DriverRouteGlassDeliveryCard(props: {
   }));
 
   return (
-    <View style={driverRouteGlassCardStyle(color, false)}>
-      <View style={styles.body}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.folio} numberOfLines={1}>
-              {kindLabel} · {folio}
+    <View style={styles.card}>
+      <View style={styles.topRow}>
+        <View
+          style={[
+            styles.iconWell,
+            { backgroundColor: showDelivered ? DONE_SOFT : ACCENT_SOFT },
+          ]}
+        >
+          {showDelivered ? (
+            <TickCircle size={20} color={DONE} variant="Linear" />
+          ) : (
+            <Text style={styles.stopNum}>{displayNum}</Text>
+          )}
+        </View>
+        <View style={styles.copy}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              Parada {displayNum}
             </Text>
-            <Text style={styles.parada}>Parada {displayNum}</Text>
-          </View>
-          {statusLabel ? (
-            <View
-              style={[
-                styles.statusPill,
-                showDelivered ? styles.statusDelivered : styles.statusEnRuta,
-              ]}
-            >
+            {statusLabel ? (
               <View
                 style={[
-                  styles.statusDot,
-                  { backgroundColor: showDelivered ? "#10B981" : "#8B5CF6" },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.statusTxt,
-                  showDelivered ? styles.statusTxtDelivered : styles.statusTxtEnRuta,
+                  styles.badge,
+                  {
+                    backgroundColor: showDelivered ? DONE_SOFT : ACCENT_SOFT,
+                  },
                 ]}
               >
-                {statusLabel}
-              </Text>
-            </View>
-          ) : (
-            <View
-              style={[
-                styles.stopNum,
-                { borderColor: color, backgroundColor: rgba(color, 0.08) },
-              ]}
-            >
-              <Text style={[styles.stopNumTxt, { color }]}>{displayNum}</Text>
-            </View>
-          )}
+                <Text
+                  style={[
+                    styles.badgeText,
+                    { color: showDelivered ? DONE : COLORS.accent },
+                  ]}
+                >
+                  {statusLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.meta} numberOfLines={1}>
+            {kindLabel} · {folio}
+          </Text>
+          <Text style={styles.desc} numberOfLines={2}>
+            {addressLabel}
+          </Text>
+          <Text style={styles.meta} numberOfLines={1}>
+            Desde {originLabel}
+          </Text>
         </View>
+      </View>
 
-        <View style={styles.routeRow}>
-          <View style={styles.routeRail}>
-            <View style={styles.routeDotOpen} />
-            <View style={styles.routeLine} />
-            <View style={styles.routeDotSolid} />
-          </View>
-          <View style={styles.routeCopy}>
-            <View>
-              <Text style={styles.routeKicker}>Desde</Text>
-              <Text style={styles.routeValue} numberOfLines={2}>
-                {originLabel}
-              </Text>
-            </View>
-            <View style={styles.routeDest}>
-              <Text style={styles.routeKicker}>Entrega</Text>
-              <Text style={styles.routeValue} numberOfLines={2}>
-                {addressLabel}
-              </Text>
-            </View>
-          </View>
-        </View>
+      <View style={styles.metrics}>
+        <Text style={styles.metricTxt}>
+          {productCount} · {totalQty} uds.
+        </Text>
+        <Text style={styles.metricDot}>·</Text>
+        <Text style={styles.metricTxt}>{formatMetric(totalVolumeM3)} m³</Text>
+        <Text style={styles.metricDot}>·</Text>
+        <Text style={styles.metricTxt}>{formatMetric(totalWeightKg, 1)} kg</Text>
+      </View>
 
-        <View style={styles.metrics}>
-          <View style={styles.metricChip}>
-            <Box1 size={12} color="#334155" variant="Bold" />
-            <Text style={styles.metricTxt}>
-              {productCount} · {totalQty} uds.
-            </Text>
-          </View>
-          <View style={styles.metricChip}>
-            <Text style={styles.metricTxt}>{formatMetric(totalVolumeM3)} m³</Text>
-          </View>
-          <View style={styles.metricChip}>
-            <Text style={styles.metricTxt}>{formatMetric(totalWeightKg, 1)} kg</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.productsToggle}
-          onPress={onToggleProducts}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          {productsCollapsed ? (
-            <ArrowRight2 size={14} color="#475569" />
-          ) : (
-            <ArrowDown2 size={14} color="#475569" />
-          )}
+      <SoftPressable
+        onPress={onToggleProducts}
+        scaleTo={0.98}
+        accessibilityLabel={
+          productsCollapsed ? "Ver productos" : "Ocultar productos"
+        }
+      >
+        <View style={styles.productsToggle}>
+          <Box1 size={16} color={COLORS.accent} variant="Linear" />
           <Text style={styles.productsToggleTxt}>
             {productsCollapsed ? "Ver productos" : "Ocultar productos"}
           </Text>
-        </TouchableOpacity>
+          {productsCollapsed ? (
+            <ArrowRight2 size={16} color={COLORS.muted} variant="Linear" />
+          ) : (
+            <ArrowDown2 size={16} color={COLORS.muted} variant="Linear" />
+          )}
+        </View>
+      </SoftPressable>
 
-        {!productsCollapsed && productNames.length > 0 ? (
-          <View style={styles.productsList}>
-            {productNames.map((p) => (
-              <View key={p.key} style={styles.productRow}>
-                <Text style={styles.productName} numberOfLines={2}>
-                  {p.name}
-                </Text>
-                <Text style={styles.productQty}>{p.qty}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {showDelivered ? (
-          <View style={styles.deliveredBtn}>
-            <TickCircle size={14} color="#047857" variant="Bold" />
-            <Text style={styles.deliveredBtnTxt}>Entregado</Text>
-          </View>
-        ) : null}
-      </View>
+      {!productsCollapsed && productNames.length > 0 ? (
+        <View style={styles.productsList}>
+          {productNames.map((item) => (
+            <View key={item.key} style={styles.productRow}>
+              <Text style={styles.productName} numberOfLines={2}>
+                {item.name}
+              </Text>
+              <Text style={styles.productQty}>{item.qty}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: {
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom: 10,
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 14,
+    gap: 10,
   },
-  headerRow: {
+  topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-    marginBottom: 8,
+    gap: 12,
   },
-  headerCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  folio: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  parada: {
-    marginTop: 2,
-    fontSize: 10,
-    color: "#64748B",
-  },
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-  },
-  statusDelivered: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#A7F3D0",
-  },
-  statusEnRuta: {
-    backgroundColor: "#F5F3FF",
-    borderColor: "#DDD6FE",
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusTxt: {
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  statusTxtDelivered: {
-    color: "#065F46",
-  },
-  statusTxtEnRuta: {
-    color: "#5B21B6",
-  },
-  stopNum: {
-    minWidth: 24,
-    height: 24,
+  iconWell: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
   },
-  stopNumTxt: {
-    fontSize: 10,
-    fontWeight: "800",
+  stopNum: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.accent,
   },
-  routeRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  routeRail: {
-    width: 12,
-    alignItems: "center",
-    paddingTop: 2,
-  },
-  routeDotOpen: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#0F172A",
-    backgroundColor: "#FFFFFF",
-  },
-  routeLine: {
-    flex: 1,
-    width: 1,
-    minHeight: 12,
-    marginVertical: 2,
-    borderLeftWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#CBD5E1",
-  },
-  routeDotSolid: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#0F172A",
-  },
-  routeCopy: {
+  copy: {
     flex: 1,
     minWidth: 0,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  routeDest: {
-    marginTop: 4,
+  title: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.ink,
   },
-  routeKicker: {
-    fontSize: 9,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    color: "#64748B",
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  routeValue: {
-    marginTop: 2,
+  badgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#0F172A",
-    lineHeight: 15,
+  },
+  meta: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
+  },
+  desc: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 18,
+    color: COLORS.muted,
   },
   metrics: {
-    marginTop: 8,
     flexDirection: "row",
+    alignItems: "center",
     flexWrap: "wrap",
     gap: 6,
-  },
-  metricChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 6,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingLeft: 50,
   },
   metricTxt: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#334155",
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
+  },
+  metricDot: {
+    fontSize: 13,
+    color: COLORS.muted,
   },
   productsToggle: {
-    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 8,
+    minHeight: 40,
+    paddingLeft: 50,
   },
   productsToggleTxt: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#475569",
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.accent,
   },
   productsList: {
-    marginTop: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-    backgroundColor: "rgba(248, 250, 252, 0.85)",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    gap: 6,
+    gap: 8,
+    paddingLeft: 50,
   },
   productRow: {
     flexDirection: "row",
@@ -399,30 +314,14 @@ const styles = StyleSheet.create({
   },
   productName: {
     flex: 1,
-    fontSize: 10,
-    color: "#1E293B",
-    lineHeight: 14,
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.ink,
+    lineHeight: 20,
   },
   productQty: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#64748B",
-  },
-  deliveredBtn: {
-    marginTop: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    backgroundColor: "#ECFDF5",
-    paddingVertical: 8,
-  },
-  deliveredBtnTxt: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#047857",
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.muted,
   },
 });

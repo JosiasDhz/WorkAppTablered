@@ -16,6 +16,7 @@ import SignatureScreen from "react-native-signature-canvas";
 import { WebView } from "react-native-webview";
 import { useSelector } from "react-redux";
 import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { RootState } from "../../redux/store/store";
 import {
   getMyLossDocumentById,
@@ -24,11 +25,11 @@ import {
   auditFamilyDisplayLabel,
   type MyLossDocumentItem,
 } from "../../services/inventoryAuditService";
+import { apiBaseUrl } from "../../api/http-common";
 
 type DocKind = "contract" | "delivery";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -59,7 +60,6 @@ export default function AuditLossDocumentDetail() {
   const insets = useSafeAreaInsets();
   const allocationId = route.params?.allocationId as string | undefined;
   const token = useSelector((state: RootState) => state.auth.token);
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:9005";
 
   const [item, setItem] = useState<MyLossDocumentItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +143,7 @@ export default function AuditLossDocumentDetail() {
 
   if (!allocationId) {
     return (
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <ProfileScreenHeader title="Documento" />
         <View style={styles.centered}>
           <Text style={styles.muted}>Identificador no válido.</Text>
@@ -165,7 +165,7 @@ export default function AuditLossDocumentDetail() {
         <WebView
           originWhitelist={["*"]}
           source={{
-            uri: `${apiUrl}${getMyLossDocumentPdfUrl(allocationId, doc)}`,
+            uri: `${apiBaseUrl}${getMyLossDocumentPdfUrl(allocationId, doc)}`,
             headers: { Authorization: `Bearer ${token}` },
           }}
           style={{ flex: 1, backgroundColor: "#F1F5F9" }}
@@ -292,7 +292,7 @@ export default function AuditLossDocumentDetail() {
   const canNext = stepIndex < totalSteps - 1;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <ProfileScreenHeader title="Documentos" subtitle="Revisa y firma" />
       {loading || !item ? (
         <View style={styles.centered}>
@@ -408,7 +408,7 @@ export default function AuditLossDocumentDetail() {
             <WebView
               originWhitelist={["*"]}
               source={{
-                uri: `${apiUrl}${getMyLossDocumentPdfUrl(allocationId, pdfDoc)}`,
+                uri: `${apiBaseUrl}${getMyLossDocumentPdfUrl(allocationId, pdfDoc)}`,
                 headers: { Authorization: `Bearer ${token}` },
               }}
               style={{ flex: 1 }}
@@ -431,7 +431,7 @@ export default function AuditLossDocumentDetail() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   muted: { fontSize: 14, color: COLORS.muted, textAlign: "center" },
   summary: {

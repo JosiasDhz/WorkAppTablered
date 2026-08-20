@@ -1,5 +1,22 @@
 export type RootStackParamList = {
-  Tabs: undefined;
+  Tabs:
+    | undefined
+    | {
+        screen?:
+          | "ProfileStack"
+          | "CheckInStack"
+          | "NotificationsStack"
+          | "UserProfileStack";
+        params?: {
+          screen?: string;
+          params?: {
+            notificationId?: string;
+            title?: string;
+            body?: string;
+            type?: string;
+          };
+        };
+      };
   Inventory: undefined;
   InventoryAudit: undefined;
   InventoryAuditDetail: undefined;

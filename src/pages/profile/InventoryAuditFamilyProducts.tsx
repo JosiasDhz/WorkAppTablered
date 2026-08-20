@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import {
   ArrowUp,
   CloseCircle,
@@ -30,7 +31,6 @@ import {
 } from "../../services/inventoryAuditService";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -419,7 +419,7 @@ export default function InventoryAuditFamilyProducts() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <ProfileScreenHeader title="Conteo" subtitle={headerTitle} />
 
       <View style={styles.actionBar}>
@@ -513,7 +513,7 @@ export default function InventoryAuditFamilyProducts() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   actionBar: {
     flexDirection: "row",
     gap: 10,

@@ -15,6 +15,7 @@ import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import {
@@ -179,7 +180,7 @@ export default function DriverRouteProductPickupScreen() {
 
   if (loading && !detail) {
     return (
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <HeaderTitle title="Verificación del vehículo" subtitle="Cargando ruta…" tone="light" />
         <View style={styles.missing}>
           <ActivityIndicator size="large" color="#EA7600" />
@@ -190,7 +191,7 @@ export default function DriverRouteProductPickupScreen() {
 
   if (!detail) {
     return (
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <HeaderTitle title="Verificación del vehículo" subtitle="Sin datos de ruta" tone="light" />
         <View style={styles.missing}>
           <Text style={styles.missingTxt}>
@@ -212,7 +213,7 @@ export default function DriverRouteProductPickupScreen() {
   const scrollBottomPad = showStartDock ? routeSwipeDockH + 20 : 40;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <View style={styles.shell}>
         <HeaderTitle
           title="Verificación del vehículo"
@@ -302,7 +303,7 @@ export default function DriverRouteProductPickupScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F1F5F9" },
+  safe: { flex: 1 },
   shell: { flex: 1, position: "relative" },
   flex: { flex: 1 },
   routeDock: {

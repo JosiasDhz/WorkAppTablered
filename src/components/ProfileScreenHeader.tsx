@@ -2,10 +2,6 @@ import React from "react";
 import { type StyleProp, type ViewStyle } from "react-native";
 import { HeaderTitle } from "./HeaderTitle";
 
-const COLORS = {
-  bg: "#F7F7F6",
-};
-
 export type ProfileScreenHeaderProps = {
   title: string;
   subtitle?: string;
@@ -18,7 +14,7 @@ export function ProfileScreenHeader({
   title,
   subtitle,
   onBack,
-  backgroundColor = COLORS.bg,
+  backgroundColor,
   style,
 }: ProfileScreenHeaderProps) {
   return (

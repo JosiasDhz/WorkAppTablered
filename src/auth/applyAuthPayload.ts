@@ -3,6 +3,7 @@ import store from "../redux/store/store";
 import { login, setSessionToken } from "../redux/slices/authSlice";
 import type { LoginSessionDependencies } from "../pages/auth/login/types";
 import { getFromStorage } from "../utils";
+import { registerExpoPushTokenWithApi } from "../services/expoPushToken";
 
 export type AuthPayloadInput = {
   token: string;
@@ -68,6 +69,7 @@ export async function applyAuthPayloadToClient(
 
   if (profileUnchanged) {
     dispatch(setSessionToken({ token }));
+    void registerExpoPushTokenWithApi();
     return;
   }
 
@@ -79,4 +81,5 @@ export async function applyAuthPayloadToClient(
       profileUrl: profileUrlNorm,
     }),
   );
+  void registerExpoPushTokenWithApi();
 }

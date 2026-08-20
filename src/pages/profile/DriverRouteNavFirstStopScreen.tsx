@@ -1261,7 +1261,6 @@ export default function DriverRouteNavFirstStopScreen() {
 const styles = StyleSheet.create({
   fallback: {
     flex: 1,
-    backgroundColor: "#F1F5F9",
   },
   fallbackCenter: {
     flex: 1,
@@ -1290,7 +1289,6 @@ const styles = StyleSheet.create({
   },
   deliveryFocusRoot: {
     flex: 1,
-    backgroundColor: "#F1F5F9",
   },
   deliveryFocusShell: {
     flex: 1,

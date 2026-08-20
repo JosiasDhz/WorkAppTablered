@@ -17,12 +17,14 @@ type DriverRouteConfettiLayerProps = {
   active: boolean;
   pieceCount?: number;
   fallDistance?: number;
+  onFinished?: () => void;
 };
 
 export function DriverRouteConfettiLayer({
   active,
   pieceCount = 22,
   fallDistance = 520,
+  onFinished,
 }: DriverRouteConfettiLayerProps) {
   const pieces = useMemo<ConfettiPiece[]>(
     () =>
@@ -38,27 +40,29 @@ export function DriverRouteConfettiLayer({
     [pieceCount],
   );
   const anims = useRef(pieces.map(() => new Animated.Value(0))).current;
+  const onFinishedRef = useRef(onFinished);
+  onFinishedRef.current = onFinished;
 
   useEffect(() => {
     if (!active) return;
-    const loops = anims.map((anim, index) => {
+    const runs = anims.map((anim, index) => {
       const piece = pieces[index];
       anim.setValue(0);
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(piece.delay),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: piece.duration,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
-        ]),
-      );
+      return Animated.sequence([
+        Animated.delay(piece.delay),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: piece.duration,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]);
     });
-    loops.forEach((loop) => loop.start());
-    return () => loops.forEach((loop) => loop.stop());
+    const batch = Animated.parallel(runs);
+    batch.start(({ finished }) => {
+      if (finished) onFinishedRef.current?.();
+    });
+    return () => batch.stop();
   }, [active, anims, pieces]);
 
   if (!active) return null;

@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { ArrowRight2 } from "iconsax-react-native";
 import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import {
   getMyLossDocuments,
   auditFamilyDisplayLabel,
@@ -20,7 +21,6 @@ import {
 import { formatInventoryAuditCalendarDateMX, parseInventoryAuditCalendarDate } from "../../utils/auditCalendarDates";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -125,7 +125,7 @@ export default function AuditLossDocuments() {
   }, [items]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <ProfileScreenHeader title="Actas" subtitle="Documentos y montos asignados a ti" />
       {loading ? (
         <View style={styles.centered}>
@@ -228,7 +228,7 @@ export default function AuditLossDocuments() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: {
     paddingVertical: 40,

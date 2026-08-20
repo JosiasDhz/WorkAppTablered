@@ -1,0 +1,78 @@
+{
+  "balance": {
+    "total": 540,
+    "expiresLabel": "31 dic"
+  },
+  "movements": [
+    {
+      "id": "mov-001",
+      "reference": "TR-24001",
+      "concept": "Compra en Los Rios",
+      "branch": "Los Rios",
+      "kind": "earn",
+      "points": 120,
+      "dateLabel": "Hoy, 10:34 AM",
+      "range": "today"
+    },
+    {
+      "id": "mov-002",
+      "reference": "CJ-00318",
+      "concept": "Canje en caja",
+      "branch": "Los Rios",
+      "kind": "redeem",
+      "points": -150,
+      "dateLabel": "Hoy, 09:12 AM",
+      "range": "today"
+    },
+    {
+      "id": "mov-003",
+      "reference": "TR-23988",
+      "concept": "Compra en 5 Señores",
+      "branch": "5 Señores",
+      "kind": "earn",
+      "points": 90,
+      "dateLabel": "Ayer, 06:12 PM",
+      "range": "week"
+    },
+    {
+      "id": "mov-004",
+      "reference": "TR-23974",
+      "concept": "Compra en Madero",
+      "branch": "Madero",
+      "kind": "earn",
+      "points": 150,
+      "dateLabel": "Ayer, 01:05 PM",
+      "range": "week"
+    },
+    {
+      "id": "mov-005",
+      "reference": "AJ-00042",
+      "concept": "Ajuste por aclaración",
+      "branch": "Xoxo 1",
+      "kind": "adjust",
+      "points": 110,
+      "dateLabel": "Lun, 04:48 PM",
+      "range": "week"
+    },
+    {
+      "id": "mov-006",
+      "reference": "TR-23912",
+      "concept": "Compra en Xoxo 2",
+      "branch": "Xoxo 2",
+      "kind": "earn",
+      "points": 80,
+      "dateLabel": "Lun, 11:22 AM",
+      "range": "week"
+    },
+    {
+      "id": "mov-007",
+      "reference": "TR-23890",
+      "concept": "Compra en Etla",
+      "branch": "Etla",
+      "kind": "earn",
+      "points": 140,
+      "dateLabel": "Dom, 03:15 PM",
+      "range": "older"
+    }
+  ]
+}

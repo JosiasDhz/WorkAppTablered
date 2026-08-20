@@ -16,6 +16,8 @@ export type MapFitOptions = {
   panDown?: number;
   animateDraw?: boolean;
   strokeColor?: string;
+  softLock?: boolean;
+  zoomSlack?: number;
 };
 
 export const ROUTE_POLYLINE_COLOR = "#EA7600";
@@ -220,6 +222,28 @@ try{map.panBy(0,opts.panUp);}catch(e){}
 }
 if(typeof opts.panDown==="number"&&opts.panDown>0){
 try{map.panBy(0,opts.panDown);}catch(e){}
+}
+if(opts.softLock){
+try{
+var vis=map.getBounds();
+if(vis&&!vis.isEmpty()){
+var ne=vis.getNorthEast();
+var sw=vis.getSouthWest();
+var latPad=Math.max(Math.abs(ne.lat()-sw.lat())*0.35,0.006);
+var lngPad=Math.max(Math.abs(ne.lng()-sw.lng())*0.35,0.006);
+var limited=new G.LatLngBounds(
+{lat:sw.lat()-latPad,lng:sw.lng()-lngPad},
+{lat:ne.lat()+latPad,lng:ne.lng()+lngPad}
+);
+var lockedZ=map.getZoom();
+var slack=typeof opts.zoomSlack==="number"?opts.zoomSlack:1;
+map.setOptions({
+minZoom:Math.max(1,lockedZ-slack),
+maxZoom:Math.min(21,lockedZ+slack),
+restriction:{latLngBounds:limited,strictBounds:false}
+});
+}
+}catch(e){}
 }
 }
 function fitMap(){

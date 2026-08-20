@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ArrowRight2, Warning2 } from "iconsax-react-native";
 import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import type { DriverIncidentReason } from "../../types/driverIncidents";
 import {
@@ -299,7 +300,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
 
   if (loading && !detail) {
     return (
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <HeaderTitle title="Confirmar mercancía" subtitle="Cargando ruta…" tone="light" />
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#EA7600" />
@@ -310,7 +311,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
 
   if (!detail) {
     return (
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <HeaderTitle title="Confirmar mercancía" subtitle="Sin datos" tone="light" />
         <View style={styles.center}>
           <Text style={styles.muted}>{error ?? "No se pudo cargar la ruta."}</Text>
@@ -330,7 +331,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
     (showVehicleDock ? 72 : showConfirmDock ? 72 : 24) + dockBottomPad;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <View style={styles.shell}>
         <HeaderTitle
           title="Confirmar mercancía"
@@ -571,7 +572,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F1F5F9" },
+  safe: { flex: 1 },
   shell: { flex: 1, position: "relative" },
   flex: { flex: 1 },
   center: { padding: 24, alignItems: "flex-start" },

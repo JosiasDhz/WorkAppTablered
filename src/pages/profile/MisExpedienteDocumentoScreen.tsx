@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 import { AttachSquare, DocumentText, Gallery, Trash } from "iconsax-react-native";
 import { WebView } from "react-native-webview";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { TapImagePreview } from "../../components/TapImagePreview";
 import { apiBaseUrl } from "../../api/http-common";
 import {
@@ -35,7 +36,6 @@ import {
 } from "../../utils/pickPdfDocument";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -332,7 +332,7 @@ export default function MisExpedienteDocumentoScreen() {
   const pendingCount = pendingFiles.length;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
       <HeaderTitle
         title={documentTypeName}
         subtitle={fileCountLabel(savedCount)}
@@ -547,7 +547,7 @@ export default function MisExpedienteDocumentoScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   scroll: { flex: 1 },
   centered: {
     flex: 1,

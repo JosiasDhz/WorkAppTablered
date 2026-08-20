@@ -27,9 +27,7 @@ import {
 
 const { width } = Dimensions.get("window");
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
 const C = {
-  bg:           "#F7F7F6",
   surface:      "#FFFFFF",
   text:         "#0F172A",
   muted:        "#6B7280",
@@ -232,7 +230,7 @@ export default function InventoryAudit() {
   // ═══════════════════════════════════════════════════════════════════════════
   if (phase === "loading_inventory") {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top", "left", "right"]}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <Header onBack={() => setPhase("setup")} title="Cargando inventario…" />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <View style={{
@@ -258,7 +256,7 @@ export default function InventoryAudit() {
   // ═══════════════════════════════════════════════════════════════════════════
   if (phase === "setup") {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top", "left", "right"]}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <Header onBack={() => (navigation as any).goBack()} title="Auditoría de Inventario" />
 
         <ScrollView
@@ -414,7 +412,7 @@ export default function InventoryAudit() {
   // Audit
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
       <Header onBack={() => setPhase("setup")} title={`${lugar} #${numero}`} />
 
       {/* Progress bar */}

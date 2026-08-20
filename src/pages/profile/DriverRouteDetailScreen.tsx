@@ -1,33 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  RouteProp,
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Car, MoneyRecive } from "iconsax-react-native";
+import { Car, Coin, MoneyRecive, Routing2 } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { PageFlipReveal } from "../../components/PageFlipReveal";
+import { SoftPressable } from "../../components/SoftPressable";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { driverRouteStatusLabelEs } from "../../domain/driverRoutePending";
 import { extractCancellationReason } from "../../domain/driverRouteListCardModel";
 import {
-  driverRouteConfirmProgress,
   flattenDriverRouteConfirmLines,
   driverRouteNeedsDriverReceipt,
+  isDriverRouteTransferLine,
 } from "../../domain/driverRouteConfirmLines";
 import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
+import type { DriverRouteAssignmentDemoDestination } from "./driverDemo/driverRouteAssignmentDemo.types";
 import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
+import { useDriverRouteMyCommission } from "./hooks/useDriverRouteMyCommission";
 import { tripMapModelFromAssignment } from "./driverRoute/tripMapModelFromAssignment";
 import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
 import { DriverRouteConfettiLayer } from "./driverRoute/DriverRouteConfettiLayer";
@@ -37,21 +43,32 @@ import {
   buildRouteProgressSteps,
   isDriverRouteStopDelivered,
 } from "./driverRoute/deliveryStopProgress";
-import { isDriverRouteTransferLine } from "../../domain/driverRouteConfirmLines";
 import { DriverRouteGlassDeliveryCard } from "./driverRoute/DriverRouteGlassDeliveryCard";
 import { DriverRouteStatusCard } from "./driverRoute/DriverRouteStatusCard";
-import { RouteGlassPanel } from "./driverRoute/RouteGlassPanel";
-import { TableRedColors } from "../../theme/tableRedColors";
 
-const C = TableRedColors;
+const COLORS = {
+  surface: "#FFFFFF",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  accent: "#EA7600",
+};
 
-const HEADER_BODY_HEIGHT = 56;
-const STATUS_SHEET_ESTIMATE = 196;
-const MAP_FIT_BOTTOM_RESERVE = 156;
-const MAP_FIT_ZOOM_OUT = 0;
-const STATUS_SHEET_PEEK_GAP = 148;
-const SHEET_SCROLL_OFFSET = 36;
+const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
+const MAP_BORDER = "rgba(60, 60, 67, 0.22)";
+const DONE = "#16A34A";
+const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
+const ROSE = "#BE123C";
+const ROSE_SOFT = "#FFF1F2";
+const WARN = "#B45309";
+const WARN_SOFT = "rgba(245, 158, 11, 0.18)";
+const FLIP_STAGGER_MS = 70;
+const MAX_FLIP_DELAY_MS = 700;
 const PICKUP_SWIPE_DOCK_HEIGHT = 88;
+const MAP_HEIGHT = 196;
+
+function clampFlipDelay(delay: number) {
+  return Math.min(delay, MAX_FLIP_DELAY_MS);
+}
 
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -69,7 +86,10 @@ function formatWhen(iso: string | null | undefined): string {
 }
 
 function formatMxn(n: number): string {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(n);
 }
 
 function canShowPickupDock(status: string): boolean {
@@ -80,21 +100,13 @@ function canShowPickupDock(status: string): boolean {
   );
 }
 
-function statusBadgeTone(status: string): {
-  borderColor: string;
-  dotColor: string;
-  textColor: string;
-} {
-  if (status === "CANCELADA") {
-    return { borderColor: "#E11D48", dotColor: "#E11D48", textColor: "#BE123C" };
-  }
+function statusStyle(status: string): { bg: string; text: string } {
+  if (status === "CANCELADA") return { bg: ROSE_SOFT, text: ROSE };
+  if (status === "COMPLETA") return { bg: DONE_SOFT, text: DONE };
   if (status === "EN_PROCESO" || status === "LEVANTAMIENTO") {
-    return { borderColor: C.naranja, dotColor: C.naranja, textColor: C.naranja };
+    return { bg: ACCENT_SOFT, text: COLORS.accent };
   }
-  if (status === "CONFIRMADA" || status === "COMPLETA") {
-    return { borderColor: C.verde, dotColor: C.verdeHover, textColor: C.verdeHover };
-  }
-  return { borderColor: C.azul, dotColor: C.azul, textColor: C.azul };
+  return { bg: ACCENT_SOFT, text: COLORS.accent };
 }
 
 function statusSubline(
@@ -125,19 +137,6 @@ function statusSubline(
   return `${stopsLabel}${unitsLabel} — revisa el recorrido antes de salir`;
 }
 
-function InfoPill(props: { icon: React.ReactNode; text: string }) {
-  return (
-    <View style={styles.infoPill}>
-      {props.icon}
-      <Text style={styles.infoPillTxt} numberOfLines={2}>
-        {props.text}
-      </Text>
-    </View>
-  );
-}
-
-import type { DriverRouteAssignmentDemoDestination } from "./driverDemo/driverRouteAssignmentDemo.types";
-
 function buildDestinationProgressRows(
   dest: DriverRouteAssignmentDemoDestination,
 ): { deliveryStatus?: string | null; isTransfer: boolean }[] {
@@ -157,11 +156,13 @@ function buildDestinationProgressRows(
 
 export default function DriverRouteDetailScreen() {
   const insets = useSafeAreaInsets();
-  const { height: winH } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
+  const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } = useRoute<RouteProp<RootStackParamList, "DriverRouteDetail">>();
   const routeId = params?.routeId ?? "";
   const { detail, loading, error, refresh } = useDriverRouteAssignmentDetail(routeId);
+  const commission = useDriverRouteMyCommission(routeId, Boolean(routeId.trim()));
   const mapModel = useMemo(
     () => (detail ? tripMapModelFromAssignment(detail) : { path: [], stops: [] }),
     [detail],
@@ -184,11 +185,6 @@ export default function DriverRouteDetailScreen() {
       ),
     [routeOrderDestinations],
   );
-
-  const confirmProgress = useMemo(() => {
-    if (!detail) return null;
-    return driverRouteConfirmProgress(flattenDriverRouteConfirmLines(detail.destinations));
-  }, [detail]);
 
   const goPickup = useCallback(async () => {
     if (!detail) return;
@@ -213,64 +209,19 @@ export default function DriverRouteDetailScreen() {
   const routeStatus = detail?.route.status ?? null;
   const showPickupDock = routeStatus != null && canShowPickupDock(routeStatus);
   const showNavDock = routeStatus === "EN_PROCESO";
-
   const dockBottomPad = Math.max(insets.bottom, 12);
   const dockHeight =
-    (showPickupDock
-      ? PICKUP_SWIPE_DOCK_HEIGHT
-      : showNavDock
-        ? 72
-        : 0) + dockBottomPad;
-  const topChromeTop = insets.top + HEADER_BODY_HEIGHT;
-
-  const mapSpacerHeight = Math.max(
-    Math.round(topChromeTop + 32 + SHEET_SCROLL_OFFSET),
-    Math.round(
-      winH -
-        dockHeight -
-        STATUS_SHEET_ESTIMATE -
-        STATUS_SHEET_PEEK_GAP +
-        SHEET_SCROLL_OFFSET,
-    ),
-  );
-
-  const mapFitPadding = useMemo(
-    () => ({
-      top: Math.round(topChromeTop + 44),
-      right: 36,
-      bottom: Math.round(dockHeight + MAP_FIT_BOTTOM_RESERVE),
-      left: 36,
-    }),
-    [dockHeight, topChromeTop],
-  );
+    (showPickupDock ? PICKUP_SWIPE_DOCK_HEIGHT : showNavDock ? 72 : 0) +
+    dockBottomPad;
 
   const isCompleta = routeStatus === "COMPLETA";
   const isEnProceso = routeStatus === "EN_PROCESO";
   const isCancelada = routeStatus === "CANCELADA";
   const cancellationReason = isCancelada
     ? extractCancellationReason(detail?.route.notes)
-    : null;  const statusDotPulse = useRef(new Animated.Value(0)).current;
-  const sheetOpacity = useRef(new Animated.Value(0)).current;
-  const sheetSlide = useRef(new Animated.Value(28)).current;
-  const detailsOpacity = useRef(new Animated.Value(0)).current;
-  const detailsSlide = useRef(new Animated.Value(20)).current;
+    : null;
   const completaFxPlayedRef = useRef(false);
-
-  const stopDeliveryCounts = useMemo(() => {
-    if (!detail) return { delivered: 0, pending: 0 };
-    let delivered = 0;
-    let pending = 0;
-    for (const dest of routeOrderDestinations) {
-      const done = isDriverRouteStopDelivered({
-        rows: buildDestinationProgressRows(dest),
-        routeInProcess: isEnProceso,
-        routeComplete: isCompleta,
-      });
-      if (done) delivered += 1;
-      else pending += 1;
-    }
-    return { delivered, pending };
-  }, [detail, routeOrderDestinations, isEnProceso, isCompleta]);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const routeProgressRows = useMemo(() => {
     const rows: { deliveryStatus?: string | null; isTransfer: boolean }[] = [];
@@ -308,90 +259,10 @@ export default function DriverRouteDetailScreen() {
   ]);
 
   const routeProgressAccent = isCompleta
-    ? "#10B981"
+    ? DONE
     : isCancelada
-      ? "#E11D48"
-      : isEnProceso
-        ? C.naranja
-        : C.azul;
-
-  useEffect(() => {
-    if (!detail) return;
-    sheetOpacity.setValue(0);
-    sheetSlide.setValue(28);
-    detailsOpacity.setValue(0);
-    detailsSlide.setValue(20);
-
-    Animated.parallel([
-      Animated.timing(sheetOpacity, {
-        toValue: 1,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(sheetSlide, {
-        toValue: 0,
-        friction: 8,
-        tension: 72,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    Animated.sequence([
-      Animated.delay(isCompleta ? 260 : 120),
-      Animated.parallel([
-        Animated.timing(detailsOpacity, {
-          toValue: 1,
-          duration: 380,
-          useNativeDriver: true,
-        }),
-        Animated.spring(detailsSlide, {
-          toValue: 0,
-          friction: 8,
-          tension: 70,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-  }, [
-    detail,
-    detailsOpacity,
-    detailsSlide,
-    isCompleta,
-    sheetOpacity,
-    sheetSlide,
-  ]);
-
-  useEffect(() => {
-    if (!isEnProceso) return;
-    const dotLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(statusDotPulse, {
-          toValue: 1,
-          duration: 900,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(statusDotPulse, {
-          toValue: 0,
-          duration: 900,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    dotLoop.start();
-    return () => {
-      dotLoop.stop();
-    };
-  }, [isEnProceso, statusDotPulse]);
-
-  useEffect(() => {
-    if (!isCompleta || completaFxPlayedRef.current) return;
-    completaFxPlayedRef.current = true;
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [isCompleta]);
-
+      ? ROSE
+      : COLORS.accent;
   const toggleProducts = useCallback((destId: string) => {
     setProductsCollapsedByDestId((prev) => ({
       ...prev,
@@ -399,38 +270,65 @@ export default function DriverRouteDetailScreen() {
     }));
   }, []);
 
+  useEffect(() => {
+    if (!isCompleta || completaFxPlayedRef.current) return;
+    completaFxPlayedRef.current = true;
+    setShowConfetti(true);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [isCompleta]);
+
   if (loading && !detail) {
     return (
-      <View style={styles.safe}>
-        <View style={{ paddingTop: insets.top }}>
-          <HeaderTitle title="Ruta" subtitle="Cargando detalle…" tone="light" />
-        </View>
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={C.naranja} />
-        </View>
+      <View style={styles.root}>
+        <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+          <HeaderTitle
+            title="Mi ruta"
+            subtitle="Cargando detalle"
+            tone="light"
+            style={styles.header}
+            onBack={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+            }}
+          />
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+          </View>
+        </SafeAreaView>
       </View>
     );
   }
 
   if (!detail) {
     return (
-      <View style={styles.safe}>
-        <View style={{ paddingTop: insets.top }}>
-          <HeaderTitle title="Ruta" subtitle="No se encontró el detalle" tone="light" />
-        </View>
-        <View style={styles.missing}>
-          <Text style={styles.missingTitle}>Sin datos</Text>
-          <Text style={styles.missingSub}>
-            {error ?? "No se pudo cargar esta ruta."}
-          </Text>
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={() => void refresh()}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.retryTxt}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.root}>
+        <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+          <HeaderTitle
+            title="Mi ruta"
+            subtitle="No se encontró el detalle"
+            tone="light"
+            style={styles.header}
+            onBack={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+            }}
+          />
+          <View style={styles.centered}>
+            <View style={styles.emptyWell}>
+              <Routing2 size={28} color={COLORS.accent} variant="Linear" />
+            </View>
+            <Text style={styles.emptyTitle}>Sin datos</Text>
+            <Text style={styles.emptyText}>
+              {error ?? "No se pudo cargar esta ruta."}
+            </Text>
+            <SoftPressable
+              onPress={() => void refresh()}
+              scaleTo={0.97}
+              style={styles.retryBtn}
+              accessibilityLabel="Reintentar"
+            >
+              <Text style={styles.retryTxt}>Reintentar</Text>
+            </SoftPressable>
+          </View>
+        </SafeAreaView>
       </View>
     );
   }
@@ -442,229 +340,244 @@ export default function DriverRouteDetailScreen() {
     ? `${vehicle.model} · ${vehicle.plateNumber}`
     : "";
   const statusLabel = driverRouteStatusLabelEs(route.status);
-  const badgeTone = statusBadgeTone(route.status);
+  const badge = statusStyle(route.status);
   const whenLabel = formatWhen(route.createdAtCdmx);
-  const statusDotScale = statusDotPulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.35],
-  });
   const pickupSwipeHint = driverRouteNeedsDriverReceipt(
     flattenDriverRouteConfirmLines(detail.destinations),
   )
     ? "Desliza para confirmar mercancía"
     : "Desliza para verificar vehículo";
+  const cashPending = Math.max(
+    0,
+    Number(detail.route.driverCashPendingHandoverMxn) || 0,
+  );
+  const handedOver = Boolean(detail.route.driverCashHandoverAtCdmx);
+  const showCashBanner = isCompleta && cashPending > 0 && !handedOver;
+  const commissionOnCajaMxn = commission.earnedMxn + commission.pendingMxn;
+  const showCommissionEarned =
+    !showCashBanner && commission.earnedMxn > 0;
 
   return (
-    <View style={styles.safe}>
-      <View
-        style={styles.mapLayer}
-        pointerEvents={Platform.OS === "android" ? "none" : "box-none"}
-      >
-        <DriverRouteTripMapWebView
-          model={mapModel}
-          fill
-          interactive={Platform.OS === "ios"}
-          fitPadding={mapFitPadding}
-          celebrationMode={false}
-          mapFitOptions={
-            isCompleta
-              ? {
-                  maxZoom: 15,
-                  minZoom: 12,
-                  zoomBoost: false,
-                  zoomOut: MAP_FIT_ZOOM_OUT,
-                  animateDraw: false,
-                  strokeColor: "#10B981",
-                  panUp: 100,
-                }
-              : {
-                  maxZoom: 16,
-                  minZoom: 12,
-                  zoomBoost: false,
-                  zoomOut: MAP_FIT_ZOOM_OUT,
-                  animateDraw: true,
-                  strokeColor: "#EA7600",
-                  panUp: 88,
-                }
-          }
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <HeaderTitle
+          title="Mi ruta"
+          subtitle={route.folio}
+          tone="light"
+          style={styles.header}
+          onBack={() => {
+            if (navigation.canGoBack()) navigation.goBack();
+          }}
         />
-        {isCompleta ? <DriverRouteConfettiLayer active pieceCount={16} fallDistance={420} /> : null}
-      </View>
-
-      <ScrollView
-        style={styles.scrollOverlay}
-        pointerEvents={Platform.OS === "android" ? "auto" : "box-none"}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
-        keyboardShouldPersistTaps="handled"
-        removeClippedSubviews={Platform.OS !== "android"}
-        contentContainerStyle={{ paddingBottom: dockHeight + 24 }}
-      >
-        <View style={{ height: mapSpacerHeight }} />
-
-        <Animated.View
-          style={{
-            opacity: sheetOpacity,
-            transform: [{ translateY: sheetSlide }],
+        <ScrollView
+          style={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: SCREEN_GUTTER,
+            paddingTop: 8,
+            paddingBottom: dockHeight + 36,
           }}
         >
-          <RouteGlassPanel
-            style={styles.statusSheetShadow}
-            contentStyle={styles.statusSheetInner}
-          >
-            <DriverRouteStatusCard
-              routeComplete={isCompleta}
-              routeInProcess={isEnProceso}
-              deliveredStopCount={stopDeliveryCounts.delivered}
-              totalStopCount={routeOrderDestinations.length}
-              progressSteps={routeProgressSteps}
-              progressAccentColor={routeProgressAccent}
-            />
-
-            <View style={styles.sheetMetaRow}>
-              <Text style={styles.sheetSubtitle}>
-                {statusSubline(
-                  route.status,
-                  routeOrderDestinations.length,
-                  totalUnits,
-                  whenLabel,
-                  cancellationReason,
-                )}
-              </Text>
-              <View style={[styles.statusBadge, { borderColor: badgeTone.borderColor }]}>
-                {isEnProceso ? (
-                  <Animated.View
-                    style={[
-                      styles.statusDot,
-                      {
-                        backgroundColor: badgeTone.dotColor,
-                        transform: [{ scale: statusDotScale }],
-                      },
-                    ]}
-                  />
-                ) : (
-                  <View style={[styles.statusDot, { backgroundColor: badgeTone.dotColor }]} />
-                )}
-                <Text style={[styles.statusTxt, { color: badgeTone.textColor }]}>
-                  {statusLabel}
-                </Text>
+          <PageFlipReveal delay={0} active={isFocused}>
+            <View style={styles.heroCard}>
+              <View style={styles.heroRow}>
+                <View style={styles.heroIcon}>
+                  <Routing2 size={22} color={COLORS.accent} variant="Linear" />
+                </View>
+                <View style={styles.heroText}>
+                  <Text style={styles.heroTitle} numberOfLines={1}>
+                    {route.originWarehouseName || "Almacén de origen"}
+                  </Text>
+                  <Text style={styles.heroSub} numberOfLines={2}>
+                    {statusSubline(
+                      route.status,
+                      routeOrderDestinations.length,
+                      totalUnits,
+                      whenLabel,
+                      cancellationReason,
+                    )}
+                  </Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                  <Text style={[styles.badgeText, { color: badge.text }]}>
+                    {statusLabel}
+                  </Text>
+                </View>
               </View>
+              <Text style={styles.when}>{whenLabel}</Text>
             </View>
+          </PageFlipReveal>
 
-            <Text style={styles.sheetWhen}>{whenLabel}</Text>
-
-            {vehicleLine ? (
-              <View style={styles.infoRow}>
-                <InfoPill
-                  icon={<Car size={16} color={C.gris} variant="Bold" />}
-                  text={vehicleLine}
+          {routeProgressSteps.length > 0 ? (
+            <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
+              <View style={styles.stepsCard}>
+                <DriverRouteStatusCard
+                  progressSteps={routeProgressSteps}
+                  progressAccentColor={routeProgressAccent}
                 />
               </View>
-            ) : null}
-          </RouteGlassPanel>
+            </PageFlipReveal>
+          ) : null}
 
-          {(() => {
-            const cashPending = Math.max(
-              0,
-              Number(detail.route.driverCashPendingHandoverMxn) || 0,
-            );
-            const handedOver = Boolean(detail.route.driverCashHandoverAtCdmx);
-            if (isCompleta && cashPending > 0 && !handedOver) {
-              return (
-                <View style={styles.cashPendingBanner}>
-                  <MoneyRecive size={20} color="#D97706" variant="Bold" />
-                  <View style={styles.cashPendingCopy}>
-                    <Text style={styles.cashPendingAmount}>
-                      {formatMxn(cashPending)}
-                    </Text>
-                    <Text style={styles.cashPendingHint}>
-                      Pendiente de entregar a caja · ve a "Mis cobros"
+          <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+            <View style={styles.mapCard}>
+              <DriverRouteTripMapWebView
+                model={mapModel}
+                height={MAP_HEIGHT}
+                embedded
+                interactive
+                fitPadding={{ top: 36, right: 28, bottom: 76, left: 28 }}
+                mapFitOptions={
+                  isCompleta
+                    ? {
+                        maxZoom: 15,
+                        minZoom: 11,
+                        zoomBoost: false,
+                        zoomOut: 1,
+                        zoomSlack: 1,
+                        softLock: true,
+                        animateDraw: false,
+                        strokeColor: DONE,
+                      }
+                    : {
+                        maxZoom: 16,
+                        minZoom: 11,
+                        zoomBoost: false,
+                        zoomOut: 1,
+                        zoomSlack: 1,
+                        softLock: true,
+                        animateDraw: true,
+                        strokeColor: COLORS.accent,
+                      }
+                }
+              />
+              {vehicleLine ? (
+                <View style={styles.mapVehicle} pointerEvents="none">
+                  <View style={styles.mapVehicleIcon}>
+                    <Car size={16} color={COLORS.accent} variant="Linear" />
+                  </View>
+                  <View style={styles.mapVehicleCopy}>
+                    <Text style={styles.mapVehicleLabel}>Vehículo</Text>
+                    <Text style={styles.mapVehicleValue} numberOfLines={1}>
+                      {vehicleLine}
                     </Text>
                   </View>
                 </View>
-              );
-            }
-            return null;
-          })()}
+              ) : null}
+            </View>
+          </PageFlipReveal>
+
+          {showCashBanner ? (
+            <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+              <View style={styles.cashCard}>
+                <View style={[styles.heroIcon, { backgroundColor: WARN_SOFT }]}>
+                  <MoneyRecive size={22} color={WARN} variant="Linear" />
+                </View>
+                <View style={styles.heroText}>
+                  <Text style={styles.cashAmount}>{formatMxn(cashPending)}</Text>
+                  <Text style={styles.cashHint}>
+                    Pendiente de entregar a caja
+                  </Text>
+                  {commissionOnCajaMxn > 0 ? (
+                    <Text style={styles.cashHint}>
+                      Generará {formatMxn(commissionOnCajaMxn)} de comisión al
+                      entregar a caja
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </PageFlipReveal>
+          ) : showCommissionEarned ? (
+            <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+              <View style={styles.cashCard}>
+                <View style={[styles.heroIcon, { backgroundColor: DONE_SOFT }]}>
+                  <Coin size={22} color={DONE} variant="Linear" />
+                </View>
+                <View style={styles.heroText}>
+                  <Text style={styles.commissionAmount}>
+                    {formatMxn(commission.earnedMxn)}
+                  </Text>
+                  <Text style={styles.cashHint}>Comisión generada</Text>
+                </View>
+              </View>
+            </PageFlipReveal>
+          ) : null}
 
           {isEnProceso ? (
-            <TouchableOpacity
-              style={styles.reportIncidentBtn}
-              onPress={() =>
-                navigation.navigate("DriverRouteReportIncident", {
-                  routeId: detail.route.id,
-                })
-              }
-            >
-              <Text style={styles.reportIncidentTxt}>Reportar daño en ruta</Text>
-            </TouchableOpacity>
+            <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+              <SoftPressable
+                onPress={() =>
+                  navigation.navigate("DriverRouteReportIncident", {
+                    routeId: detail.route.id,
+                  })
+                }
+                scaleTo={0.99}
+                accessibilityLabel="Reportar daño en ruta"
+              >
+                <View style={styles.reportCard}>
+                  <Text style={styles.reportTxt}>Reportar daño en ruta</Text>
+                </View>
+              </SoftPressable>
+            </PageFlipReveal>
           ) : null}
-        </Animated.View>
 
-        <Animated.View
-          style={{
-            opacity: detailsOpacity,
-            transform: [{ translateY: detailsSlide }],
-            ...styles.detailsSection,
-          }}
-        >
-          <RouteGlassPanel
-            style={styles.deliveriesSheetShadow}
-            contentStyle={styles.deliveriesSheetInner}
-          >
-            <View style={styles.deliveriesHeader}>
-              <Text style={styles.detailsTitle}>Envíos y traspasos</Text>
-              <Text style={styles.deliveriesCount}>
-                {routeOrderDestinations.length}{" "}
-                {routeOrderDestinations.length === 1 ? "registro" : "registros"}
+          <View style={styles.sectionBlock}>
+            <PageFlipReveal
+              delay={clampFlipDelay(FLIP_STAGGER_MS * 3)}
+              active={isFocused}
+            >
+              <Text style={styles.sectionTitle}>
+                Envíos y traspasos
+                {routeOrderDestinations.length > 0
+                  ? ` · ${routeOrderDestinations.length}`
+                  : ""}
               </Text>
-            </View>
-
-            <View style={styles.deliveryCards}>
+            </PageFlipReveal>
+            <View style={styles.list}>
               {routeOrderDestinations.map((dest, index) => (
-                <DriverRouteGlassDeliveryCard
+                <PageFlipReveal
                   key={dest.id}
-                  destination={dest}
-                  displayNum={index + 1}
-                  originLabel={route.originWarehouseName}
-                  routeInProcess={isEnProceso}
-                  routeComplete={isCompleta}
-                  productsCollapsed={productsCollapsedByDestId[dest.id] ?? true}
-                  onToggleProducts={() => toggleProducts(dest.id)}
-                />
+                  delay={clampFlipDelay((index + 4) * FLIP_STAGGER_MS)}
+                  active={isFocused}
+                >
+                  <DriverRouteGlassDeliveryCard
+                    destination={dest}
+                    displayNum={index + 1}
+                    originLabel={route.originWarehouseName || "almacén"}
+                    routeInProcess={isEnProceso}
+                    routeComplete={isCompleta}
+                    productsCollapsed={productsCollapsedByDestId[dest.id] ?? true}
+                    onToggleProducts={() => toggleProducts(dest.id)}
+                  />
+                </PageFlipReveal>
               ))}
               {isCancelada && routeOrderDestinations.length === 0 ? (
-                <Text style={styles.cancelledEmptyHint}>
+                <Text style={styles.emptyText}>
                   Los envíos volvieron a listo para envío. El mapa conserva el
                   recorrido planificado.
                 </Text>
               ) : null}
             </View>
+          </View>
 
-            {isCompleta ? <DriverRouteDetailAuditCards detail={detail} embedded /> : null}
-          </RouteGlassPanel>
-        </Animated.View>
-      </ScrollView>
-
-      <View
-        style={[styles.fixedHeader, { paddingTop: insets.top + 2 }]}
-        pointerEvents="box-none"
-        collapsable={false}
-      >
-        <HeaderTitle
-          title="Mi ruta"
-          subtitle={route.folio}
-          tone="light"
-          overlayOnMap
-          backgroundColor="transparent"
-        />
-      </View>
+          {isCompleta ? (
+            <View style={styles.sectionBlockFollow}>
+              <PageFlipReveal
+                delay={clampFlipDelay(FLIP_STAGGER_MS * 5)}
+                active={isFocused}
+              >
+                <Text style={styles.sectionTitle}>Auditoría y evidencias</Text>
+              </PageFlipReveal>
+              <DriverRouteDetailAuditCards detail={detail} />
+            </View>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
 
       {showPickupDock ? (
-        <View
-          style={[styles.pickupDock, { paddingBottom: dockBottomPad }]}
-          pointerEvents="box-none"
-        >
+        <View style={[styles.pickupDock, { paddingBottom: dockBottomPad }]}>
           <SlideToStartAudit
             inDock
             hintText={pickupSwipeHint}
@@ -675,19 +588,27 @@ export default function DriverRouteDetailScreen() {
       ) : null}
 
       {showNavDock ? (
-        <View
-          style={[styles.pickupDock, { paddingBottom: dockBottomPad }]}
-          pointerEvents="box-none"
-        >
-          <TouchableOpacity
-            style={styles.dockBtn}
+        <View style={[styles.pickupDock, { paddingBottom: dockBottomPad }]}>
+          <SoftPressable
             onPress={goNavDeliveries}
-            activeOpacity={0.88}
-            accessibilityRole="button"
+            scaleTo={0.98}
             accessibilityLabel="Continuar entregas"
           >
-            <Text style={styles.dockBtnTxt}>Continuar entregas</Text>
-          </TouchableOpacity>
+            <View style={styles.dockBtn}>
+              <Text style={styles.dockBtnTxt}>Continuar entregas</Text>
+            </View>
+          </SoftPressable>
+        </View>
+      ) : null}
+
+      {showConfetti ? (
+        <View style={styles.confettiHost} pointerEvents="none">
+          <DriverRouteConfettiLayer
+            active
+            pieceCount={42}
+            fallDistance={windowHeight + 80}
+            onFinished={() => setShowConfetti(false)}
+          />
         </View>
       ) : null}
     </View>
@@ -695,238 +616,239 @@ export default function DriverRouteDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   safe: {
     flex: 1,
-    backgroundColor: C.crema,
   },
-  scrollOverlay: {
+  header: {
+    paddingHorizontal: SCREEN_GUTTER,
+  },
+  scroll: {
     flex: 1,
-    zIndex: 2,
-    elevation: Platform.OS === "android" ? 12 : 2,
-    backgroundColor: "transparent",
   },
-  mapLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-    elevation: 0,
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    gap: 8,
   },
-  fixedHeader: {
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.ink,
+    textAlign: "center",
+  },
+  emptyWell: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: ACCENT_SOFT,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.muted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: ACCENT_SOFT,
+  },
+  retryTxt: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.accent,
+    textAlign: "center",
+  },
+  mapCard: {
+    height: MAP_HEIGHT,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: COLORS.surface,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: MAP_BORDER,
+  },
+  mapVehicle: {
     position: "absolute",
-    top: 0,
     left: 0,
     right: 0,
-    zIndex: 4,
-    elevation: 24,
-  },
-  deliveriesSheetShadow: {
-    marginHorizontal: 16,
-  },
-  statusSheetShadow: {
-    marginHorizontal: 16,
-  },
-  statusSheetInner: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 16,
-  },
-  sheetMetaRow: {
-    marginTop: 12,
+    bottom: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  sheetSubtitle: {
+  mapVehicleIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: ACCENT_SOFT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapVehicleCopy: {
     flex: 1,
     minWidth: 0,
+  },
+  mapVehicleLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.muted,
+  },
+  mapVehicleValue: {
+    marginTop: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  heroCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  stepsCard: {
+    marginBottom: 12,
+    marginHorizontal: -SCREEN_GUTTER,
+    alignItems: "center",
+  },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  heroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: ACCENT_SOFT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  heroSub: {
+    marginTop: 3,
     fontSize: 13,
     fontWeight: "500",
-    color: C.corteza,
     lineHeight: 18,
+    color: COLORS.muted,
   },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1.5,
+  badge: {
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.72)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  statusTxt: {
+  badgeText: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
   },
-  sheetWhen: {
-    marginTop: 10,
-    fontSize: 12,
-    fontWeight: "600",
-    color: C.gris,
+  when: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
     textTransform: "capitalize",
   },
-  infoRow: {
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.line,
-    gap: 10,
-  },
-  infoPill: {
+  cashCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    backgroundColor: "rgba(105, 97, 88, 0.06)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  infoPillTxt: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: C.ink,
-    lineHeight: 18,
-  },
-  deliveriesSheetInner: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 20,
-  },
-  deliveriesHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
     gap: 12,
-    marginBottom: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
   },
-  deliveriesCount: {
-    fontSize: 12,
+  cashAmount: {
+    fontSize: 18,
     fontWeight: "700",
-    color: C.gris,
+    color: WARN,
   },
-  deliveryCards: {
-    gap: 10,
+  commissionAmount: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: DONE,
   },
-  cancelledEmptyHint: {
+  cashHint: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
+  },
+  reportCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  reportTxt: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.accent,
+  },
+  sectionBlock: {
+    width: "100%",
+    marginTop: 8,
+  },
+  sectionBlockFollow: {
+    width: "100%",
+    marginTop: 22,
+  },
+  sectionTitle: {
+    marginLeft: 4,
+    marginBottom: 10,
     fontSize: 13,
     fontWeight: "600",
-    color: C.gris,
-    lineHeight: 19,
-    paddingVertical: 8,
+    color: COLORS.muted,
   },
-  detailsSection: {
-    paddingTop: 14,
-    paddingBottom: 32,
-  },
-  detailsTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: C.ink,
-    letterSpacing: -0.3,
-    lineHeight: 24,
+  list: {
+    gap: 12,
   },
   pickupDock: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_GUTTER,
     paddingTop: 10,
-    backgroundColor: "transparent",
-    zIndex: 4,
-    ...Platform.select({ android: { elevation: 24 } }),
   },
   dockBtn: {
     height: 56,
-    borderRadius: 999,
-    backgroundColor: C.naranja,
+    borderRadius: 16,
+    backgroundColor: COLORS.accent,
     alignItems: "center",
     justifyContent: "center",
   },
   dockBtnTxt: {
-    color: C.white,
+    color: COLORS.surface,
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "700",
   },
-  missing: {
-    padding: 24,
-  },
-  missingTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: C.ink,
-  },
-  missingSub: {
-    marginTop: 8,
-    fontSize: 14,
-    color: C.gris,
-    lineHeight: 20,
-  },
-  loader: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 48,
-  },
-  retryBtn: {
-    marginTop: 16,
-    alignSelf: "flex-start",
-    backgroundColor: C.naranja,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  retryTxt: {
-    color: C.white,
-    fontWeight: "800",
-    fontSize: 14,
-  },
-  cashPendingBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 12,
-    marginHorizontal: 16,
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    borderRadius: 14,
-    padding: 14,
-  },
-  cashPendingCopy: {
-    flex: 1,
-  },
-  cashPendingAmount: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#D97706",
-  },
-  cashPendingHint: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#92400E",
-    lineHeight: 16,
-  },
-  reportIncidentBtn: {
-    marginTop: 12,
-    marginHorizontal: 16,
-    backgroundColor: "#FFF7ED",
-    borderWidth: 1,
-    borderColor: "#FDBA74",
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-  },
-  reportIncidentTxt: {
-    color: "#C2410C",
-    fontSize: 15,
-    fontWeight: "800",
+  confettiHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+    elevation: 30,
   },
 });

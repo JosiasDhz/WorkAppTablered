@@ -13,36 +13,41 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { Calendar1, DocumentText } from "iconsax-react-native";
+import { Building, Calendar1, Clock, DocumentText } from "iconsax-react-native";
 import { WebView } from "react-native-webview";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { TapImagePreview } from "../../components/TapImagePreview";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getMyPermissionRequest,
+  PERMISSION_CATEGORY_OPTIONS,
+  permissionStatusLabel,
+  type PermissionCategory,
   type PermissionRequestDto,
   type PermissionRequestFileDto,
 } from "../../services/workforcePermissionRequestService";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  field: "#F3F1EC",
   accent: "#EA7600",
-  pendingBg: "#FFF4EB",
+  pendingBg: "rgba(234, 118, 0, 0.14)",
   pendingText: "#EA7600",
-  approvedBg: "#ECFDF3",
+  approvedBg: "rgba(22, 163, 74, 0.16)",
   approvedText: "#16A34A",
-  rejectedBg: "#FEF2F2",
-  rejectedText: "#DC2626",
+  rejectedBg: "#FFF1F2",
+  rejectedText: "#BE123C",
 };
 
+function categoryLabel(category: PermissionCategory) {
+  return PERMISSION_CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? category;
+}
+
 function statusLabel(status: PermissionRequestDto["status"]) {
-  if (status === "APPROVED") return "Aprobado";
-  if (status === "REJECTED") return "Rechazado";
-  return "Pendiente";
+  return permissionStatusLabel(status);
 }
 
 function statusStyle(status: PermissionRequestDto["status"]) {
@@ -111,8 +116,17 @@ export default function PermisoDetalleScreen() {
   const badge = item ? statusStyle(item.status) : null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <HeaderTitle title="Detalle del permiso" onBack={() => navigation.goBack()} />
+    <View style={styles.root}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <HeaderTitle
+        title="Detalle del permiso"
+        subtitle={item ? permissionStatusLabel(item.status) : undefined}
+        tone="light"
+        style={styles.header}
+        onBack={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+        }}
+      />
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={COLORS.accent} />
@@ -125,9 +139,9 @@ export default function PermisoDetalleScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={{
-            paddingHorizontal: 20,
+            paddingHorizontal: SCREEN_GUTTER,
             paddingTop: 12,
-            paddingBottom: Math.max(tabBarHeight, insets.bottom) + 24,
+            paddingBottom: Math.max(tabBarHeight, insets.bottom) + 36,
           }}
         >
           <View style={styles.heroCard}>
@@ -139,7 +153,7 @@ export default function PermisoDetalleScreen() {
                 <Text style={styles.heroDate}>
                   {formatWorkforceYmd(item.permissionDate)}
                 </Text>
-                <Text style={styles.heroSub}>Fecha del permiso</Text>
+                <Text style={styles.heroSub}>{categoryLabel(item.category)}</Text>
               </View>
               {badge ? (
                 <View style={[styles.badge, { backgroundColor: badge.bg }]}>
@@ -149,10 +163,13 @@ export default function PermisoDetalleScreen() {
                 </View>
               ) : null}
             </View>
-            {item.status === "PENDING" ? (
+            {item.status === "PENDING" ||
+            item.status === "PENDING_RH" ||
+            item.status === "PENDING_SUPERVISOR" ? (
               <Text style={styles.pendingNote}>
-                Tu solicitud está en revisión. Te notificaremos cuando sea aprobada o
-                rechazada.
+                {item.status === "PENDING_SUPERVISOR"
+                  ? "Tu solicitud está con el jefe inmediato."
+                  : "Tu solicitud está en preautorización de RH."}
               </Text>
             ) : null}
           </View>
@@ -165,15 +182,24 @@ export default function PermisoDetalleScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Información</Text>
             <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Building size={16} color={COLORS.muted} variant="Linear" />
+              </View>
               <Text style={styles.infoLabel}>Almacén</Text>
               <Text style={styles.infoValue}>{item.warehouse.name}</Text>
             </View>
             <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Clock size={16} color={COLORS.muted} variant="Linear" />
+              </View>
               <Text style={styles.infoLabel}>Enviada</Text>
               <Text style={styles.infoValue}>{formatDateTime(item.createdAt)}</Text>
             </View>
             {item.reviewedAt ? (
               <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <Calendar1 size={16} color={COLORS.muted} variant="Linear" />
+                </View>
                 <Text style={styles.infoLabel}>Revisada</Text>
                 <Text style={styles.infoValue}>{formatDateTime(item.reviewedAt)}</Text>
               </View>
@@ -270,11 +296,14 @@ export default function PermisoDetalleScreen() {
         </View>
       </Modal>
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  header: { paddingHorizontal: SCREEN_GUTTER },
   scroll: { flex: 1 },
   centered: {
     flex: 1,
@@ -290,8 +319,6 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     padding: 16,
     marginBottom: 16,
   },
@@ -303,19 +330,20 @@ const styles = StyleSheet.create({
   heroIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: "#FFF4EB",
+    borderRadius: 22,
+    backgroundColor: COLORS.field,
     alignItems: "center",
     justifyContent: "center",
   },
   heroText: { flex: 1 },
   heroDate: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    color: COLORS.text,
+    color: COLORS.ink,
   },
   heroSub: {
     fontSize: 12,
+    fontWeight: "500",
     color: COLORS.muted,
     marginTop: 2,
   },
@@ -325,7 +353,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
   },
   pendingNote: {
@@ -337,29 +365,34 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     padding: 16,
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.ink,
     marginBottom: 10,
   },
   bodyText: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
-    color: COLORS.text,
+    fontWeight: "500",
+    color: COLORS.ink,
   },
   infoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+  },
+  infoIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.field,
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoLabel: {
     fontSize: 13,
@@ -369,25 +402,28 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.text,
+    color: COLORS.ink,
     textAlign: "right",
   },
   reviewBox: {
     marginTop: 12,
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
     padding: 12,
   },
   reviewLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: COLORS.muted,
     marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   reviewText: {
     fontSize: 14,
     lineHeight: 20,
-    color: COLORS.text,
+    fontWeight: "500",
+    color: COLORS.ink,
   },
   muted: {
     fontSize: 13,
@@ -401,10 +437,9 @@ const styles = StyleSheet.create({
   imageCard: {
     width: "47%",
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.field,
   },
   thumb: {
     width: "100%",
@@ -413,10 +448,8 @@ const styles = StyleSheet.create({
   pdfCard: {
     width: "47%",
     minHeight: 140,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: "#FFFBF5",
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
     padding: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -425,7 +458,7 @@ const styles = StyleSheet.create({
   pdfName: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.text,
+    color: COLORS.ink,
     textAlign: "center",
   },
   pdfAction: {
@@ -436,9 +469,8 @@ const styles = StyleSheet.create({
   unavailableCard: {
     width: "47%",
     aspectRatio: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -452,14 +484,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   pdfBarTitle: {
     flex: 1,
     fontSize: 15,
     fontWeight: "700",
-    color: COLORS.text,
+    color: COLORS.ink,
     marginRight: 12,
   },
   pdfClose: {

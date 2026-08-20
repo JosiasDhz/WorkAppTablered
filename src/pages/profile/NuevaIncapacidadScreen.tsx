@@ -19,6 +19,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { ArrowDown2, AttachSquare, Calendar1, DocumentText, Trash } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import {
   createIncapacityRequest,
   listIncapacityReasons,
@@ -29,7 +30,6 @@ import { prepareEvidenceImageForUpload } from "../../utils/prepareEvidenceImageF
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -275,7 +275,7 @@ export default function NuevaIncapacidadScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
       <HeaderTitle title="Solicitar incapacidad" onBack={() => navigation.goBack()} />
       <ScrollView
         style={styles.scroll}
@@ -455,7 +455,7 @@ export default function NuevaIncapacidadScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   scroll: { flex: 1 },
   label: {
     fontSize: 14,

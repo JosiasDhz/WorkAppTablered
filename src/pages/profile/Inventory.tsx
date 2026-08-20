@@ -32,7 +32,6 @@ const { width } = Dimensions.get("window");
 const FRAME_SIZE = width * 0.72;
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -407,7 +406,7 @@ function ResultView({ product, onScanAgain }: { product: Product; onScanAgain: (
         </View>
 
         {/* [2] Tab bar — sticky */}
-        <View style={{ backgroundColor: COLORS.bg, paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4 }}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4 }}>
           <View style={{ flexDirection: "row", backgroundColor: "#EDEFF2", borderRadius: 12, padding: 4, gap: 2 }}>
             {([
               { key: "info",         label: "Información"  },
@@ -860,7 +859,7 @@ export default function Inventory() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: phase === "scanning" ? "#000" : COLORS.bg }}
+      style={{ flex: 1, backgroundColor: phase === "scanning" ? "#000" : undefined }}
       edges={["top", "left", "right"]}
     >
       {phase !== "scanning" && <Header onBack={handleBack} title={headerTitle} />}

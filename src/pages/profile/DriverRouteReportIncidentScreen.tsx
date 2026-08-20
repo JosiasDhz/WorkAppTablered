@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { DriverRouteWorkerCodeModal } from "./driverRoute/DriverRouteWorkerCodeModal";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
@@ -91,7 +92,7 @@ export default function DriverRouteReportIncidentScreen() {
   }, [sessionWorkerCode, submit]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <HeaderTitle
         title="Reportar daño en ruta"
         subtitle="Se creará una incidencia para revisión"
@@ -156,7 +157,7 @@ export default function DriverRouteReportIncidentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F1F5F9" },
+  safe: { flex: 1 },
   pad: { padding: 16, gap: 8 },
   label: { fontSize: 13, fontWeight: "700", color: "#475569", marginTop: 8 },
   input: {

@@ -3,14 +3,17 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../redux/store/store";
 import { saveInStorage } from "../../../utils";
 import { getFile } from "../../../services/s3Service";
+import {
+  isBiometricLoginEnabled,
+  promptEnableBiometricLogin,
+  saveBiometricCredentials,
+} from "../../../services/biometricAuth";
 import { LOGIN_COPY } from "./constants";
-import { fetchLoginWithMockApi } from "./mockLoginApi";
 import { persistLoginSession } from "./persistLoginSession";
 import { signIn } from "../../../services/authService";
 
 const ERROR_CLEAR_MS = 3000;
 
-/** Flujo de envío: loading, error y orquestación con capa de datos + persistencia. */
 export function useLoginAuth() {
   const dispatch = useDispatch<AppDispatch>();
   const [loading, setLoading] = useState(false);
@@ -23,12 +26,24 @@ export function useLoginAuth() {
   }, [error]);
 
   const submit = useCallback(
-    async (email: string, password: string) => {
+    async (
+      email: string,
+      password: string,
+      options?: { skipBiometricPrompt?: boolean },
+    ) => {
       setLoading(true);
       setError(null);
       try {
         const response = await signIn({ email, password });
-        console.log(response)
+
+        if (!options?.skipBiometricPrompt) {
+          if (await isBiometricLoginEnabled()) {
+            await saveBiometricCredentials(email, password);
+          } else {
+            await promptEnableBiometricLogin({ email, password });
+          }
+        }
+
         await persistLoginSession(response, dispatch, {
           saveInStorage,
           getFile,

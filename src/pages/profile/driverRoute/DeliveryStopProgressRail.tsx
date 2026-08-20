@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Easing,
@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   View,
-  type LayoutChangeEvent,
 } from "react-native";
 import { TickCircle } from "iconsax-react-native";
 import type { DeliveryStopProgressStep } from "./deliveryStopProgress";
@@ -15,14 +14,7 @@ import {
   DELIVERY_ROUTE_PROGRESS_RAIL_METRICS,
   type DeliveryRouteProgressRailSize,
 } from "./deliveryRouteProgressTheme";
-import {
-  buildWormRowIndices,
-  computeStepsPerRow,
-  shouldUseWormLayout,
-} from "./deliveryRouteProgressWorm";
 import { rgba } from "./driverRouteGlass";
-
-const SCROLL_STEP_THRESHOLD = 9;
 
 type ConnectorMode = "full" | "partial" | "faint" | "muted" | "hidden";
 
@@ -108,20 +100,11 @@ function StepCell(props: {
               ? {
                   backgroundColor: accentColor,
                   borderColor: accentColor,
-                  shadowColor: accentColor,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.45,
-                  shadowRadius: 6,
-                  elevation: 3,
                 }
               : isCurrent
                 ? {
                     borderColor: accentColor,
                     backgroundColor: "#FFFFFF",
-                    shadowColor: accentColor,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 5,
                   }
                 : styles.dotUpcoming,
           ]}
@@ -168,143 +151,6 @@ function StepCell(props: {
       >
         {step.shortLabel}
       </Animated.Text>
-    </View>
-  );
-}
-
-function resolveHorizontalModes(input: {
-  globalIndex: number;
-  rowIndices: number[];
-  rowReversed: boolean;
-  steps: DeliveryStopProgressStep[];
-}): { leftMode: ConnectorMode; rightMode: ConnectorMode } {
-  const { globalIndex, rowIndices, rowReversed, steps } = input;
-  const step = steps[globalIndex]!;
-  const prev = steps[globalIndex - 1];
-  const next = steps[globalIndex + 1];
-  const prevInRow = rowIndices.includes(globalIndex - 1);
-  const nextInRow = rowIndices.includes(globalIndex + 1);
-
-  if (!rowReversed) {
-    return {
-      leftMode: prevInRow ? resolveConnectorMode(prev?.state, step.state) : "hidden",
-      rightMode: nextInRow ? resolveConnectorMode(step.state, next?.state) : "hidden",
-    };
-  }
-
-  return {
-    leftMode: nextInRow ? resolveConnectorMode(step.state, next?.state) : "hidden",
-    rightMode: prevInRow ? resolveConnectorMode(prev?.state, step.state) : "hidden",
-  };
-}
-
-function WormBridge(props: {
-  side: "left" | "right";
-  accentColor: string;
-  mode: ConnectorMode;
-  columnFraction: number;
-}) {
-  if (props.mode === "hidden") return null;
-  const color = connectorColor(props.accentColor, props.mode);
-  return (
-    <View
-      style={[
-        styles.bridgeRow,
-        props.side === "right" ? styles.bridgeRowRight : styles.bridgeRowLeft,
-      ]}
-    >
-      <View style={[styles.bridgeCol, { width: `${props.columnFraction * 100}%` }]}>
-        <View
-          style={[
-            styles.bridgeVertical,
-            color ? { backgroundColor: color } : styles.connectorMuted,
-          ]}
-        />
-      </View>
-    </View>
-  );
-}
-
-function WormStepRail(props: {
-  steps: DeliveryStopProgressStep[];
-  accentColor: string;
-  size: DeliveryRouteProgressRailSize;
-  stepsPerRow: number;
-  contentWidth: number;
-  dotScales: Animated.Value[];
-  labelOpacities: Animated.Value[];
-}) {
-  const { steps, accentColor, size, stepsPerRow, contentWidth, dotScales, labelOpacities } =
-    props;
-  const wormRows = buildWormRowIndices(steps.length, stepsPerRow);
-  const columnWidth = contentWidth / stepsPerRow;
-  const columnFraction = 1 / stepsPerRow;
-
-  return (
-    <View style={styles.wormWrap}>
-      {wormRows.map((rowIndices, rowIndex) => {
-        const rowReversed = rowIndex % 2 === 1;
-        const displayIndices = rowReversed ? [...rowIndices].reverse() : rowIndices;
-        const prevRow = wormRows[rowIndex - 1];
-        const isPartialRow = rowIndices.length < stepsPerRow;
-        const bridgeSide: "left" | "right" =
-          rowIndex > 0 ? (rowIndex % 2 === 1 ? "right" : "left") : "right";
-        const bridgeFrom = prevRow?.[prevRow.length - 1];
-        const bridgeTo = rowIndices[0];
-        const bridgeMode =
-          rowIndex > 0 && bridgeFrom !== undefined && bridgeTo !== undefined
-            ? resolveConnectorMode(steps[bridgeFrom]?.state, steps[bridgeTo]?.state)
-            : "hidden";
-
-        return (
-          <View key={`worm-row-${rowIndex}`}>
-            {rowIndex > 0 ? (
-              <WormBridge
-                side={bridgeSide}
-                accentColor={accentColor}
-                mode={bridgeMode}
-                columnFraction={columnFraction}
-              />
-            ) : null}
-            <View
-              style={[
-                styles.wormRow,
-                isPartialRow
-                  ? rowReversed
-                    ? styles.wormRowEnd
-                    : rowIndex > 0
-                      ? styles.wormRowStart
-                      : null
-                  : null,
-              ]}
-            >
-              {displayIndices.map((globalIndex) => {
-                const modes = resolveHorizontalModes({
-                  globalIndex,
-                  rowIndices,
-                  rowReversed,
-                  steps,
-                });
-                return (
-                  <StepCell
-                    key={steps[globalIndex]!.key}
-                    step={steps[globalIndex]!}
-                    globalIndex={globalIndex}
-                    accentColor={accentColor}
-                    size={size}
-                    flex={false}
-                    fixedWidth={columnWidth}
-                    leftMode={modes.leftMode}
-                    rightMode={modes.rightMode}
-                    dotScale={dotScales[globalIndex]!}
-                    labelOpacity={labelOpacities[globalIndex]!}
-                  />
-                );
-              })}
-            </View>
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -370,11 +216,7 @@ export function DeliveryStopProgressRail(props: {
     size = "md",
   } = props;
   const headline = props.headline ?? deliveryStopProgressHeadline(steps);
-  const useScroll = steps.length > SCROLL_STEP_THRESHOLD;
   const isInline = variant === "inline";
-  const [layoutWidth, setLayoutWidth] = useState(0);
-  const stepsPerRow = computeStepsPerRow(layoutWidth, size);
-  const useWorm = shouldUseWormLayout(steps, layoutWidth, size);
   const dotScalesRef = useRef<Animated.Value[]>([]);
   const labelOpacitiesRef = useRef<Animated.Value[]>([]);
   const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -385,13 +227,6 @@ export function DeliveryStopProgressRail(props: {
   if (labelOpacitiesRef.current.length !== steps.length) {
     labelOpacitiesRef.current = steps.map(() => new Animated.Value(0));
   }
-
-  const onLayout = (event: LayoutChangeEvent) => {
-    const width = event.nativeEvent.layout.width;
-    if (width > 0 && Math.abs(width - layoutWidth) > 1) {
-      setLayoutWidth(width);
-    }
-  };
 
   useEffect(() => {
     pulseRef.current?.stop();
@@ -444,19 +279,10 @@ export function DeliveryStopProgressRail(props: {
     };
   }, [steps, accentColor]);
 
-  const railBody = useWorm ? (
-    <WormStepRail
-      steps={steps}
-      accentColor={accentColor}
-      size={size}
-      stepsPerRow={stepsPerRow}
-      contentWidth={layoutWidth}
-      dotScales={dotScalesRef.current}
-      labelOpacities={labelOpacitiesRef.current}
-    />
-  ) : useScroll ? (
+  const railBody = (
     <ScrollView
       horizontal
+      nestedScrollEnabled
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
     >
@@ -469,22 +295,10 @@ export function DeliveryStopProgressRail(props: {
         labelOpacities={labelOpacitiesRef.current}
       />
     </ScrollView>
-  ) : (
-    <View style={styles.flexRow}>
-      <LinearStepRail
-        steps={steps}
-        accentColor={accentColor}
-        size={size}
-        useScroll={false}
-        dotScales={dotScalesRef.current}
-        labelOpacities={labelOpacitiesRef.current}
-      />
-    </View>
   );
 
   return (
     <View
-      onLayout={onLayout}
       style={[
         isInline ? styles.wrapInline : styles.wrap,
         compact && !isInline ? styles.wrapCompact : null,
@@ -504,74 +318,33 @@ export function DeliveryStopProgressRail(props: {
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.25)",
-    backgroundColor: "rgba(248, 250, 252, 0.85)",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   wrapInline: {
     width: "100%",
-    paddingVertical: 4,
+    alignSelf: "stretch",
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   wrapLg: {
-    paddingVertical: 6,
+    paddingVertical: 0,
   },
   wrapCompact: {
     marginTop: 0,
   },
   headline: {
-    marginBottom: 8,
-    fontSize: 10,
+    marginBottom: 10,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#475569",
-  },
-  flexRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    width: "100%",
-  },
-  wormWrap: {
-    width: "100%",
-    gap: 0,
-  },
-  wormRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    width: "100%",
-  },
-  wormRowEnd: {
-    justifyContent: "flex-end",
-  },
-  wormRowStart: {
-    justifyContent: "flex-start",
-  },
-  bridgeRow: {
-    width: "100%",
-    height: 14,
-    justifyContent: "flex-end",
-  },
-  bridgeRowRight: {
-    alignItems: "flex-end",
-  },
-  bridgeRowLeft: {
-    alignItems: "flex-start",
-  },
-  bridgeCol: {
-    alignItems: "center",
-    justifyContent: "flex-end",
-    minWidth: 48,
-  },
-  bridgeVertical: {
-    width: 3,
-    height: 14,
-    borderRadius: 2,
+    color: "#1C1C1E",
   },
   scrollContent: {
     flexGrow: 1,
+    flexDirection: "row",
     alignItems: "flex-start",
-    paddingRight: 4,
+    justifyContent: "center",
+    paddingHorizontal: 0,
   },
   stepCol: {
     alignItems: "center",
@@ -583,11 +356,12 @@ const styles = StyleSheet.create({
   stepTop: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     width: "100%",
   },
   dotUpcoming: {
-    borderColor: "#CBD5E1",
-    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(60, 60, 67, 0.22)",
+    backgroundColor: "rgba(60, 60, 67, 0.08)",
   },
   connector: {
     flex: 1,
@@ -599,21 +373,21 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   connectorMuted: {
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "rgba(60, 60, 67, 0.16)",
   },
   stepLabel: {
-    marginTop: 5,
+    marginTop: 6,
     width: "100%",
     textAlign: "center",
     fontWeight: "700",
   },
   stepLabelCurrent: {
-    color: "#0F172A",
+    color: "#EA7600",
   },
   stepLabelDone: {
-    color: "#1E293B",
+    color: "#1C1C1E",
   },
   stepLabelUpcoming: {
-    color: "#94A3B8",
+    color: "#8E8E93",
   },
 });

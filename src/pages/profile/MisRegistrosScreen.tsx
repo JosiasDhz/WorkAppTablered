@@ -22,7 +22,6 @@ import {
 } from "../../services/attendanceService";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -264,12 +263,11 @@ export default function MisRegistrosScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: COLORS.bg }]} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={styles.root} edges={["left", "right", "bottom"]}>
       <HeaderTitle
         title="Mis registros"
         subtitle={subtitle}
         tone="light"
-        backgroundColor={COLORS.bg}
         style={{ paddingTop: insets.top + 8 }}
         onBack={() => navigation.goBack()}
       />

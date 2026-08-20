@@ -34,7 +34,6 @@ export function shouldUseWormLayout(
   contentWidth: number,
   size: DeliveryRouteProgressRailSize,
 ): boolean {
-  const deliveryStops = countDeliveryStopSteps(steps);
-  if (deliveryStops < 3 || contentWidth <= 0) return false;
+  if (steps.length === 0 || contentWidth <= 0) return false;
   return steps.length > computeStepsPerRow(contentWidth, size);
 }

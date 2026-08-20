@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { LogBox, Text, View } from 'react-native';
+import { LogBox, View } from 'react-native';
 import SplashScreenView from './src/utils/SplashScreenView';
-import TabNavigator from './src/routes/TabNavigator';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
-import { Provider, useSelector } from 'react-redux';
+import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import store from './src/redux/store/store';
-import { RootState } from './src/redux/store/store';
 import AppNavigator from './src/routes/TabNavigator';
+import { installGlobalTapFeedback } from './src/feedback/installGlobalTapFeedback';
+import { SOFT } from './src/theme/softUi';
 
 
 LogBox.ignoreAllLogs();
+installGlobalTapFeedback();
 
 
 export default function App() {
@@ -26,7 +26,7 @@ export default function App() {
   return (
     <Provider store={store}>
       <SafeAreaProvider>
-        <View className="flex-1 bg-white">
+        <View style={{ flex: 1, backgroundColor: SOFT.layout }}>
           {isShowSplash ? (
             <SplashScreenView />
           ) : (

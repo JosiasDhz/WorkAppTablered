@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,9 +9,14 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { ArrowRight2, FolderOpen } from "iconsax-react-native";
+import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
+import { ArrowRight2, FolderOpen, TickCircle } from "iconsax-react-native";
+import Svg, { Line } from "react-native-svg";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { PageFlipReveal } from "../../components/PageFlipReveal";
+import { SoftPressable } from "../../components/SoftPressable";
+import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getMyExpediente,
   type ExpedienteDocumentSummaryItemDto,
@@ -20,17 +24,19 @@ import {
 } from "../../services/workforceExpedienteService";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  divider: "rgba(60, 60, 67, 0.12)",
   accent: "#EA7600",
-  completeBg: "#ECFDF3",
-  completeText: "#16A34A",
-  pendingBg: "#FFF4EB",
-  pendingText: "#EA7600",
+  track: "rgba(78, 54, 41, 0.32)",
 };
+
+const DONE = "#16A34A";
+const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
+const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
+
+type NodeKind = "done" | "pending" | "optional";
 
 function fileCountLabel(count: number) {
   if (count === 0) return "Sin archivos";
@@ -38,10 +44,230 @@ function fileCountLabel(count: number) {
   return `${count} archivos`;
 }
 
+function formatUploadedAt(iso: string | null) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function nodeKind(doc: ExpedienteDocumentSummaryItemDto): NodeKind {
+  if (doc.fileCount > 0) return "done";
+  if (doc.isRequired) return "pending";
+  return "optional";
+}
+
+function stampLabel(doc: ExpedienteDocumentSummaryItemDto) {
+  const when = formatUploadedAt(doc.uploadedAt);
+  if (when) return when;
+  if (doc.isRequired) return "Pendiente";
+  return "Opcional";
+}
+
+function docCaption(doc: ExpedienteDocumentSummaryItemDto) {
+  if (doc.fileCount === 0) {
+    return doc.isRequired ? "Falta subir" : "Puedes subirlo después";
+  }
+  return fileCountLabel(doc.fileCount);
+}
+
+function headerSubtitle(data: SellerExpedienteDto | null, loading: boolean) {
+  if (loading) return "Cargando tu expediente";
+  if (!data) return "No se pudo cargar";
+  if (data.isComplete) return "Tu expediente está completo";
+  return `${data.requiredUploaded} de ${data.requiredTotal} obligatorios`;
+}
+
+const RAIL_W = 24;
+const NODE_SIZE = 16;
+const NODE_PAD = 16;
+const FLIP_STAGGER_MS = 70;
+const MAX_FLIP_DELAY_MS = 700;
+
+function clampFlipDelay(delay: number) {
+  return Math.min(delay, MAX_FLIP_DELAY_MS);
+}
+
+function TimelineNode({ kind }: { kind: NodeKind }) {
+  if (kind === "done") {
+    return (
+      <View style={[styles.node, styles.nodeDone]}>
+        <TickCircle size={11} color="#FFFFFF" variant="Bold" />
+      </View>
+    );
+  }
+  if (kind === "pending") {
+    return <View style={[styles.node, styles.nodePending]} />;
+  }
+  return <View style={[styles.node, styles.nodeOptional]} />;
+}
+
+function ExpedienteSummary({ data }: { data: SellerExpedienteDto }) {
+  const progress =
+    data.requiredTotal > 0 ? data.requiredUploaded / data.requiredTotal : 1;
+
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryTop}>
+        <View style={styles.iconSlot}>
+          <FolderOpen size={22} color={COLORS.accent} variant="Linear" />
+        </View>
+        <View style={styles.summaryCopy}>
+          <Text style={styles.summaryTitle}>Estado del expediente</Text>
+          <Text style={styles.summarySub}>
+            Obligatorios {data.requiredUploaded}/{data.requiredTotal} · Opcionales{" "}
+            {data.optionalUploaded}/{data.optionalTotal}
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.summaryStatus,
+            { color: data.isComplete ? DONE : COLORS.accent },
+          ]}
+        >
+          {data.isComplete ? "Completo" : "Pendiente"}
+        </Text>
+      </View>
+      <View style={styles.progressTrack}>
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%`,
+              backgroundColor: data.isComplete ? DONE : COLORS.accent,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
+function TimelineStep({
+  doc,
+  onPress,
+}: {
+  doc: ExpedienteDocumentSummaryItemDto;
+  onPress: () => void;
+}) {
+  const kind = nodeKind(doc);
+  const done = kind === "done";
+  const stamp = stampLabel(doc);
+  const caption = docCaption(doc);
+
+  return (
+    <View style={styles.step}>
+      <View style={styles.railCol}>
+        <TimelineNode kind={kind} />
+      </View>
+      <View style={styles.eventWrap}>
+        <SoftPressable
+          onPress={onPress}
+          scaleTo={0.99}
+          accessibilityLabel={`${doc.documentTypeName}. ${
+            doc.isRequired ? "Obligatorio" : "Opcional"
+          }. ${caption}`}
+        >
+          <View
+            style={[styles.eventCard, done ? styles.eventCardDone : null]}
+          >
+            <View style={styles.eventCopy}>
+              <Text style={styles.eventTitle} numberOfLines={1}>
+                {doc.documentTypeName}
+              </Text>
+              <Text style={styles.eventMeta} numberOfLines={1}>
+                {doc.isRequired ? "Obligatorio" : "Opcional"}
+                {" · "}
+                {caption}
+              </Text>
+              <Text
+                style={[
+                  styles.eventStamp,
+                  done ? styles.eventStampDone : null,
+                ]}
+              >
+                {stamp}
+              </Text>
+            </View>
+            <ArrowRight2 size={16} color={COLORS.muted} variant="Linear" />
+          </View>
+        </SoftPressable>
+      </View>
+    </View>
+  );
+}
+
+function DocumentTimeline({
+  documents,
+  onOpen,
+  revealDelay = 0,
+  revealActive = true,
+}: {
+  documents: ExpedienteDocumentSummaryItemDto[];
+  onOpen: (doc: ExpedienteDocumentSummaryItemDto) => void;
+  revealDelay?: number;
+  revealActive?: boolean;
+}) {
+  const [height, setHeight] = useState(0);
+  const [span, setSpan] = useState({ top: 0, bottom: 0 });
+  const lastIndex = documents.length - 1;
+
+  return (
+    <View
+      style={styles.timeline}
+      onLayout={(e) => setHeight(e.nativeEvent.layout.height)}
+    >
+      {height > 0 && lastIndex > 0 && span.bottom > span.top ? (
+        <View pointerEvents="none" style={styles.railOverlay}>
+          <Svg width={RAIL_W} height={height}>
+            <Line
+              x1={RAIL_W / 2}
+              y1={span.top}
+              x2={RAIL_W / 2}
+              y2={span.bottom}
+              stroke={COLORS.track}
+              strokeWidth={2}
+              strokeDasharray="7 7"
+              strokeLinecap="butt"
+            />
+          </Svg>
+        </View>
+      ) : null}
+      {documents.map((doc, index) => (
+        <View
+          key={doc.documentTypeId}
+          onLayout={(e) => {
+            const center = e.nativeEvent.layout.y + NODE_PAD + NODE_SIZE / 2;
+            if (index === 0) {
+              setSpan((prev) =>
+                prev.top === center ? prev : { ...prev, top: center },
+              );
+            }
+            if (index === lastIndex) {
+              setSpan((prev) =>
+                prev.bottom === center ? prev : { ...prev, bottom: center },
+              );
+            }
+          }}
+        >
+          <PageFlipReveal
+            delay={clampFlipDelay(revealDelay + index * FLIP_STAGGER_MS)}
+            active={revealActive}
+          >
+            <TimelineStep doc={doc} onPress={() => onOpen(doc)} />
+          </PageFlipReveal>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function MisExpedienteScreen() {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
   const [data, setData] = useState<SellerExpedienteDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,106 +304,90 @@ export default function MisExpedienteScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <HeaderTitle
-        title="Mi expediente"
-        tone="light"
-        onBack={() => navigation.goBack()}
-      />
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-        </View>
-      ) : !data ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>No se pudo cargar tu expediente.</Text>
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 12,
-            paddingBottom: Math.max(tabBarHeight, insets.bottom) + 24,
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <HeaderTitle
+          title="Mi expediente"
+          subtitle={headerSubtitle(data, loading)}
+          tone="light"
+          style={styles.header}
+          onBack={() => {
+            if (navigation.canGoBack()) navigation.goBack();
           }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={COLORS.accent}
-            />
-          }
-        >
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryIcon}>
-              <FolderOpen size={22} color={COLORS.accent} variant="Linear" />
-            </View>
-            <View style={styles.summaryText}>
-              <Text style={styles.summaryTitle}>Estado del expediente</Text>
-              <Text style={styles.summarySub}>
-                Obligatorios {data.requiredUploaded}/{data.requiredTotal} · Opcionales{" "}
-                {data.optionalUploaded}/{data.optionalTotal}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.badge,
-                {
-                  backgroundColor: data.isComplete
-                    ? COLORS.completeBg
-                    : COLORS.pendingBg,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  {
-                    color: data.isComplete ? COLORS.completeText : COLORS.pendingText,
-                  },
-                ]}
-              >
-                {data.isComplete ? "Completo" : "Pendiente"}
-              </Text>
-            </View>
+        />
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
           </View>
-
-          {data.documents.map((doc) => (
-            <Pressable
-              key={doc.documentTypeId}
-              style={styles.docCard}
-              onPress={() => openDocument(doc)}
-            >
-              <View style={styles.docMain}>
-                <View style={styles.docHeader}>
-                  <Text style={styles.docTitle}>{doc.documentTypeName}</Text>
-                  {doc.isRequired ? (
-                    <Text style={styles.requiredTag}>Obligatorio</Text>
-                  ) : (
-                    <Text style={styles.optionalTag}>Opcional</Text>
-                  )}
+        ) : !data ? (
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>No se pudo cargar tu expediente.</Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.scroll}
+            onScroll={onAutoTabBarScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: SCREEN_GUTTER,
+              paddingTop: 8,
+              paddingBottom: Math.max(tabBarHeight, insets.bottom) + 36,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={COLORS.ink}
+              />
+            }
+          >
+            <PageFlipReveal delay={0} active={isFocused}>
+              <ExpedienteSummary data={data} />
+            </PageFlipReveal>
+            <View style={styles.sectionBlock}>
+              <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
+                <Text style={styles.sectionTitle}>Línea de documentos</Text>
+                <View style={styles.legend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: DONE }]} />
+                    <Text style={styles.legendText}>Subido</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View
+                      style={[styles.legendDot, { backgroundColor: COLORS.accent }]}
+                    />
+                    <Text style={styles.legendText}>Pendiente</Text>
+                  </View>
                 </View>
-                <Text
-                  style={[
-                    styles.docCount,
-                    doc.fileCount === 0 ? styles.docCountEmpty : null,
-                  ]}
-                >
-                  {fileCountLabel(doc.fileCount)}
-                </Text>
-              </View>
-              <ArrowRight2 size={18} color={COLORS.muted} variant="Linear" />
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+              </PageFlipReveal>
+              <DocumentTimeline
+                documents={data.documents}
+                onOpen={openDocument}
+                revealDelay={FLIP_STAGGER_MS * 2}
+                revealActive={isFocused}
+              />
+            </View>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { flex: 1 },
+  root: {
+    flex: 1,
+  },
+  safe: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: SCREEN_GUTTER,
+  },
+  scroll: {
+    flex: 1,
+  },
   centered: {
     flex: 1,
     alignItems: "center",
@@ -186,88 +396,174 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 15,
+    fontWeight: "500",
     color: COLORS.muted,
     textAlign: "center",
   },
   summaryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    width: "100%",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     backgroundColor: COLORS.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    marginBottom: 16,
+    gap: 12,
   },
-  summaryIcon: {
-    width: 44,
-    height: 44,
+  summaryTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  iconSlot: {
+    width: 36,
+    height: 36,
     borderRadius: 12,
-    backgroundColor: "#FFF4EB",
+    backgroundColor: ACCENT_SOFT,
     alignItems: "center",
     justifyContent: "center",
   },
-  summaryText: { flex: 1 },
+  summaryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   summaryTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
+    fontWeight: "400",
+    color: COLORS.ink,
   },
   summarySub: {
-    fontSize: 12,
-    color: COLORS.muted,
     marginTop: 2,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  docCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    marginBottom: 10,
-  },
-  docMain: { flex: 1, minWidth: 0 },
-  docHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 4,
-  },
-  docTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  requiredTag: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.pendingText,
-  },
-  optionalTag: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "500",
     color: COLORS.muted,
   },
-  docCount: {
+  summaryStatus: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: COLORS.divider,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  sectionBlock: {
+    width: "100%",
+    marginTop: 22,
+  },
+  sectionTitle: {
+    marginLeft: 4,
+    marginBottom: 10,
     fontSize: 13,
     fontWeight: "600",
     color: COLORS.muted,
   },
-  docCountEmpty: {
-    color: COLORS.pendingText,
+  legend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginLeft: 4,
+    marginBottom: 14,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.muted,
+  },
+  timeline: {
+    width: "100%",
+    position: "relative",
+  },
+  railOverlay: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: RAIL_W,
+    bottom: 0,
+  },
+  step: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  railCol: {
+    width: RAIL_W,
+    alignItems: "center",
+    paddingTop: NODE_PAD,
+    zIndex: 1,
+  },
+  node: {
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nodeDone: {
+    backgroundColor: DONE,
+  },
+  nodePending: {
+    backgroundColor: COLORS.accent,
+  },
+  nodeOptional: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 2,
+    borderColor: COLORS.track,
+  },
+  eventWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingBottom: 12,
+  },
+  eventCard: {
+    minHeight: 78,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  eventCardDone: {
+    borderColor: DONE_SOFT,
+  },
+  eventCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.ink,
+  },
+  eventMeta: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
+  },
+  eventStamp: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.muted,
+  },
+  eventStampDone: {
+    color: DONE,
   },
 });

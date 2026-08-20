@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft2,
@@ -303,7 +304,7 @@ export default function DriverCollectionsScreen() {
   );
 
   return (
-    <SafeAreaView style={s.safe} edges={["top"]}>
+    <SafeAreaView style={s.safe} edges={headerSafeEdges("top")}>
       <View style={s.header}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -391,7 +392,7 @@ export default function DriverCollectionsScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F7F7F6" },
+  safe: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",

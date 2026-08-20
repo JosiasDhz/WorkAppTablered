@@ -16,6 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { Calendar1, DocumentText } from "iconsax-react-native";
 import { WebView } from "react-native-webview";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { TapImagePreview } from "../../components/TapImagePreview";
 import {
   getMyIncapacityRequest,
@@ -25,7 +26,6 @@ import {
 import { formatWorkforceYmdRange } from "../../utils/formatWorkforceYmd";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -111,7 +111,7 @@ export default function IncapacidadDetalleScreen() {
   const badge = item ? statusStyle(item.status) : null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
       <HeaderTitle title="Detalle de incapacidad" onBack={() => navigation.goBack()} />
       {loading ? (
         <View style={styles.centered}>
@@ -279,7 +279,7 @@ export default function IncapacidadDetalleScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   scroll: { flex: 1 },
   centered: {
     flex: 1,

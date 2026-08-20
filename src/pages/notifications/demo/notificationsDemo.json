@@ -1,0 +1,228 @@
+{
+  "groups": [
+    {
+      "id": "hoy",
+      "title": "Hoy",
+      "items": [
+        {
+          "id": "n1",
+          "type": "PERMISO_APROBADO",
+          "title": "Permiso aprobado",
+          "body": "Tu permiso del 22 de agosto fue autorizado por Recursos Humanos.",
+          "timeLabel": "Hace 12 min",
+          "read": false
+        },
+        {
+          "id": "n2",
+          "type": "RECORDATORIO_CHEQUEO",
+          "title": "No olvides checar tu turno",
+          "body": "Tu turno cierra a las 6:00 PM. Registra tu salida en sucursal Centro.",
+          "timeLabel": "Hace 1 h",
+          "read": false
+        },
+        {
+          "id": "n3",
+          "type": "COMISION_GENERADA",
+          "title": "Comisión generada",
+          "body": "Se generó una comisión de $1,240.00 por tus ventas del lunes.",
+          "timeLabel": "Hoy, 11:05 AM",
+          "read": true
+        },
+        {
+          "id": "n4",
+          "type": "RECORDATORIO_CHEQUEO",
+          "title": "Registro de entrada confirmado",
+          "body": "Tu entrada quedó registrada a las 8:52 AM en sucursal Centro.",
+          "timeLabel": "Hoy, 8:52 AM",
+          "read": true
+        },
+        {
+          "id": "n5",
+          "type": "COMISION_GENERADA",
+          "title": "Bono de puntos acreditado",
+          "body": "Se acreditaron 320 puntos por el cumplimiento de tu meta semanal.",
+          "timeLabel": "Hoy, 8:10 AM",
+          "read": true
+        }
+      ]
+    },
+    {
+      "id": "semana",
+      "title": "Esta semana",
+      "items": [
+        {
+          "id": "n6",
+          "type": "FALTA_REGISTRADA",
+          "title": "Falta registrada",
+          "body": "No se registró tu entrada del 17 de agosto. Puedes aclararlo con tu supervisor.",
+          "timeLabel": "Lunes, 9:40 AM",
+          "read": false
+        },
+        {
+          "id": "n7",
+          "type": "INCAPACIDAD_APROBADA",
+          "title": "Incapacidad aprobada",
+          "body": "Tu incapacidad del 12 al 14 de agosto quedó aprobada y registrada.",
+          "timeLabel": "Domingo, 5:18 PM",
+          "read": true
+        },
+        {
+          "id": "n8",
+          "type": "COMISION_GENERADA",
+          "title": "Comisión pagada",
+          "body": "Tu comisión de $980.00 se incluyó en el pago del 15 de agosto.",
+          "timeLabel": "Sábado, 2:30 PM",
+          "read": true
+        },
+        {
+          "id": "n9",
+          "type": "PERMISO_APROBADO",
+          "title": "Permiso por horas autorizado",
+          "body": "Se autorizaron 3 horas de permiso para el 19 de agosto.",
+          "timeLabel": "Viernes, 6:02 PM",
+          "read": true
+        },
+        {
+          "id": "n10",
+          "type": "RECORDATORIO_CHEQUEO",
+          "title": "Salida sin registrar",
+          "body": "No encontramos tu salida del jueves. Verifica el registro con tu supervisor.",
+          "timeLabel": "Viernes, 9:15 AM",
+          "read": true
+        },
+        {
+          "id": "n11",
+          "type": "COMISION_GENERADA",
+          "title": "Nueva venta acreditada",
+          "body": "La venta con folio A-10842 sumó 145 puntos a tu monedero.",
+          "timeLabel": "Jueves, 4:47 PM",
+          "read": true
+        },
+        {
+          "id": "n12",
+          "type": "PERMISO_APROBADO",
+          "title": "Cambio de turno aceptado",
+          "body": "Tu cambio de turno con Laura Méndez fue aceptado para el 21 de agosto.",
+          "timeLabel": "Jueves, 10:20 AM",
+          "read": true
+        }
+      ]
+    },
+    {
+      "id": "mes",
+      "title": "Este mes",
+      "items": [
+        {
+          "id": "n13",
+          "type": "INCAPACIDAD_APROBADA",
+          "title": "Documento de incapacidad recibido",
+          "body": "Recibimos tu certificado médico del 12 de agosto y ya está en revisión.",
+          "timeLabel": "11 ago, 1:05 PM",
+          "read": true
+        },
+        {
+          "id": "n14",
+          "type": "COMISION_GENERADA",
+          "title": "Corte de comisiones",
+          "body": "Tu corte de la primera quincena cerró con $3,420.00 en comisiones.",
+          "timeLabel": "10 ago, 7:00 PM",
+          "read": true
+        },
+        {
+          "id": "n15",
+          "type": "FALTA_REGISTRADA",
+          "title": "Retardo registrado",
+          "body": "Se registró un retardo de 18 minutos el 8 de agosto.",
+          "timeLabel": "08 ago, 9:18 AM",
+          "read": true
+        },
+        {
+          "id": "n16",
+          "type": "PERMISO_APROBADO",
+          "title": "Vacaciones programadas",
+          "body": "Tus vacaciones del 2 al 6 de septiembre quedaron programadas.",
+          "timeLabel": "06 ago, 12:40 PM",
+          "read": true
+        },
+        {
+          "id": "n17",
+          "type": "RECORDATORIO_CHEQUEO",
+          "title": "Actualiza tu expediente",
+          "body": "Falta tu comprobante de domicilio actualizado en el expediente digital.",
+          "timeLabel": "05 ago, 8:30 AM",
+          "read": true
+        },
+        {
+          "id": "n18",
+          "type": "COMISION_GENERADA",
+          "title": "Meta mensual alcanzada",
+          "body": "Alcanzaste el 104% de tu meta de julio. Se liberó tu bono adicional.",
+          "timeLabel": "03 ago, 6:15 PM",
+          "read": true
+        },
+        {
+          "id": "n19",
+          "type": "INCAPACIDAD_APROBADA",
+          "title": "Incapacidad concluida",
+          "body": "Tu incapacidad del 28 al 30 de julio se cerró correctamente.",
+          "timeLabel": "01 ago, 11:22 AM",
+          "read": true
+        }
+      ]
+    },
+    {
+      "id": "anteriores",
+      "title": "Anteriores",
+      "items": [
+        {
+          "id": "n20",
+          "type": "COMISION_GENERADA",
+          "title": "Comisión de julio pagada",
+          "body": "Se depositó tu comisión de julio por $2,860.00.",
+          "timeLabel": "30 jul, 5:00 PM",
+          "read": true
+        },
+        {
+          "id": "n21",
+          "type": "PERMISO_APROBADO",
+          "title": "Permiso económico aprobado",
+          "body": "Tu permiso económico del 24 de julio fue autorizado.",
+          "timeLabel": "23 jul, 3:12 PM",
+          "read": true
+        },
+        {
+          "id": "n22",
+          "type": "FALTA_REGISTRADA",
+          "title": "Falta justificada",
+          "body": "Tu falta del 19 de julio se justificó con el comprobante enviado.",
+          "timeLabel": "20 jul, 10:05 AM",
+          "read": true
+        },
+        {
+          "id": "n23",
+          "type": "RECORDATORIO_CHEQUEO",
+          "title": "Capacitación pendiente",
+          "body": "Tienes pendiente el curso de atención a clientes hasta el 31 de julio.",
+          "timeLabel": "15 jul, 9:00 AM",
+          "read": true
+        },
+        {
+          "id": "n24",
+          "type": "COMISION_GENERADA",
+          "title": "Puntos por antigüedad",
+          "body": "Se abonaron 500 puntos por tu segundo aniversario en Table Red.",
+          "timeLabel": "10 jul, 8:45 AM",
+          "read": true
+        },
+        {
+          "id": "n25",
+          "type": "INCAPACIDAD_APROBADA",
+          "title": "Consulta médica registrada",
+          "body": "Tu consulta del 4 de julio quedó registrada en tu expediente.",
+          "timeLabel": "04 jul, 1:30 PM",
+          "read": true
+        }
+      ]
+    }
+  ]
+}

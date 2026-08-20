@@ -13,6 +13,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { ArrowLeft2, ArrowRight2, Coin } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
 import {
   COMMISSION_KIND_LABELS,
@@ -25,7 +26,6 @@ import {
 } from "../../services/commissionsService";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -141,7 +141,7 @@ export default function MisComisionesScreen() {
   const canGoNext = periodKey < currentCommissionPeriodKey();
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
       <HeaderTitle
         title="Mis comisiones"
         subtitle="Lo generado en el periodo"
@@ -247,7 +247,6 @@ export default function MisComisionesScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: COLORS.bg,
   },
   scroll: {
     flex: 1,

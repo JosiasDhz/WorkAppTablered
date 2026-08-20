@@ -1,46 +1,98 @@
-import React from "react";
+import React, { type ComponentType } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import {
   ScanBarcode,
-  Activity,
+  Home2,
   User,
+  Notification,
 } from "iconsax-react-native";
 import {
-  TAB_BAR_PRIMARY,
+  TAB_BAR_FOCUSED,
   TAB_BAR_LAYOUT,
-  fabShadow,
+  TAB_BAR_SURFACE,
+  TAB_BAR_UNFOCUSED,
+  tabBarShadow,
 } from "./tabBarConstants";
 
-type SideProps = { focused: boolean; label: string };
+type IconProps = {
+  size?: number;
+  color?: string;
+  variant?: "Linear" | "Outline" | "Bold" | "Bulk" | "Broken" | "TwoTone";
+};
 
-const FOCUSED_COLOR = "#FFFFFF";
-const UNFOCUSED_COLOR = "rgba(255,255,255,0.45)";
+type PillProps = {
+  focused: boolean;
+  label: string;
+  Icon: ComponentType<IconProps>;
+  badge?: string | number;
+};
 
-const sideStyles = StyleSheet.create({
+const pillStyles = StyleSheet.create({
   wrap: {
+    flex: 1,
+    alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    minWidth: 60,
+    paddingHorizontal: 4,
+  },
+  iconSlot: {
+    width: 32,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: -3,
+    right: -7,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: "#E11D48",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeTxt: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    includeFontPadding: false,
   },
   label: {
-    fontSize: 9,
+    fontSize: 11.5,
+    fontWeight: "500",
+    marginTop: 2,
+    lineHeight: 13,
+    includeFontPadding: false,
+  },
+  labelOn: {
     fontWeight: "700",
-    marginTop: 3,
   },
 });
 
-export function SideUserProfileTab({ focused, label }: SideProps) {
+export function CafePillTab({ focused, label, Icon, badge }: PillProps) {
+  const color = focused ? TAB_BAR_FOCUSED : TAB_BAR_UNFOCUSED;
   return (
-    <View style={sideStyles.wrap}>
-      <User
-        size={TAB_BAR_LAYOUT.sideIconSize}
-        color={focused ? FOCUSED_COLOR : UNFOCUSED_COLOR}
-        variant={focused ? "Bold" : "Linear"}
-      />
+    <View style={pillStyles.wrap}>
+      <View style={pillStyles.iconSlot}>
+        <Icon
+          size={TAB_BAR_LAYOUT.sideIconSize}
+          color={color}
+          variant={focused ? "Bold" : "Linear"}
+        />
+        {badge != null && String(badge) !== "" ? (
+          <View style={pillStyles.badge}>
+            <Text style={pillStyles.badgeTxt}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
       <Text
-        style={[sideStyles.label, { color: focused ? FOCUSED_COLOR : UNFOCUSED_COLOR }]}
+        style={[
+          pillStyles.label,
+          focused ? pillStyles.labelOn : null,
+          { color },
+        ]}
         numberOfLines={1}
       >
         {label}
@@ -49,43 +101,37 @@ export function SideUserProfileTab({ focused, label }: SideProps) {
   );
 }
 
-export function SideActivityTab({ focused, label }: SideProps) {
-  return (
-    <View style={sideStyles.wrap}>
-      <Activity
-        size={TAB_BAR_LAYOUT.sideIconSize}
-        color={focused ? FOCUSED_COLOR : UNFOCUSED_COLOR}
-        variant={focused ? "Bold" : "Linear"}
-      />
-      <Text
-        style={[sideStyles.label, { color: focused ? FOCUSED_COLOR : UNFOCUSED_COLOR }]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-export function TarjetaFab() {
-  const d = TAB_BAR_LAYOUT.fabDiameter;
-  const r = d / 2;
+export function CafeProfileOrb({ focused }: { focused: boolean }) {
+  const d = TAB_BAR_LAYOUT.profileCircle;
+  const color = focused ? TAB_BAR_FOCUSED : TAB_BAR_UNFOCUSED;
 
   return (
     <View
       style={[
-        fabShadow,
+        tabBarShadow,
+        orbStyles.circle,
         {
           width: d,
           height: d,
-          borderRadius: r,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: TAB_BAR_PRIMARY,
+          borderRadius: d / 2,
+          backgroundColor: TAB_BAR_SURFACE,
         },
       ]}
     >
-      <ScanBarcode size={40} color="#FFFFFF" variant="Bold" />
+      <User size={24} color={color} variant={focused ? "Bold" : "Linear"} />
     </View>
   );
 }
+
+const orbStyles = StyleSheet.create({
+  circle: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+export const CafeTabIcons = {
+  Home: Home2,
+  QR: ScanBarcode,
+  Avisos: Notification,
+} as const;

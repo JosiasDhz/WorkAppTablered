@@ -13,6 +13,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Add, ArrowRight2, Calendar1 } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
 import {
   listMyIncapacityRequests,
@@ -21,7 +22,6 @@ import {
 import { formatWorkforceYmdRange } from "../../utils/formatWorkforceYmd";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -89,7 +89,7 @@ export default function MisIncapacidadesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
       <HeaderTitle title="Mis incapacidades" onBack={() => navigation.goBack()} />
       <ScrollView
         onScroll={onAutoTabBarScroll}
@@ -168,7 +168,7 @@ export default function MisIncapacidadesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   scroll: { flex: 1 },
   empty: {
     alignItems: "center",

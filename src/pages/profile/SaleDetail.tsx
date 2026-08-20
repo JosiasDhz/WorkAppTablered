@@ -138,7 +138,7 @@ export default function SaleDetail() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
+    <SafeAreaView style={{ flex: 1 }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120, alignItems: "center" }}

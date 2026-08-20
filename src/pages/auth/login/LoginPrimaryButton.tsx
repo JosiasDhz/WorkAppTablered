@@ -1,68 +1,104 @@
 import React from "react";
-import { Pressable, Text, ActivityIndicator, Animated } from "react-native";
-import { LOGIN_COLORS, LOGIN_COPY } from "./constants";
-import { primaryButtonShadow } from "./styles";
-import type { LoginRowAnimation } from "./types";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LoginCurve } from "iconsax-react-native";
+import { SoftPressable } from "../../../components/SoftPressable";
+import { TAB_BAR_CAFE_ANDROID } from "../../../routes/tabBar/tabBarConstants";
+import type { BiometricKind } from "../../../services/biometricAuth";
+import { LOGIN_COPY } from "./constants";
 
 type Props = {
   loading: boolean;
   disabled: boolean;
   onPress: () => void;
-  btnScale: Animated.Value;
-  rowAnim: LoginRowAnimation;
+  label?: string;
+  biometricEnabled?: boolean;
+  biometricKind?: BiometricKind | null;
 };
 
-/** CTA principal fuera del blur para color sólido. */
+function BiometricIcon({ kind }: { kind: BiometricKind | null | undefined }) {
+  if (kind === "fingerprint") {
+    return (
+      <MaterialCommunityIcons name="fingerprint" size={22} color="#FFFFFF" />
+    );
+  }
+  return (
+    <MaterialCommunityIcons
+      name="face-recognition"
+      size={22}
+      color="#FFFFFF"
+    />
+  );
+}
+
 export function LoginPrimaryButton({
   loading,
   disabled,
   onPress,
-  btnScale,
-  rowAnim,
+  label = LOGIN_COPY.submit,
+  biometricEnabled = false,
+  biometricKind = null,
 }: Props) {
   return (
-    <Animated.View
-      style={{
-        opacity: rowAnim.opacity,
-        transform: [{ translateY: rowAnim.translateY }],
-      }}
+    <SoftPressable
+      onPress={onPress}
+      disabled={disabled || loading}
+      scaleTo={0.98}
+      accessibilityLabel={label}
+      style={styles.wrap}
     >
-      <Pressable
-        onPress={onPress}
-        disabled={disabled}
-        onPressIn={() =>
-          Animated.spring(btnScale, {
-            toValue: 0.98,
-            friction: 5,
-            useNativeDriver: true,
-          }).start()
-        }
-        onPressOut={() =>
-          Animated.spring(btnScale, {
-            toValue: 1,
-            friction: 5,
-            useNativeDriver: true,
-          }).start()
-        }
-        className="mt-2"
-      >
-        <Animated.View
-          style={{
-            transform: [{ scale: btnScale }],
-            opacity: disabled ? 0.45 : 1,
-            backgroundColor: LOGIN_COLORS.orange,
-            ...primaryButtonShadow,
-          }}
-          className="h-[54px] rounded-2xl flex-row justify-center items-center"
-        >
-          <Text className="text-tableWhite text-[17px] font-semibold mr-2">
-            {loading ? LOGIN_COPY.submitting : LOGIN_COPY.submit}
-          </Text>
-          {loading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : null}
-        </Animated.View>
-      </Pressable>
-    </Animated.View>
+      <View style={[styles.btn, (disabled || loading) && styles.btnDisabled]}>
+        <Text style={styles.label}>
+          {loading ? LOGIN_COPY.submitting : label}
+        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <View style={styles.iconWell}>
+            {biometricEnabled ? (
+              <BiometricIcon kind={biometricKind} />
+            ) : (
+              <LoginCurve size={18} color="#FFFFFF" variant="Bold" />
+            )}
+          </View>
+        )}
+      </View>
+    </SoftPressable>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: {
+    width: "100%",
+  },
+  btn: {
+    minHeight: 56,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    backgroundColor: TAB_BAR_CAFE_ANDROID,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  btnDisabled: {
+    opacity: 0.45,
+  },
+  label: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  iconWell: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+});

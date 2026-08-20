@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { ArrowRight2, Box, Building, Calendar } from "iconsax-react-native";
 import {
   getMyAudits,
@@ -22,7 +23,6 @@ import {
 import { formatInventoryAuditCalendarDateMX } from "../../utils/auditCalendarDates";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#64748B",
@@ -382,11 +382,10 @@ export default function InventoryAudit() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <ProfileScreenHeader
         title="Auditorías de inventario"
         subtitle="Revisa el avance y entra al detalle de cada auditoría"
-        backgroundColor={COLORS.bg}
       />
 
       {loading ? (
@@ -432,7 +431,7 @@ export default function InventoryAudit() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   listPad: { paddingHorizontal: 16, flex: 1 },
   listContent: { paddingHorizontal: 16, paddingBottom: 28 },
   tabBar: {

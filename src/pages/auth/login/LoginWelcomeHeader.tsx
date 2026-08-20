@@ -1,35 +1,79 @@
 import React from "react";
-import { View, Text, Image, ImageSourcePropType } from "react-native";
-import { LOGIN_COLORS, LOGIN_COPY, LOGO_SIZE } from "./constants";
+import { Image, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { LOGIN_COLORS, LOGIN_COPY, LOGO_SIZE, getLoginGreeting } from "./constants";
 
 type Props = {
   logoSource: ImageSourcePropType;
+  greeting?: string;
 };
 
-export function LoginWelcomeHeader({ logoSource }: Props) {
+export function LoginWelcomeHeader({ logoSource, greeting }: Props) {
+  const hello = greeting ?? getLoginGreeting();
+
   return (
-    <View className="flex-row items-center">
-      <Image
-        source={logoSource}
-        style={{
-          width: LOGO_SIZE.width,
-          height: LOGO_SIZE.height,
-          marginRight: LOGO_SIZE.marginRight,
-        }}
-        resizeMode="contain"
-      />
-      <View className="flex-1">
-        <Text
-          className="text-[30px] font-bold tracking-tight"
-          style={{ color: LOGIN_COLORS.black }}
-        >
-          {LOGIN_COPY.title}
-        </Text>
-        <View
-          className="h-[3px] rounded-full mt-2.5 self-start"
-          style={{ width: 48, backgroundColor: LOGIN_COLORS.orange }}
+    <View style={styles.wrap}>
+      <View style={styles.brandRow}>
+        <Image
+          source={logoSource}
+          style={styles.logo}
+          resizeMode="contain"
         />
+        <View style={styles.brandCopy}>
+          <Text style={styles.brand}>{LOGIN_COPY.brand}</Text>
+          <Text style={styles.brandSub}>{LOGIN_COPY.brandSub}</Text>
+        </View>
       </View>
+      <Text style={styles.greeting}>{hello}</Text>
+      <Text style={styles.subtitle}>{LOGIN_COPY.subtitle}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: {
+    width: "100%",
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 28,
+  },
+  logo: {
+    width: LOGO_SIZE.width,
+    height: LOGO_SIZE.height,
+    borderRadius: 20,
+  },
+  brandCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  brand: {
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: -0.8,
+    color: LOGIN_COLORS.black,
+  },
+  brandSub: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: LOGIN_COLORS.orange,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    color: LOGIN_COLORS.black,
+    lineHeight: 34,
+  },
+  subtitle: {
+    marginTop: 8,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "500",
+    color: LOGIN_COLORS.warmGrey,
+  },
+});

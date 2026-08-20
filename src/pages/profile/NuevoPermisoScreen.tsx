@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,57 +15,69 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import {
   Add,
   ArrowDown2,
-  AttachSquare,
   Calendar1,
+  ClipboardTick,
   Clock,
   DocumentText,
+  Gallery,
+  Heart,
+  Hospital,
   InfoCircle,
   Minus,
+  TickCircle,
   Trash,
+  User,
 } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { PageFlipReveal } from "../../components/PageFlipReveal";
+import { SoftPressable } from "../../components/SoftPressable";
+import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
-  BEREAVEMENT_RELATIONSHIP_OPTIONS,
   createPermissionRequest,
-  getMyPermissionBalance,
+  PERMISSION_CATEGORY_GROUPS,
   PERMISSION_CATEGORY_PICKER_OPTIONS,
   uploadPermissionEvidenceFile,
-  type BereavementRelationship,
-  type PermissionBalanceSnapshot,
   type PermissionCategory,
 } from "../../services/workforcePermissionRequestService";
 import { prepareEvidenceImageForUpload } from "../../utils/prepareEvidenceImageForUpload";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  divider: "rgba(60, 60, 67, 0.12)",
+  field: "#F3F1EC",
+  fieldFocus: "#FFFFFF",
   accent: "#EA7600",
-  accentSoft: "#FFF4EB",
+  accentSoft: "rgba(234, 118, 0, 0.14)",
   warnBg: "#FFFBEB",
-  warnBorder: "#FDE68A",
   warnText: "#B45309",
 };
+
+const FLIP_STAGGER_MS = 70;
 
 const MAX_EVIDENCE = 5;
 
 const CATEGORY_HINTS: Record<PermissionCategory, string> = {
-  ENTRY_UNTIL_NOON: "Chequeo hasta mediodía · 4 h del cupo trimestral",
-  HOURLY: "Permiso parcial por horas del cupo trimestral",
-  FULL_DAY: "Ausencia de jornada completa",
-  SICKNESS: "Sin IMSS · aviso 3 días · justificante",
-  PERSONAL_ERRAND: "Trámite personal · 50% salario mín · 1 día/trim.",
-  BEREAVEMENT: "Familiar directo · acta · 50% salario mín · 2 días/año",
-  VACATION: "Aviso 1 mes · no repetir puesto en mismo almacén",
+  ENTRY_UNTIL_NOON: "Ya no disponible",
+  HOURLY: "Ya no disponible",
+  FULL_DAY: "Ya no disponible",
+  SICKNESS:
+    "Aviso el primer día al jefe · 2 días/trim. Dengue/COVID: 60%, 6 días/año. Alcoholismo no aplica.",
+  PERSONAL: "1 día cada 3 meses",
+  PERSONAL_ERRAND:
+    "Propio o hijo menor de 18 · 1 día (10.5 h) / 6 meses · máx. 2 h o jornada completa · aviso 3 días hábiles",
+  BEREAVEMENT: "Padres, hermanos, pareja o hijos · 4 días/año",
+  VACATION: "Ya no se solicita en este módulo",
 };
 
 type LocalEvidence = {
@@ -90,12 +102,42 @@ function todayStart() {
   return d;
 }
 
-function formatQuarterLabel(quarterKey?: string) {
-  if (!quarterKey) return "Trimestre actual";
-  const match = /^(\d{4})-Q([1-4])$/.exec(quarterKey);
-  if (!match) return quarterKey;
-  const labels = ["Ene–Mar", "Abr–Jun", "Jul–Sep", "Oct–Dic"];
-  return `${labels[Number(match[2]) - 1]} ${match[1]}`;
+function CategoryIcon({
+  category,
+  color,
+  size = 18,
+}: {
+  category: PermissionCategory;
+  color: string;
+  size?: number;
+}) {
+  const props = { size, color, variant: "Linear" as const };
+  if (category === "SICKNESS") return <Hospital {...props} />;
+  if (category === "BEREAVEMENT") return <Heart {...props} />;
+  if (category === "PERSONAL") return <User {...props} />;
+  if (category === "PERSONAL_ERRAND") return <ClipboardTick {...props} />;
+  return <Calendar1 {...props} />;
+}
+
+function SoftCheckbox({
+  checked,
+  label,
+  onPress,
+}: {
+  checked: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.checkboxRow} onPress={onPress}>
+      {checked ? (
+        <TickCircle size={22} color={COLORS.accent} variant="Bold" />
+      ) : (
+        <View style={styles.checkbox} />
+      )}
+      <Text style={styles.checkboxLabel}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function SectionCard({
@@ -106,36 +148,9 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.sectionCard}>
+    <View style={styles.sectionBlock}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function BalancePill({
-  label,
-  used,
-  remaining,
-  unit,
-}: {
-  label: string;
-  used: number;
-  remaining: number;
-  unit: string;
-}) {
-  const cap = used + remaining;
-  const hasUsage = used > 0;
-  return (
-    <View style={styles.balancePill}>
-      <Text style={styles.balancePillLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={[styles.balancePillValue, hasUsage && styles.balancePillValueUsed]}>
-        {used}/{cap}
-        {unit}
-      </Text>
-      <Text style={styles.balancePillRest}>{remaining} rest.</Text>
+      <View style={styles.sectionCard}>{children}</View>
     </View>
   );
 }
@@ -160,7 +175,7 @@ function Stepper({
         disabled={value <= min}
         onPress={() => onChange(Math.max(min, value - 1))}
       >
-        <Minus size={18} color={value <= min ? COLORS.border : COLORS.text} variant="Linear" />
+        <Minus size={18} color={value <= min ? COLORS.muted : COLORS.ink} variant="Linear" />
       </Pressable>
       <View style={styles.stepperValueWrap}>
         <Text style={styles.stepperValue}>{value}</Text>
@@ -171,61 +186,67 @@ function Stepper({
         disabled={value >= max}
         onPress={() => onChange(Math.min(max, value + 1))}
       >
-        <Add size={18} color={value >= max ? COLORS.border : COLORS.text} variant="Linear" />
+        <Add size={18} color={value >= max ? COLORS.muted : COLORS.ink} variant="Linear" />
       </Pressable>
     </View>
   );
 }
 
+function workingDaysUntilDate(target: Date) {
+  const today = todayStart();
+  const end = new Date(target);
+  end.setHours(0, 0, 0, 0);
+  if (end <= today) return 0;
+  let count = 0;
+  const cursor = new Date(today);
+  cursor.setDate(cursor.getDate() + 1);
+  while (cursor <= end) {
+    if (cursor.getDay() !== 0) count += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
 export default function NuevoPermisoScreen() {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<PermissionCategory>("FULL_DAY");
+  const [category, setCategory] = useState<PermissionCategory>("PERSONAL");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [requestedHours, setRequestedHours] = useState("2");
+  const [requestedHours, setRequestedHours] = useState("");
   const [requestedDays, setRequestedDays] = useState(1);
-  const [bereavementRelationship, setBereavementRelationship] =
-    useState<BereavementRelationship>("PARENT");
-  const [balance, setBalance] = useState<PermissionBalanceSnapshot | null>(null);
-  const [balanceLoading, setBalanceLoading] = useState(true);
+  const [isDengueCovid, setIsDengueCovid] = useState(false);
+  const [hasAntibioticPrescription, setHasAntibioticPrescription] = useState(false);
+  const [restDaysSpecified, setRestDaysSpecified] = useState(false);
   const [permissionDate, setPermissionDate] = useState(todayStart());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [datePickerDraft, setDatePickerDraft] = useState(todayStart());
   const [evidence, setEvidence] = useState<LocalEvidence[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [hoursFocused, setHoursFocused] = useState(false);
+  const [motivoFocused, setMotivoFocused] = useState(false);
 
   const dateLabel = useMemo(() => localYmd(permissionDate), [permissionDate]);
 
-  const selectedCategoryLabel = useMemo(
-    () => PERMISSION_CATEGORY_PICKER_OPTIONS.find((o) => o.value === category)?.label ?? "",
+  const selectedCategory = useMemo(
+    () => PERMISSION_CATEGORY_PICKER_OPTIONS.find((o) => o.value === category) ?? null,
     [category],
   );
-
-  useEffect(() => {
-    void getMyPermissionBalance()
-      .then(setBalance)
-      .catch(() => setBalance(null))
-      .finally(() => setBalanceLoading(false));
-  }, []);
+  const selectedCategoryLabel = selectedCategory?.label ?? "";
 
   const noticeWarning = useMemo(() => {
-    const today = todayStart();
-    const target = new Date(permissionDate);
-    target.setHours(0, 0, 0, 0);
-    const diff = Math.floor((target.getTime() - today.getTime()) / 86400000);
-    if (category === "VACATION" && diff < 30) {
-      return "Las vacaciones requieren aviso con al menos 30 días de anticipación.";
+    const required = 3;
+    if (category === "PERSONAL_ERRAND" && workingDaysUntilDate(permissionDate) < required) {
+      return `Los trámites requieren aviso con al menos ${required} días hábiles de anticipación.`;
     }
     return null;
   }, [category, permissionDate]);
 
   const showDaysField =
-    category === "FULL_DAY" ||
-    category === "PERSONAL_ERRAND" ||
-    category === "BEREAVEMENT" ||
-    category === "VACATION";
+    category === "BEREAVEMENT" || (category === "SICKNESS" && restDaysSpecified);
 
   const openDatePicker = () => {
     setDatePickerDraft(permissionDate);
@@ -321,7 +342,10 @@ export default function NuevoPermisoScreen() {
   const submit = async () => {
     const desc = description.trim();
     if (!desc) {
-      Alert.alert("Descripción requerida", "Explica el motivo del permiso.");
+      Alert.alert(
+        "Motivo requerido",
+        "Escribe el motivo, pendientes y quién cubre tu lugar.",
+      );
       return;
     }
     if (evidence.length === 0) {
@@ -352,18 +376,28 @@ export default function NuevoPermisoScreen() {
         permissionDate: dateLabel,
         category,
         requestedHours:
-          category === "HOURLY" ? Number(requestedHours.replace(",", ".")) : undefined,
+          category === "PERSONAL_ERRAND" && requestedHours.trim()
+            ? Number(requestedHours.replace(",", "."))
+            : undefined,
         requestedDays,
-        bereavementRelationship:
-          category === "BEREAVEMENT" ? bereavementRelationship : undefined,
+        isDengueCovid: category === "SICKNESS" ? isDengueCovid : undefined,
+        hasAntibioticPrescription:
+          category === "SICKNESS" ? hasAntibioticPrescription : undefined,
+        restDaysSpecified: category === "SICKNESS" ? restDaysSpecified : undefined,
         fileIds,
       });
-      Alert.alert("Solicitud enviada", "Tu permiso quedó pendiente de revisión.", [
-        {
-          text: "OK",
-          onPress: () => navigation.navigate("MisPermisos"),
-        },
-      ]);
+      Alert.alert(
+        "Solicitud enviada",
+        category === "SICKNESS"
+          ? "Tu permiso quedó pendiente de autorización del jefe."
+          : "Tu permiso quedó pendiente de preautorización de RH.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("MisPermisos"),
+          },
+        ],
+      );
     } catch (err: unknown) {
       const message =
         (err as { message?: string })?.message || "No se pudo enviar la solicitud";
@@ -374,97 +408,120 @@ export default function NuevoPermisoScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <HeaderTitle title="Solicitar permiso" onBack={() => navigation.goBack()} />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 8,
-          paddingBottom: Math.max(tabBarHeight, insets.bottom) + 24,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <SectionCard title="Tu saldo">
-          {balanceLoading ? (
-            <ActivityIndicator color={COLORS.accent} style={{ marginVertical: 8 }} />
-          ) : balance ? (
-            <>
-              <Text style={styles.quarterHint}>
-                {formatQuarterLabel(balance.quarterKey)} · usados / tope
-              </Text>
-              <View style={styles.balanceGrid}>
-                <BalancePill
-                  label="Horas"
-                  used={balance.hoursUsedQuarter}
-                  remaining={balance.hoursRemainingQuarter}
-                  unit="h"
-                />
-                <BalancePill
-                  label="Día compl."
-                  used={balance.fullDaysUsedQuarter}
-                  remaining={balance.fullDaysRemainingQuarter}
-                  unit="d"
-                />
-                <BalancePill
-                  label="Trámites"
-                  used={balance.personalErrandDaysUsedQuarter}
-                  remaining={balance.personalErrandDaysRemainingQuarter}
-                  unit="d"
-                />
-              </View>
-              <Text style={styles.balanceFootnote}>
-                Fallecimiento (año): {balance.bereavementDaysUsedYear}/
-                {balance.bereavementDaysUsedYear + balance.bereavementDaysRemainingYear} d ·{" "}
-                {balance.bereavementDaysRemainingYear} rest.
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.hint}>No se pudo cargar el saldo.</Text>
-          )}
-        </SectionCard>
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <HeaderTitle
+          title="Solicitar permiso"
+          subtitle="Completa los datos de tu solicitud"
+          tone="light"
+          style={styles.header}
+          onBack={() => {
+            if (navigation.canGoBack()) navigation.goBack();
+          }}
+        />
+        <KeyboardAwareScrollView
+          style={styles.scroll}
+          onScroll={onAutoTabBarScroll}
+          scrollEventThrottle={16}
+          enableOnAndroid
+          extraScrollHeight={48}
+          enableResetScrollToCoords={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardOpeningTime={0}
+          contentContainerStyle={{
+            paddingHorizontal: SCREEN_GUTTER,
+            paddingTop: 8,
+            paddingBottom: Math.max(tabBarHeight, insets.bottom) + 36,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <PageFlipReveal delay={0} active={isFocused}>
+            <SectionCard title="Tipo de permiso">
+              <SoftPressable
+                onPress={() => setCategoryPickerOpen(true)}
+                scaleTo={0.99}
+                accessibilityLabel="Tipo de permiso"
+              >
+                <View style={styles.softShell}>
+                  <View style={styles.softIcon}>
+                    <CategoryIcon category={category} color={COLORS.accent} />
+                  </View>
+                  <View style={styles.selectBtnContent}>
+                    <View style={styles.selectTitleRow}>
+                      <Text style={styles.selectValue}>{selectedCategoryLabel}</Text>
+                      {selectedCategory ? (
+                        <View style={styles.payChip}>
+                          <Text style={styles.payChipText}>{selectedCategory.payLabel}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                  <ArrowDown2 size={16} color={COLORS.muted} variant="Linear" />
+                </View>
+              </SoftPressable>
+              <Text style={styles.helperText}>{CATEGORY_HINTS[category]}</Text>
+            </SectionCard>
+          </PageFlipReveal>
 
-        <SectionCard title="Tipo de permiso">
-          <Pressable
-            style={({ pressed }) => [styles.selectBtn, pressed && styles.selectBtnPressed]}
-            onPress={() => setCategoryPickerOpen(true)}
-          >
-            <View style={styles.selectBtnContent}>
-              <Text style={styles.selectValue}>{selectedCategoryLabel}</Text>
-              <Text style={styles.selectHint}>{CATEGORY_HINTS[category]}</Text>
-            </View>
-            <ArrowDown2 size={20} color={COLORS.muted} variant="Linear" />
-          </Pressable>
-        </SectionCard>
-
-        <SectionCard title="Detalles">
+          <SectionCard title="Detalles">
           <Text style={styles.fieldCaption}>Fecha del permiso</Text>
-          <Pressable
-            style={({ pressed }) => [styles.dateBtn, pressed && styles.dateBtnPressed]}
+          <SoftPressable
             onPress={openDatePicker}
+            scaleTo={0.99}
+            accessibilityLabel="Fecha del permiso"
           >
-            <View style={styles.dateIconWrap}>
-              <Calendar1 size={18} color={COLORS.accent} variant="Bold" />
+            <View style={styles.softShell}>
+              <View style={styles.softIcon}>
+                <Calendar1 size={18} color={COLORS.accent} variant="Linear" />
+              </View>
+              <Text style={styles.dateText}>{formatWorkforceYmd(dateLabel)}</Text>
             </View>
-            <Text style={styles.dateText}>{formatWorkforceYmd(dateLabel)}</Text>
-          </Pressable>
+          </SoftPressable>
 
-          {category === "HOURLY" ? (
+          {category === "PERSONAL_ERRAND" ? (
             <>
-              <Text style={[styles.fieldCaption, { marginTop: 16 }]}>Horas solicitadas</Text>
-              <View style={styles.inputWrap}>
-                <Clock size={18} color={COLORS.muted} variant="Linear" />
+              <Text style={[styles.fieldCaption, { marginTop: 16 }]}>Horas (opcional)</Text>
+              <View style={[styles.fieldShell, hoursFocused && styles.fieldShellFocused]}>
+                <Clock
+                  size={22}
+                  color={hoursFocused ? COLORS.accent : COLORS.muted}
+                  variant="Bold"
+                />
                 <TextInput
                   value={requestedHours}
                   onChangeText={setRequestedHours}
+                  onFocus={() => setHoursFocused(true)}
+                  onBlur={() => setHoursFocused(false)}
                   keyboardType="decimal-pad"
-                  placeholder="Ej. 2"
-                  placeholderTextColor={COLORS.muted}
-                  style={styles.inputInner}
+                  placeholder="Máx. 2"
+                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  style={styles.fieldInput}
                 />
                 <Text style={styles.inputSuffix}>h</Text>
               </View>
+              <Text style={styles.helperText}>
+                Si dejas vacío o pides más de 2 h, cuenta como jornada completa.
+              </Text>
+            </>
+          ) : null}
+
+          {category === "SICKNESS" ? (
+            <>
+              <SoftCheckbox
+                checked={isDengueCovid}
+                onPress={() => setIsDengueCovid((v) => !v)}
+                label="Es dengue o COVID (estudio de laboratorio)"
+              />
+              <SoftCheckbox
+                checked={hasAntibioticPrescription}
+                onPress={() => setHasAntibioticPrescription((v) => !v)}
+                label="El certificado receta antibiótico y tiempo de descanso"
+              />
+              <SoftCheckbox
+                checked={restDaysSpecified}
+                onPress={() => setRestDaysSpecified((v) => !v)}
+                label="El justificante indica cuántos días de descanso"
+              />
             </>
           ) : null}
 
@@ -474,39 +531,9 @@ export default function NuevoPermisoScreen() {
               <Stepper
                 value={requestedDays}
                 onChange={setRequestedDays}
-                max={category === "BEREAVEMENT" ? 2 : 14}
+                max={category === "BEREAVEMENT" ? 4 : category === "SICKNESS" ? 6 : 14}
                 suffix="días"
               />
-            </>
-          ) : null}
-
-          {category === "BEREAVEMENT" ? (
-            <>
-              <Text style={[styles.fieldCaption, { marginTop: 16 }]}>Parentesco</Text>
-              <View style={styles.relationshipWrap}>
-                {BEREAVEMENT_RELATIONSHIP_OPTIONS.map((option) => {
-                  const selected = bereavementRelationship === option.value;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      style={[
-                        styles.relationshipChip,
-                        selected && styles.relationshipChipSelected,
-                      ]}
-                      onPress={() => setBereavementRelationship(option.value)}
-                    >
-                      <Text
-                        style={[
-                          styles.relationshipChipText,
-                          selected && styles.relationshipChipTextSelected,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
             </>
           ) : null}
 
@@ -516,29 +543,38 @@ export default function NuevoPermisoScreen() {
               <Text style={styles.warningText}>{noticeWarning}</Text>
             </View>
           ) : null}
+
+          <Text style={[styles.fieldCaption, { marginTop: 16 }]}>Motivo</Text>
+          <Text style={styles.helperText}>
+            Incluye el motivo, pendientes del día y quién cubre tu puesto.
+          </Text>
+          <View style={[styles.fieldShellMultiline, motivoFocused && styles.fieldShellFocused]}>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              onFocus={() => setMotivoFocused(true)}
+              onBlur={() => setMotivoFocused(false)}
+              placeholder={
+                "Ej. Trámite de acta en registro civil. Dejo pendientes las notas de la ruta 4. Me cubre Ana Pérez."
+              }
+              placeholderTextColor="rgba(105, 97, 88, 0.55)"
+              multiline
+              numberOfLines={7}
+              style={styles.fieldTextArea}
+              textAlignVertical="top"
+              autoCorrect
+            />
+          </View>
         </SectionCard>
 
-        <SectionCard title="Motivo">
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe el motivo del permiso…"
-            placeholderTextColor={COLORS.muted}
-            multiline
-            numberOfLines={4}
-            style={styles.textarea}
-            textAlignVertical="top"
-          />
-        </SectionCard>
-
-        <SectionCard title="Evidencias">
-          <Text style={styles.hint}>Imagen o PDF · máximo {MAX_EVIDENCE} archivos</Text>
+          <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
+            <SectionCard title="Evidencias">
           <View style={styles.attachRow}>
             <Pressable
               style={({ pressed }) => [styles.attachBtn, pressed && styles.attachBtnPressed]}
               onPress={() => void addImage()}
             >
-              <AttachSquare size={20} color={COLORS.accent} variant="Linear" />
+              <Gallery size={20} color={COLORS.accent} variant="Linear" />
               <Text style={styles.attachBtnText}>Foto</Text>
             </Pressable>
             <Pressable
@@ -574,30 +610,27 @@ export default function NuevoPermisoScreen() {
                 </View>
               ))}
             </View>
-          ) : (
-            <View style={styles.evidenceEmpty}>
-              <AttachSquare size={28} color={COLORS.border} variant="Linear" />
-              <Text style={styles.evidenceEmptyText}>Sin archivos adjuntos</Text>
-            </View>
-          )}
+          ) : null}
         </SectionCard>
+          </PageFlipReveal>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.submitBtn,
-            submitting && styles.submitDisabled,
-            pressed && !submitting && styles.submitBtnPressed,
-          ]}
-          disabled={submitting}
-          onPress={() => void submit()}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitText}>Enviar solicitud</Text>
-          )}
-        </Pressable>
-      </ScrollView>
+          <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+            <SoftPressable
+              onPress={() => void submit()}
+              disabled={submitting}
+              scaleTo={0.98}
+              accessibilityLabel="Enviar solicitud"
+            >
+              <View style={[styles.submitBtn, submitting && styles.submitDisabled]}>
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitText}>Enviar solicitud</Text>
+                )}
+              </View>
+            </SoftPressable>
+          </PageFlipReveal>
+        </KeyboardAwareScrollView>
 
       <Modal
         visible={categoryPickerOpen}
@@ -614,34 +647,64 @@ export default function NuevoPermisoScreen() {
             <View style={styles.pickerHandle} />
             <Text style={styles.pickerTitle}>Tipo de permiso</Text>
             <ScrollView style={styles.categoryList} keyboardShouldPersistTaps="handled">
-              {PERMISSION_CATEGORY_PICKER_OPTIONS.map((option) => {
-                const selected = option.value === category;
-                return (
-                  <Pressable
-                    key={option.value}
-                    style={[
-                      styles.categoryOption,
-                      selected && styles.categoryOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setCategory(option.value);
-                      setCategoryPickerOpen(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryOptionLabel,
-                        selected && styles.categoryOptionLabelSelected,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    <Text style={styles.categoryOptionHint}>
-                      {CATEGORY_HINTS[option.value]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {PERMISSION_CATEGORY_GROUPS.map((group) => (
+                <View key={group.id}>
+                  <Text style={styles.groupHeader}>{group.title}</Text>
+                  {PERMISSION_CATEGORY_PICKER_OPTIONS.filter(
+                    (option) => option.group === group.id,
+                  ).map((option) => {
+                    const selected = option.value === category;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        style={[
+                          styles.categoryOption,
+                          selected && styles.categoryOptionSelected,
+                        ]}
+                        onPress={() => {
+                          setCategory(option.value);
+                          setCategoryPickerOpen(false);
+                        }}
+                      >
+                        <View style={styles.categoryOptionRow}>
+                          <View
+                            style={[
+                              styles.categoryOptionIcon,
+                              selected && styles.categoryOptionIconSelected,
+                            ]}
+                          >
+                            <CategoryIcon
+                              category={option.value}
+                              color={selected ? COLORS.ink : COLORS.muted}
+                            />
+                          </View>
+                          <View style={styles.selectBtnContent}>
+                            <View style={styles.selectTitleRow}>
+                              <Text
+                                style={[
+                                  styles.categoryOptionLabel,
+                                  selected && styles.categoryOptionLabelSelected,
+                                ]}
+                              >
+                                {option.label}
+                              </Text>
+                              <View style={styles.payChip}>
+                                <Text style={styles.payChipText}>{option.payLabel}</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.categoryOptionHint}>
+                              {CATEGORY_HINTS[option.value]}
+                            </Text>
+                          </View>
+                          {selected ? (
+                            <TickCircle size={20} color={COLORS.accent} variant="Bold" />
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -686,155 +749,147 @@ export default function NuevoPermisoScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  header: { paddingHorizontal: SCREEN_GUTTER },
   scroll: { flex: 1 },
+  sectionBlock: {
+    width: "100%",
+    marginBottom: 18,
+  },
   sectionCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  quarterHint: {
-    fontSize: 12,
-    color: COLORS.muted,
+    marginLeft: 4,
     marginBottom: 10,
-  },
-  balanceGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  balancePill: {
-    width: "48%",
-    flexGrow: 1,
-    backgroundColor: COLORS.bg,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  balancePillLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "600",
     color: COLORS.muted,
-    marginBottom: 4,
   },
-  balancePillValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  balancePillValueUsed: {
-    color: COLORS.accent,
-  },
-  balancePillRest: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-  balanceFootnote: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 10,
-  },
-  hint: {
+  helperText: {
     fontSize: 12,
     color: COLORS.muted,
-    marginBottom: 8,
-  },
-  selectBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: COLORS.bg,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  selectBtnPressed: { opacity: 0.85 },
-  selectBtnContent: { flex: 1 },
-  selectValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  selectHint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 4,
+    marginTop: 8,
     lineHeight: 16,
   },
-  fieldCaption: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.muted,
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  dateBtn: {
+  softShell: {
+    minHeight: 52,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: COLORS.bg,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingLeft: 14,
+    paddingRight: 14,
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
   },
-  dateBtnPressed: { opacity: 0.85 },
-  dateIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: COLORS.accentSoft,
+  softShellPressed: { opacity: 0.88 },
+  fieldShell: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  fieldShellMultiline: {
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
+    borderWidth: 2,
+    borderColor: "transparent",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  fieldShellFocused: {
+    borderColor: "rgba(234, 118, 0, 0.8)",
+  },
+  fieldInput: {
+    marginLeft: 12,
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.ink,
+    paddingVertical: 0,
+  },
+  fieldTextArea: {
+    flex: 1,
+    minHeight: 128,
+    fontSize: 16,
+    color: COLORS.ink,
+    lineHeight: 22,
+    paddingVertical: 0,
+  },
+  softShellFocused: {
+    backgroundColor: COLORS.fieldFocus,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  softShellMultiline: {
+    borderRadius: 16,
+    backgroundColor: COLORS.field,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
+  softIcon: {
+    marginRight: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  dateText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  inputWrap: {
+  selectBtnContent: { flex: 1, minWidth: 0 },
+  selectTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    backgroundColor: COLORS.bg,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  selectValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.ink,
+  },
+  payChip: {
+    borderRadius: 999,
+    backgroundColor: COLORS.accentSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  payChipText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: COLORS.accent,
+  },
+  fieldCaption: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.muted,
+    marginBottom: 8,
+  },
+  dateText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.ink,
   },
   inputInner: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.ink,
+    paddingVertical: 12,
   },
   inputSuffix: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: COLORS.muted,
   },
@@ -842,91 +897,53 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: COLORS.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 8,
+    backgroundColor: COLORS.field,
+    borderRadius: 16,
+    padding: 6,
+    paddingHorizontal: 8,
   },
   stepperBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   stepperBtnDisabled: { opacity: 0.4 },
   stepperValueWrap: {
     alignItems: "center",
   },
   stepperValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
-    color: COLORS.text,
+    color: COLORS.ink,
   },
   stepperSuffix: {
     fontSize: 11,
     color: COLORS.muted,
-    marginTop: 2,
+    marginTop: 1,
   },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginTop: 16,
-    paddingVertical: 4,
+    marginTop: 14,
+    paddingVertical: 2,
   },
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderRadius: 7,
     backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
-  },
-  checkMark: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
+    borderWidth: 1.5,
+    borderColor: COLORS.divider,
   },
   checkboxLabel: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.text,
-  },
-  relationshipWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  relationshipChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  relationshipChipSelected: {
-    backgroundColor: COLORS.accentSoft,
-    borderColor: COLORS.accent,
-  },
-  relationshipChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  relationshipChipTextSelected: {
-    color: COLORS.accent,
+    fontWeight: "500",
+    color: COLORS.ink,
   },
   warningBanner: {
     flexDirection: "row",
@@ -934,10 +951,8 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 16,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: COLORS.warnBg,
-    borderWidth: 1,
-    borderColor: COLORS.warnBorder,
   },
   warningText: {
     flex: 1,
@@ -947,20 +962,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   textarea: {
-    minHeight: 96,
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    color: COLORS.text,
+    minHeight: 148,
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.ink,
     lineHeight: 22,
+    paddingVertical: 12,
   },
   attachRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 12,
   },
   attachBtn: {
     flex: 1,
@@ -968,48 +979,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: 12,
+    backgroundColor: COLORS.field,
+    borderRadius: 16,
     paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "#FED7AA",
   },
   attachBtnPressed: { opacity: 0.85 },
   attachBtnText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: COLORS.accent,
   },
-  evidenceList: { gap: 8 },
-  evidenceEmpty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.bg,
-  },
-  evidenceEmptyText: {
-    fontSize: 13,
-    color: COLORS.muted,
-    marginTop: 8,
-  },
+  evidenceList: { gap: 8, marginTop: 12 },
   evidenceCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.bg,
-    borderRadius: 12,
+    backgroundColor: COLORS.field,
+    borderRadius: 16,
     padding: 10,
     gap: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   thumb: {
     width: 52,
     height: 52,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   pdfPreview: {
     flex: 1,
@@ -1020,7 +1012,7 @@ const styles = StyleSheet.create({
   pdfName: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.text,
+    color: COLORS.ink,
     fontWeight: "500",
   },
   removeBtn: {
@@ -1030,31 +1022,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
     backgroundColor: COLORS.accent,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
-    shadowColor: COLORS.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  submitBtnPressed: { opacity: 0.9 },
   submitDisabled: { opacity: 0.7 },
   submitText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
   },
   pickerOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: "rgba(28, 25, 23, 0.4)",
   },
   pickerCard: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingTop: 8,
     paddingHorizontal: 16,
     maxHeight: "75%",
@@ -1064,38 +1050,60 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 999,
-    backgroundColor: COLORS.border,
+    backgroundColor: COLORS.field,
     marginBottom: 12,
   },
   pickerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
-    color: COLORS.text,
+    color: COLORS.ink,
     textAlign: "center",
     marginBottom: 12,
+  },
+  groupHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    marginTop: 4,
   },
   categoryList: {
     maxHeight: 420,
   },
   categoryOption: {
-    padding: 14,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 16,
     marginBottom: 8,
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.field,
   },
   categoryOptionSelected: {
     backgroundColor: COLORS.accentSoft,
-    borderColor: COLORS.accent,
+  },
+  categoryOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  categoryOptionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryOptionIconSelected: {
+    backgroundColor: COLORS.surface,
   },
   categoryOptionLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.ink,
   },
   categoryOptionLabelSelected: {
-    color: COLORS.accent,
+    color: COLORS.ink,
   },
   categoryOptionHint: {
     fontSize: 12,
@@ -1106,13 +1114,13 @@ const styles = StyleSheet.create({
   pickerConfirm: {
     marginTop: 8,
     backgroundColor: COLORS.accent,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 14,
     alignItems: "center",
   },
   pickerConfirmText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
   },
 });

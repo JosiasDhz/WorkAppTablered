@@ -1,12 +1,18 @@
 import http, { httpFormDataClient } from "../api/http-common";
 
-export type PermissionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type PermissionRequestStatus =
+  | "PENDING"
+  | "PENDING_RH"
+  | "PENDING_SUPERVISOR"
+  | "APPROVED"
+  | "REJECTED";
 
 export type PermissionCategory =
   | "ENTRY_UNTIL_NOON"
   | "HOURLY"
   | "FULL_DAY"
   | "SICKNESS"
+  | "PERSONAL"
   | "PERSONAL_ERRAND"
   | "BEREAVEMENT"
   | "VACATION";
@@ -14,26 +20,32 @@ export type PermissionCategory =
 export type BereavementRelationship = "PARENT" | "SIBLING" | "PARTNER" | "CHILD";
 
 export type PermissionPolicySnapshot = {
-  quarterlyHourAllowance: number;
-  quarterlyFullDayCap: number;
   quarterlySicknessDayCap: number;
-  quarterlyPersonalErrandDayCap: number;
+  quarterlySicknessImssDayCap: number;
+  annualDengueCovidDayCap: number;
+  quarterlyPersonalDayCap: number;
+  semiannualPersonalErrandDayCap: number;
   annualBereavementDayCap: number;
+  personalErrandMaxHours: number;
+  personalErrandNoticeWorkingDays: number;
 };
 
 export type PermissionBalanceSnapshot = {
   sellerId: string;
   quarterKey: string;
   yearKey: string;
+  semesterKey?: string;
   policy: PermissionPolicySnapshot;
-  hoursUsedQuarter: number;
-  hoursRemainingQuarter: number;
-  fullDaysUsedQuarter: number;
-  fullDaysRemainingQuarter: number;
   sicknessDaysUsedQuarter: number;
   sicknessDaysRemainingQuarter: number;
-  personalErrandDaysUsedQuarter: number;
-  personalErrandDaysRemainingQuarter: number;
+  sicknessImssDaysUsedQuarter: number;
+  sicknessImssDaysRemainingQuarter: number;
+  dengueCovidDaysUsedYear: number;
+  dengueCovidDaysRemainingYear: number;
+  personalDaysUsedQuarter: number;
+  personalDaysRemainingQuarter: number;
+  personalErrandDaysUsedSemester: number;
+  personalErrandDaysRemainingSemester: number;
   bereavementDaysUsedYear: number;
   bereavementDaysRemainingYear: number;
 };
@@ -60,6 +72,11 @@ export type PermissionRequestDto = {
   requestedDays: number;
   includeSundays: boolean;
   bereavementRelationship: BereavementRelationship | null;
+  workerHasImss?: boolean;
+  isDengueCovid?: boolean;
+  hasAntibioticPrescription?: boolean;
+  restDaysSpecified?: boolean;
+  pendingWorkNotes?: string | null;
   status: PermissionRequestStatus;
   reviewReason: string | null;
   reviewedAt: string | null;
@@ -121,6 +138,10 @@ export async function createPermissionRequest(payload: {
   requestedDays?: number;
   includeSundays?: boolean;
   bereavementRelationship?: BereavementRelationship;
+  isDengueCovid?: boolean;
+  hasAntibioticPrescription?: boolean;
+  restDaysSpecified?: boolean;
+  pendingWorkNotes?: string;
   fileIds: string[];
 }) {
   const { data } = await http.post<PermissionRequestDto>(
@@ -149,22 +170,60 @@ export async function getMyPermissionRequest(id: string) {
   return data;
 }
 
+export function permissionStatusLabel(status: PermissionRequestStatus): string {
+  if (status === "APPROVED") return "Autorizado";
+  if (status === "REJECTED") return "Rechazado";
+  if (status === "PENDING_RH") return "Preautorización RH";
+  if (status === "PENDING_SUPERVISOR") return "Pendiente de jefe";
+  return "Pendiente";
+}
+
 export const PERMISSION_CATEGORY_OPTIONS: Array<{
   value: PermissionCategory;
   label: string;
+  group: "paid" | "unpaid";
+  payLabel: string;
+  flowLabel: string;
 }> = [
-  { value: "ENTRY_UNTIL_NOON", label: "Entrada hasta 12" },
-  { value: "HOURLY", label: "Permiso por horas" },
-  { value: "FULL_DAY", label: "Día completo" },
-  { value: "SICKNESS", label: "Enfermedad (sin IMSS)" },
-  { value: "PERSONAL_ERRAND", label: "Trámites personales" },
-  { value: "BEREAVEMENT", label: "Fallecimiento familiar" },
-  { value: "VACATION", label: "Vacaciones" },
+  {
+    value: "SICKNESS",
+    label: "Enfermedad",
+    group: "paid",
+    payLabel: "Apoyo si no hay IMSS",
+    flowLabel: "Se envía a tu jefe el mismo día",
+  },
+  {
+    value: "BEREAVEMENT",
+    label: "Fallecimiento familiar",
+    group: "paid",
+    payLabel: "50% salario mín.",
+    flowLabel: "RH preautoriza y luego tu jefe",
+  },
+  {
+    value: "PERSONAL",
+    label: "Personales",
+    group: "unpaid",
+    payLabel: "Sin goce",
+    flowLabel: "RH preautoriza y luego tu jefe",
+  },
+  {
+    value: "PERSONAL_ERRAND",
+    label: "Trámites",
+    group: "unpaid",
+    payLabel: "Sin goce",
+    flowLabel: "RH preautoriza y luego tu jefe",
+  },
 ];
 
-export const PERMISSION_CATEGORY_PICKER_OPTIONS = PERMISSION_CATEGORY_OPTIONS.filter(
-  (option) => option.value !== "VACATION" && option.value !== "SICKNESS",
-);
+export const PERMISSION_CATEGORY_PICKER_OPTIONS = PERMISSION_CATEGORY_OPTIONS;
+
+export const PERMISSION_CATEGORY_GROUPS: Array<{
+  id: "paid" | "unpaid";
+  title: string;
+}> = [
+  { id: "paid", title: "Con apoyo económico" },
+  { id: "unpaid", title: "Sin goce" },
+];
 
 export const BEREAVEMENT_RELATIONSHIP_OPTIONS: Array<{
   value: BereavementRelationship;

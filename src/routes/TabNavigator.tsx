@@ -12,14 +12,16 @@ import {
   NavigationContainer,
 } from "@react-navigation/native";
 import React from "react";
-import { AppState } from "react-native";
-import { getFromStorage } from "../utils";
+import { AppState, Platform } from "react-native";
 import { refreshAuthSessionOnAppForeground } from "../services/refreshAuthSession";
-import { getFile } from "../services/s3Service";
-import { restoreSesion } from "../redux/slices/authSlice";
+import { logout } from "../redux/slices/authSlice";
+import { useInAppUnreadBadge } from "../services/inAppUnreadBadge";
 import SplashScreenView from "../utils/SplashScreenView";
 import { GlassTabBar } from "./tabBar/GlassTabBar";
 import { TabBarMotionProvider } from "./tabBar/TabBarMotionContext";
+import { createIosNativeTabNavigator } from "./tabBar/createIosNativeTabNavigator";
+import { withSoftOrangeGlow } from "../components/SoftOrangeGlowBackdrop";
+import NotificationsNavigator from "./navigators/NotificationsNavigator";
 import Inventory from "../pages/profile/Inventory";
 import InventoryAudit from "../pages/profile/InventoryAudit";
 import InventoryAuditDetail from "../pages/profile/InventoryAuditDetail";
@@ -32,24 +34,96 @@ import DriverRouteReportIncidentScreen from "../pages/profile/DriverRouteReportI
 import DriverRouteProductPickupScreen from "../pages/profile/DriverRouteProductPickupScreen";
 import DriverRouteNavFirstStopScreen from "../pages/profile/DriverRouteNavFirstStopScreen";
 import DriverCollectionsScreen from "../pages/profile/DriverCollectionsScreen";
+import { SOFT } from "../theme/softUi";
+import { navigationRef } from "../navigation/navigationRef";
+import { useOpenNotificationFromPush } from "../pages/notifications/useOpenNotificationFromPush";
 
-const Tabs = createBottomTabNavigator();
+const JsTabs = createBottomTabNavigator();
+const NativeTabs = createIosNativeTabNavigator({
+  ProfileStack: { sf: "house", selected: "house.fill" },
+  CheckInStack: { sf: "qrcode", selected: "qrcode" },
+  NotificationsStack: { sf: "bell", selected: "bell.fill" },
+  UserProfileStack: {
+    sf: "person",
+    selected: "person.fill",
+    systemItem: "search",
+  },
+});
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const GlowInventory = withSoftOrangeGlow(Inventory);
+const GlowInventoryAudit = withSoftOrangeGlow(InventoryAudit);
+const GlowInventoryAuditDetail = withSoftOrangeGlow(InventoryAuditDetail);
+const GlowInventoryAuditFamilyProducts = withSoftOrangeGlow(
+  InventoryAuditFamilyProducts,
+);
+const GlowAuditLossDocuments = withSoftOrangeGlow(AuditLossDocuments);
+const GlowAuditLossDocumentDetail = withSoftOrangeGlow(AuditLossDocumentDetail);
+const GlowDriverRouteDetail = withSoftOrangeGlow(DriverRouteDetailScreen);
+const GlowDriverRouteConfirmMercancia = withSoftOrangeGlow(
+  DriverRouteConfirmMercanciaScreen,
+);
+const GlowDriverRouteProductPickup = withSoftOrangeGlow(
+  DriverRouteProductPickupScreen,
+);
+const GlowDriverRouteNavFirstStop = withSoftOrangeGlow(
+  DriverRouteNavFirstStopScreen,
+);
+const GlowDriverRouteReportIncident = withSoftOrangeGlow(
+  DriverRouteReportIncidentScreen,
+);
+const GlowDriverCollections = withSoftOrangeGlow(DriverCollectionsScreen);
+const GlowLogin = withSoftOrangeGlow(Login);
 
 const tabNavTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: "#FFFFFF",
+    background: SOFT.layout,
   },
 };
 
 const TabNavigator = () => {
+  const unreadBadge = useInAppUnreadBadge();
+  const noticesBadge = unreadBadge > 0 ? unreadBadge : undefined;
+
+  if (Platform.OS === "ios") {
+    return (
+      <TabBarMotionProvider>
+        <NativeTabs.Navigator
+          initialRouteName="ProfileStack"
+          screenOptions={{ headerShown: false }}
+        >
+          <NativeTabs.Screen
+            name="ProfileStack"
+            options={{ title: "Home" }}
+            component={ProfileNavigator}
+          />
+          <NativeTabs.Screen
+            name="CheckInStack"
+            options={{ title: "QR" }}
+            component={QRCodeNavigator}
+          />
+          <NativeTabs.Screen
+            name="NotificationsStack"
+            options={{ title: "Avisos", tabBarBadge: noticesBadge }}
+            component={NotificationsNavigator}
+          />
+          <NativeTabs.Screen
+            name="UserProfileStack"
+            options={{ title: "Perfil" }}
+            component={UserProfileNavigator}
+          />
+        </NativeTabs.Navigator>
+      </TabBarMotionProvider>
+    );
+  }
+
   return (
     <TabBarMotionProvider>
-      <Tabs.Navigator
+      <JsTabs.Navigator
         initialRouteName="ProfileStack"
         tabBar={(props) => <GlassTabBar {...props} />}
+        sceneContainerStyle={{ backgroundColor: SOFT.layout }}
         screenOptions={{
           headerShown: false,
           tabBarShowLabel: false,
@@ -65,24 +139,27 @@ const TabNavigator = () => {
           },
         }}
       >
-        <Tabs.Screen
+        <JsTabs.Screen
           name="ProfileStack"
-          options={{ headerTitle: "Rutas" }}
+          options={{ headerTitle: "Home" }}
           component={ProfileNavigator}
         />
-
-        <Tabs.Screen
+        <JsTabs.Screen
           name="CheckInStack"
-          options={{ headerTitle: "Tarjeta" }}
+          options={{ headerTitle: "QR" }}
           component={QRCodeNavigator}
         />
-
-        <Tabs.Screen
+        <JsTabs.Screen
+          name="NotificationsStack"
+          options={{ headerTitle: "Avisos", tabBarBadge: noticesBadge }}
+          component={NotificationsNavigator}
+        />
+        <JsTabs.Screen
           name="UserProfileStack"
           options={{ headerTitle: "Perfil" }}
           component={UserProfileNavigator}
         />
-      </Tabs.Navigator>
+      </JsTabs.Navigator>
     </TabBarMotionProvider>
   );
 };
@@ -91,42 +168,11 @@ const AppNavigator = () => {
   const dispatch = useDispatch();
   const { token } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = React.useState(true);
+  useOpenNotificationFromPush(Boolean(token) && !loading);
 
   const getData = async () => {
     try {
-      const userSaved = await getFromStorage("tablered-user");
-      const sellerSaved = await getFromStorage("tablered-seller");
-      const tokenSaved = await getFromStorage("tablered-token");
-      if (!userSaved || !tokenSaved) return;
-
-      const user = JSON.parse(userSaved);
-      const seller = sellerSaved ? JSON.parse(sellerSaved) : {};
-
-      dispatch(
-        restoreSesion({
-          token: tokenSaved,
-          user,
-          seller,
-          userAvatar: "",
-        }),
-      );
-
-      if (user?.avatar?.id) {
-        try {
-          const profileUrl = await getFile(user.avatar.id);
-          if (profileUrl?.url) {
-            dispatch(
-              restoreSesion({
-                token: tokenSaved,
-                user,
-                seller,
-                userAvatar: profileUrl.url,
-              }),
-            );
-          }
-        } catch {
-        }
-      }
+      dispatch(logout());
     } catch {
     } finally {
       setLoading(false);
@@ -138,11 +184,12 @@ const AppNavigator = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!token) {
-      return;
-    }
     const sub = AppState.addEventListener("change", (next) => {
-      if (next === "active") {
+      if (next === "background") {
+        dispatch(logout());
+        return;
+      }
+      if (next === "active" && token) {
         refreshAuthSessionOnAppForeground(dispatch);
       }
     });
@@ -154,10 +201,10 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer theme={tabNavTheme}>
+    <NavigationContainer ref={navigationRef} theme={tabNavTheme}>
       <Stack.Navigator
         screenOptions={{
-          contentStyle: { flex: 1, backgroundColor: "#FFFFFF" },
+          contentStyle: { flex: 1, backgroundColor: SOFT.layout },
         }}
       >
         {token ? (
@@ -169,69 +216,69 @@ const AppNavigator = () => {
           />
           <Stack.Screen
               name="Inventory"
-              component={Inventory}
+              component={GlowInventory}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="InventoryAudit"
-              component={InventoryAudit}
+              component={GlowInventoryAudit}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="InventoryAuditDetail"
-              component={InventoryAuditDetail}
+              component={GlowInventoryAuditDetail}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="InventoryAuditFamilyProducts"
-              component={InventoryAuditFamilyProducts}
+              component={GlowInventoryAuditFamilyProducts}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="InventoryAuditLossDocuments"
-              component={AuditLossDocuments}
+              component={GlowAuditLossDocuments}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="InventoryAuditLossDocumentDetail"
-              component={AuditLossDocumentDetail}
+              component={GlowAuditLossDocumentDetail}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="DriverRouteDetail"
-              component={DriverRouteDetailScreen}
+              component={GlowDriverRouteDetail}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="DriverRouteConfirmMercancia"
-              component={DriverRouteConfirmMercanciaScreen}
+              component={GlowDriverRouteConfirmMercancia}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="DriverRouteProductPickup"
-              component={DriverRouteProductPickupScreen}
+              component={GlowDriverRouteProductPickup}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="DriverRouteNavFirstStop"
-              component={DriverRouteNavFirstStopScreen}
+              component={GlowDriverRouteNavFirstStop}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="DriverRouteReportIncident"
-              component={DriverRouteReportIncidentScreen}
+              component={GlowDriverRouteReportIncident}
               options={{ headerShown: false }}
             />
             <Stack.Screen
               name="DriverCollections"
-              component={DriverCollectionsScreen}
+              component={GlowDriverCollections}
               options={{ headerShown: false }}
             />
           </React.Fragment>
         ) : ( 
           <Stack.Screen
             name="Login"
-            component={Login}
+            component={GlowLogin}
             options={{ headerShown: false }}
           />
         )}

@@ -14,6 +14,7 @@ import Toast from "react-native-toast-message";
 import Svg, { Circle } from "react-native-svg";
 import { ArrowRight2, Building, Calendar, Lock, User } from "iconsax-react-native";
 import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import {
   getAuditCostReport,
@@ -30,7 +31,6 @@ import {
 } from "../../utils/auditCalendarDates";
 
 const COLORS = {
-  bg: "#F7F7F6",
   surface: "#FFFFFF",
   text: "#0F172A",
   muted: "#6B7280",
@@ -216,7 +216,7 @@ export default function InventoryAuditDetail() {
   const showStartDock = !!detail && familiesLocked && scheduleWindow === "during";
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <ProfileScreenHeader title="Detalle de auditoría" subtitle="Elige una ubicación para revisar o retomar" />
 
       {loading ? (
@@ -354,7 +354,7 @@ export default function InventoryAuditDetail() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1 },
   detailBody: { flex: 1 },
   startDock: {
     position: "absolute",
