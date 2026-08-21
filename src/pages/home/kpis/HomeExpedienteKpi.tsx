@@ -67,7 +67,7 @@ export function HomeExpedienteKpiRing({
 const styles = StyleSheet.create({
   titleCard: {
     flex: 1,
-    minHeight: 118,
+    minHeight: 156,
     marginRight: -10,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -83,7 +83,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 12,
     backgroundColor: HOME_COLORS.surface,
-    borderTopLeftRadius: HOME_RADIUS.section,
     borderTopRightRadius: HOME_RADIUS.section,
     borderBottomRightRadius: HOME_RADIUS.section,
     alignItems: "center",

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { Coin } from "iconsax-react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
 import type {
@@ -7,7 +8,6 @@ import type {
   WorkerRoleHomeKpi,
 } from "../../../services/workerKpisService";
 import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
-import { HomeKpiProgressRing } from "./HomeKpiProgressRing";
 
 type Props = {
   loading: boolean;
@@ -17,7 +17,8 @@ type Props = {
   onPressRole?: () => void;
 };
 
-const CHART_COLORS = ["#EA7600", "#16A34A", "#0EA5E9", "#B45309"];
+const DONE_COLOR = "#16A34A";
+const OPEN_COLOR = "#EA7600";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -27,51 +28,133 @@ function formatMoney(n: number) {
   }).format(n);
 }
 
-function MiniColumns({
-  items,
+function MiniDonut({
+  done,
+  open,
+  centerLabel,
 }: {
-  items: Array<{ label: string; value: number }>;
+  done: number;
+  open: number;
+  centerLabel: string;
 }) {
-  const peak = Math.max(1, ...items.map((item) => Math.max(0, item.value)));
-  const plotH = 52;
+  const size = 84;
+  const stroke = 12;
+  const r = (size - stroke) / 2 - 1;
+  const c = 2 * Math.PI * r;
+  const total = Math.max(0, done) + Math.max(0, open);
+  const doneLen = total > 0 ? (Math.max(0, done) / total) * c : 0;
+  const openLen = total > 0 ? (Math.max(0, open) / total) * c : 0;
 
   return (
-    <View style={styles.columns}>
-      {items.map((item, index) => {
-        const fillH =
-          item.value <= 0
-            ? 6
-            : Math.max(10, Math.round((item.value / peak) * plotH));
-        return (
-          <View key={item.label} style={styles.column}>
-            <Text
-              style={[
-                styles.columnValue,
-                item.value > 0 ? null : styles.columnValueMuted,
-              ]}
-              numberOfLines={1}
-            >
-              {item.value}
-            </Text>
-            <View style={[styles.columnPlot, { height: plotH }]}>
-              <View
-                style={[
-                  styles.columnFill,
-                  {
-                    height: fillH,
-                    backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.columnLabel} numberOfLines={1}>
-              {item.label}
-            </Text>
-          </View>
-        );
-      })}
+    <View style={styles.donutBox}>
+      <Svg width={size} height={size}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={HOME_COLORS.track}
+          strokeWidth={stroke}
+          fill="none"
+        />
+        {doneLen > 0 ? (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            stroke={DONE_COLOR}
+            strokeWidth={stroke}
+            strokeDasharray={`${doneLen} ${Math.max(0, c - doneLen)}`}
+            strokeDashoffset={0}
+            strokeLinecap="butt"
+            fill="none"
+            originX={size / 2}
+            originY={size / 2}
+            rotation={-90}
+          />
+        ) : null}
+        {openLen > 0 ? (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            stroke={OPEN_COLOR}
+            strokeWidth={stroke}
+            strokeDasharray={`${openLen} ${Math.max(0, c - openLen)}`}
+            strokeDashoffset={-doneLen}
+            strokeLinecap="butt"
+            fill="none"
+            originX={size / 2}
+            originY={size / 2}
+            rotation={-90}
+          />
+        ) : null}
+      </Svg>
+      <View style={styles.donutCenter} pointerEvents="none">
+        <Text style={styles.donutCenterText} numberOfLines={1}>
+          {centerLabel}
+        </Text>
+      </View>
     </View>
   );
+}
+
+function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
+  title: string;
+  status: string;
+  caption: string;
+  done: number;
+  open: number;
+  centerLabel: string;
+  toneColor: string;
+} {
+  const items = roleKpi.chart?.items ?? [];
+  const closedRe =
+    /finaliz|complet|cerrad|listo|hecho|ok|entregad|cobrad|pagad/i;
+  const skipRe = /cancel/i;
+
+  let done = 0;
+  let open = 0;
+  for (const item of items) {
+    const value = Math.max(0, item.value);
+    if (skipRe.test(item.label)) continue;
+    if (closedRe.test(item.label)) done += value;
+    else open += value;
+  }
+
+  const canSplit = done > 0 || (open > 0 && done === 0 && items.length >= 2);
+  const progressBased = !canSplit || (done === 0 && open > 0 && roleKpi.progress > 0);
+
+  if (progressBased || items.length === 0) {
+    const pct = Math.round(Math.max(0, Math.min(1, roleKpi.progress)) * 100);
+    return {
+      title: "Avance",
+      status: roleKpi.percentLabel.includes("%")
+        ? roleKpi.percentLabel
+        : `${pct}%`,
+      caption: roleKpi.caption,
+      done: pct,
+      open: Math.max(0, 100 - pct),
+      centerLabel: `${pct}%`,
+      toneColor:
+        roleKpi.tone === "ok"
+          ? HOME_COLORS.positive
+          : roleKpi.tone === "pending"
+            ? HOME_COLORS.warning
+            : HOME_COLORS.accent,
+    };
+  }
+
+  const total = done + open;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return {
+    title: "Balance",
+    status: `${pct}%`,
+    caption: `${done} cerrado · ${open} activo`,
+    done,
+    open,
+    centerLabel: `${pct}%`,
+    toneColor: pct >= 70 ? HOME_COLORS.positive : HOME_COLORS.accent,
+  };
 }
 
 function CommissionBody({ commission }: { commission: WorkerCommissionKpi }) {
@@ -80,13 +163,13 @@ function CommissionBody({ commission }: { commission: WorkerCommissionKpi }) {
   const fillColor = met ? HOME_COLORS.positive : HOME_COLORS.accent;
 
   return (
-    <>
+    <View style={styles.roleBody}>
       <View
         style={[styles.iconSlot, { backgroundColor: HOME_COLORS.accentSoft }]}
       >
         <Coin size={18} color={HOME_COLORS.accent} variant="Bold" />
       </View>
-      <Text style={styles.title} numberOfLines={1}>
+      <Text style={[styles.title, styles.titleAfterIcon]} numberOfLines={1}>
         Comisiones
       </Text>
       <Text style={[styles.status, { color: fillColor }]} numberOfLines={1}>
@@ -108,52 +191,32 @@ function CommissionBody({ commission }: { commission: WorkerCommissionKpi }) {
           ? `${formatMoney(commission.goal.current)} / ${formatMoney(commission.goal.target)}`
           : `Generado ${formatMoney(commission.earnedTotal)}`}
       </Text>
-    </>
+    </View>
   );
 }
 
-function RoleBody({ roleKpi }: { roleKpi: WorkerRoleHomeKpi }) {
-  const chartItems = useMemo(() => {
-    const items = roleKpi.chart?.items ?? [];
-    return items.slice(0, 4);
-  }, [roleKpi.chart?.items]);
+function RoleBalanceBody({ roleKpi }: { roleKpi: WorkerRoleHomeKpi }) {
+  const balance = useMemo(() => buildRoleBalance(roleKpi), [roleKpi]);
 
   return (
-    <>
+    <View style={styles.roleBody}>
       <Text style={styles.title} numberOfLines={1}>
-        {roleKpi.title}
+        {balance.title}
       </Text>
-      <Text
-        style={[
-          styles.status,
-          {
-            color:
-              roleKpi.tone === "ok"
-                ? HOME_COLORS.positive
-                : roleKpi.tone === "pending"
-                  ? HOME_COLORS.warning
-                  : HOME_COLORS.accent,
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {roleKpi.status}
+      <View style={styles.chartWrap}>
+        <MiniDonut
+          done={balance.done}
+          open={balance.open}
+          centerLabel={balance.centerLabel}
+        />
+      </View>
+      <Text style={[styles.status, { color: balance.toneColor }]} numberOfLines={1}>
+        {balance.status}
       </Text>
-      {chartItems.length > 0 ? (
-        <View style={styles.chartWrap}>
-          <MiniColumns items={chartItems} />
-        </View>
-      ) : (
-        <View style={styles.ringWrap}>
-          <HomeKpiProgressRing
-            progress={roleKpi.progress}
-            label={roleKpi.percentLabel}
-            tone={roleKpi.tone}
-            size={72}
-          />
-        </View>
-      )}
-    </>
+      <Text style={styles.caption} numberOfLines={2}>
+        {balance.caption}
+      </Text>
+    </View>
   );
 }
 
@@ -198,9 +261,9 @@ export function HomeSideSlotCard({
         feedback={Boolean(onPressRole)}
         scaleTo={0.98}
         style={styles.card}
-        accessibilityLabel={`${roleKpi.title} ${roleKpi.status}. ${roleKpi.caption}`}
+        accessibilityLabel={`Avance de ${roleKpi.title}. ${roleKpi.caption}`}
       >
-        <RoleBody roleKpi={roleKpi} />
+        <RoleBalanceBody roleKpi={roleKpi} />
       </SoftPressable>
     );
   }
@@ -218,11 +281,18 @@ export function HomeSideSlotCard({
 
 const styles = StyleSheet.create({
   card: {
+    width: "100%",
+    flex: 1,
     minHeight: 148,
     paddingHorizontal: 12,
     paddingVertical: 12,
     backgroundColor: HOME_COLORS.surface,
     borderRadius: HOME_RADIUS.section,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roleBody: {
+    width: "100%",
     alignItems: "center",
   },
   iconSlot: {
@@ -233,24 +303,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    marginTop: 8,
     fontSize: 12.5,
     fontWeight: "600",
     color: HOME_COLORS.muted,
     textAlign: "center",
   },
+  titleAfterIcon: {
+    marginTop: 8,
+  },
   status: {
     marginTop: 4,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     letterSpacing: -0.2,
     textAlign: "center",
   },
   caption: {
-    marginTop: 4,
-    fontSize: 12,
+    marginTop: 2,
+    fontSize: 11,
     fontWeight: "500",
-    lineHeight: 16,
+    lineHeight: 15,
     color: HOME_COLORS.muted,
     textAlign: "center",
   },
@@ -275,49 +347,27 @@ const styles = StyleSheet.create({
   },
   chartWrap: {
     marginTop: 8,
-    alignSelf: "stretch",
-  },
-  ringWrap: {
-    marginTop: 8,
+    marginBottom: 2,
     alignItems: "center",
+    justifyContent: "center",
   },
-  columns: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: 4,
-  },
-  column: {
-    flex: 1,
+  donutBox: {
+    width: 84,
+    height: 84,
+    position: "relative",
     alignItems: "center",
-    minWidth: 0,
+    justifyContent: "center",
   },
-  columnValue: {
-    fontSize: 10,
+  donutCenter: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  donutCenterText: {
+    fontSize: 13,
     fontWeight: "800",
     color: HOME_COLORS.ink,
     fontVariant: ["tabular-nums"],
-  },
-  columnValueMuted: {
-    color: HOME_COLORS.muted,
-  },
-  columnPlot: {
-    marginTop: 2,
-    width: "100%",
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  columnFill: {
-    width: "70%",
-    maxWidth: 18,
-    borderTopLeftRadius: 5,
-    borderTopRightRadius: 5,
-  },
-  columnLabel: {
-    marginTop: 4,
-    fontSize: 8,
-    fontWeight: "600",
-    color: HOME_COLORS.muted,
     textAlign: "center",
   },
 });

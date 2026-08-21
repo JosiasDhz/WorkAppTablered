@@ -127,11 +127,15 @@ export function HomeAttendanceKpi({
         </View>
       }
       onPress={onPress}
+      style={styles.card}
     />
   );
 }
 
 const styles = StyleSheet.create({
+  card: {
+    flex: 1,
+  },
   mark: {
     width: 72,
     height: 72,

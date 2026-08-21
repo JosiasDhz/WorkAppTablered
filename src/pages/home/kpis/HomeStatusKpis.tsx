@@ -134,48 +134,46 @@ export function HomeStatusKpis() {
         </SoftReveal>
       ) : null}
       <View style={styles.row}>
-        <View style={styles.leftCol}>
-          <SoftReveal delay={100} active={revealActive}>
-            <HomeAttendanceKpi
-              attendance={attendance}
-              loading={loading}
-              onPress={openQr}
-            />
-          </SoftReveal>
-          <SoftReveal delay={160} active={revealActive}>
-            <HomeExpedienteKpiTitle
-              status={expediente.status}
-              caption={expediente.caption}
-              tone={expediente.tone}
-              onPress={openExpediente}
-            />
-          </SoftReveal>
-        </View>
-        <View style={styles.rightCol}>
-          <SoftReveal delay={130} active={revealActive}>
-            <HomeSideSlotCard
-              loading={loading}
-              commission={commission}
-              roleKpi={sideRoleKpi}
-              onPressCommission={openCommissions}
-              onPressRole={
-                roleKpi?.action === "inventory" || roleKpi?.action === "routes"
-                  ? openRoleKpi
-                  : undefined
-              }
-            />
-          </SoftReveal>
-          <SoftReveal delay={190} active={revealActive}>
-            <HomeExpedienteKpiRing
-              status={expediente.status}
-              caption={expediente.caption}
-              tone={expediente.tone}
-              progress={expediente.progress}
-              percentLabel={expediente.percentLabel}
-              onPress={openExpediente}
-            />
-          </SoftReveal>
-        </View>
+        <SoftReveal delay={100} active={revealActive} style={styles.cell}>
+          <HomeAttendanceKpi
+            attendance={attendance}
+            loading={loading}
+            onPress={openQr}
+          />
+        </SoftReveal>
+        <SoftReveal delay={130} active={revealActive} style={styles.cell}>
+          <HomeSideSlotCard
+            loading={loading}
+            commission={commission}
+            roleKpi={sideRoleKpi}
+            onPressCommission={openCommissions}
+            onPressRole={
+              roleKpi?.action === "inventory" || roleKpi?.action === "routes"
+                ? openRoleKpi
+                : undefined
+            }
+          />
+        </SoftReveal>
+      </View>
+      <View style={styles.expedienteRow}>
+        <SoftReveal delay={160} active={revealActive} style={styles.expedienteTitleCell}>
+          <HomeExpedienteKpiTitle
+            status={expediente.status}
+            caption={expediente.caption}
+            tone={expediente.tone}
+            onPress={openExpediente}
+          />
+        </SoftReveal>
+        <SoftReveal delay={190} active={revealActive} style={styles.expedienteRingCell}>
+          <HomeExpedienteKpiRing
+            status={expediente.status}
+            caption={expediente.caption}
+            tone={expediente.tone}
+            progress={expediente.progress}
+            percentLabel={expediente.percentLabel}
+            onPress={openExpediente}
+          />
+        </SoftReveal>
       </View>
       <HomeShortcutCards />
     </View>
@@ -185,6 +183,7 @@ export function HomeStatusKpis() {
 const styles = StyleSheet.create({
   board: {
     width: "100%",
+    gap: 10,
   },
   row: {
     width: "100%",
@@ -192,13 +191,19 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     gap: 10,
   },
-  leftCol: {
+  cell: {
     flex: 1,
-    gap: 10,
-    overflow: "visible",
   },
-  rightCol: {
+  expedienteRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  expedienteTitleCell: {
     flex: 1,
-    gap: 10,
+    zIndex: 1,
+  },
+  expedienteRingCell: {
+    flex: 1,
   },
 });

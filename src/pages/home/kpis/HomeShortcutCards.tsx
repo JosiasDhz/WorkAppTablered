@@ -54,7 +54,6 @@ export function HomeShortcutCards() {
 const styles = StyleSheet.create({
   row: {
     width: "100%",
-    marginTop: 10,
     flexDirection: "row",
     gap: 10,
   },
