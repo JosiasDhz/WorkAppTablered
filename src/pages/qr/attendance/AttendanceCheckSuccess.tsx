@@ -14,10 +14,16 @@ export function AttendanceCheckSuccess({
 }: AttendanceCheckSuccessProps) {
   const badgeScale = useRef(new Animated.Value(0)).current;
   const badgeOpacity = useRef(new Animated.Value(0)).current;
+  const badgeRotate = useRef(new Animated.Value(-18)).current;
   const copyOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    badgeScale.setValue(0);
+    badgeOpacity.setValue(0);
+    badgeRotate.setValue(-18);
+    copyOpacity.setValue(0);
 
     const reveal = Animated.parallel([
       Animated.timing(badgeOpacity, {
@@ -32,6 +38,12 @@ export function AttendanceCheckSuccess({
         tension: 110,
         useNativeDriver: true,
       }),
+      Animated.spring(badgeRotate, {
+        toValue: 0,
+        friction: 6,
+        tension: 90,
+        useNativeDriver: true,
+      }),
       Animated.timing(copyOpacity, {
         toValue: 1,
         duration: 360,
@@ -42,7 +54,7 @@ export function AttendanceCheckSuccess({
 
     reveal.start();
     return () => reveal.stop();
-  }, [badgeScale, badgeOpacity, copyOpacity]);
+  }, [badgeScale, badgeOpacity, badgeRotate, copyOpacity, warehouseName]);
 
   return (
     <View style={styles.stage}>
@@ -51,7 +63,15 @@ export function AttendanceCheckSuccess({
         <Animated.View
           style={{
             opacity: badgeOpacity,
-            transform: [{ scale: badgeScale }],
+            transform: [
+              { scale: badgeScale },
+              {
+                rotate: badgeRotate.interpolate({
+                  inputRange: [-18, 0],
+                  outputRange: ["-18deg", "0deg"],
+                }),
+              },
+            ],
           }}
         >
           <View style={styles.badge}>

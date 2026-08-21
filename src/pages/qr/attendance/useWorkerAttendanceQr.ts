@@ -7,7 +7,8 @@ import {
   type WorkerTodayCheckContext,
 } from "../../../services/attendanceService";
 
-const CONTEXT_POLL_MS = 2000;
+const CONTEXT_POLL_MS = 5_000;
+const CONTEXT_POLL_IDLE_MS = 30_000;
 const SUCCESS_FLASH_MS = 2400;
 const QR_WINDOW_MS = 30_000;
 const MIN_TRUSTED_WINDOW_MS = 2_000;
@@ -77,6 +78,7 @@ export function useWorkerAttendanceQr({
   const lastTypeForQrRef = useRef<string | undefined>(undefined);
   const rotatingAfterSuccessRef = useRef(false);
   const lastRotateAtRef = useRef(0);
+  const pollInFlightRef = useRef(false);
 
   selectedRef.current = selectedCheckTypeCode;
 
@@ -246,11 +248,27 @@ export function useWorkerAttendanceQr({
 
   useEffect(() => {
     if (!active) return;
+    if (checkSuccess) return;
+
+    const intervalMs =
+      context?.mode === "complete" ? CONTEXT_POLL_IDLE_MS : CONTEXT_POLL_MS;
+
+    const tick = async () => {
+      if (pollInFlightRef.current) return;
+      if (rotatingAfterSuccessRef.current) return;
+      pollInFlightRef.current = true;
+      try {
+        await syncContextQuiet();
+      } finally {
+        pollInFlightRef.current = false;
+      }
+    };
+
     const id = setInterval(() => {
-      void syncContextQuiet();
-    }, CONTEXT_POLL_MS);
+      void tick();
+    }, intervalMs);
     return () => clearInterval(id);
-  }, [active, syncContextQuiet]);
+  }, [active, checkSuccess, context?.mode, syncContextQuiet]);
 
   useEffect(() => {
     return () => clearSuccessTimer();

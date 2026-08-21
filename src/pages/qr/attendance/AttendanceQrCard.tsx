@@ -1,5 +1,12 @@
-import React, { useCallback, useState } from "react";
-import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Easing,
+  LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { ScanBarcode } from "iconsax-react-native";
 import { AttendanceCheckSuccess } from "./AttendanceCheckSuccess";
@@ -11,10 +18,31 @@ const QR_INSET = 18;
 const PLACEHOLDER_QR = "tablered-attendance-placeholder";
 
 function AttendanceQrPlaceholder({ size }: { size: number }) {
+  const shimmer = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 0.7,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0.35,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmer]);
+
   return (
     <View style={styles.placeholderWrap} pointerEvents="none">
       {size > 0 ? (
-        <View style={styles.placeholderQr}>
+        <Animated.View style={[styles.placeholderQr, { opacity: shimmer }]}>
           <QRCode
             value={PLACEHOLDER_QR}
             size={size}
@@ -23,7 +51,7 @@ function AttendanceQrPlaceholder({ size }: { size: number }) {
             ecl="L"
             quietZone={4}
           />
-        </View>
+        </Animated.View>
       ) : null}
       <View style={styles.placeholderBadge}>
         <Text style={styles.placeholder}>Actualizando…</Text>
@@ -51,6 +79,39 @@ export function AttendanceQrCard({
   successWarehouseName,
 }: AttendanceQrCardProps) {
   const [areaSize, setAreaSize] = useState(0);
+  const cardEnter = useRef(new Animated.Value(0)).current;
+  const qrReveal = useRef(new Animated.Value(1)).current;
+  const prevPayload = useRef(payload);
+
+  useEffect(() => {
+    cardEnter.setValue(0);
+    Animated.spring(cardEnter, {
+      toValue: 1,
+      friction: 7,
+      tension: 68,
+      useNativeDriver: true,
+    }).start();
+  }, [cardEnter]);
+
+  useEffect(() => {
+    if (!payload || payload === prevPayload.current) return;
+    prevPayload.current = payload;
+    qrReveal.setValue(0.86);
+    Animated.sequence([
+      Animated.timing(qrReveal, {
+        toValue: 0.92,
+        duration: 90,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(qrReveal, {
+        toValue: 1,
+        friction: 5,
+        tension: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [payload, qrReveal]);
 
   const onAreaLayout = useCallback((e: LayoutChangeEvent) => {
     const side = Math.round(e.nativeEvent.layout.width);
@@ -59,9 +120,21 @@ export function AttendanceQrCard({
 
   const qrSize = Math.max(0, areaSize - QR_INSET * 2);
   const showsQr = Boolean(payload) && !successWarehouseName;
+  const cardScale = cardEnter.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.94, 1],
+  });
 
   return (
-    <View style={styles.card}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          opacity: cardEnter,
+          transform: [{ scale: cardScale }],
+        },
+      ]}
+    >
       <View style={styles.cardHeader}>
         <View style={styles.headerIcon}>
           <ScanBarcode
@@ -92,14 +165,21 @@ export function AttendanceQrCard({
         {successWarehouseName ? (
           <AttendanceCheckSuccess warehouseName={successWarehouseName} />
         ) : showsQr && qrSize > 0 ? (
-          <QRCode
-            value={payload}
-            size={qrSize}
-            color={ATTENDANCE_COLORS.qrForeground}
-            backgroundColor="transparent"
-            ecl="L"
-            quietZone={4}
-          />
+          <Animated.View
+            style={{
+              opacity: qrReveal,
+              transform: [{ scale: qrReveal }],
+            }}
+          >
+            <QRCode
+              value={payload}
+              size={qrSize}
+              color={ATTENDANCE_COLORS.qrForeground}
+              backgroundColor="transparent"
+              ecl="L"
+              quietZone={4}
+            />
+          </Animated.View>
         ) : (
           <AttendanceQrPlaceholder size={qrSize} />
         )}
@@ -107,7 +187,7 @@ export function AttendanceQrCard({
 
       <View style={styles.divider} />
       <AttendanceDateTimeStrip />
-    </View>
+    </Animated.View>
   );
 }
 

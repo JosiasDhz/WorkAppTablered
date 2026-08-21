@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Image,
   Modal,
   Platform,
@@ -77,7 +79,7 @@ const CATEGORY_HINTS: Record<PermissionCategory, string> = {
   PERSONAL_ERRAND:
     "Propio o hijo menor de 18 · 1 día (10.5 h) / 6 meses · máx. 2 h o jornada completa · aviso 3 días hábiles",
   BEREAVEMENT: "Padres, hermanos, pareja o hijos · 4 días/año",
-  VACATION: "Ya no se solicita en este módulo",
+  VACATION: "Usa el módulo Mis vacaciones",
 };
 
 type LocalEvidence = {
@@ -215,7 +217,59 @@ export default function NuevoPermisoScreen() {
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<PermissionCategory>("PERSONAL");
-  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
+  const categoryOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const categorySheetY = useRef(new Animated.Value(420)).current;
+  const categoryCloseAnim = useRef<Animated.CompositeAnimation | null>(null);
+
+  const openCategoryPicker = () => {
+    categoryCloseAnim.current?.stop();
+    categoryOverlayOpacity.setValue(0);
+    categorySheetY.setValue(420);
+    setCategoryPickerVisible(true);
+  };
+
+  const closeCategoryPicker = () => {
+    if (!categoryPickerVisible) return;
+    categoryCloseAnim.current?.stop();
+    categoryCloseAnim.current = Animated.parallel([
+      Animated.timing(categoryOverlayOpacity, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(categorySheetY, {
+        toValue: 420,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+    categoryCloseAnim.current.start(({ finished }) => {
+      if (finished) setCategoryPickerVisible(false);
+    });
+  };
+
+  useEffect(() => {
+    if (!categoryPickerVisible) return;
+    const openAnim = Animated.parallel([
+      Animated.timing(categoryOverlayOpacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(categorySheetY, {
+        toValue: 0,
+        friction: 8,
+        tension: 68,
+        useNativeDriver: true,
+      }),
+    ]);
+    openAnim.start();
+    return () => openAnim.stop();
+  }, [categoryPickerVisible, categoryOverlayOpacity, categorySheetY]);
   const [requestedHours, setRequestedHours] = useState("");
   const [requestedDays, setRequestedDays] = useState(1);
   const [isDengueCovid, setIsDengueCovid] = useState(false);
@@ -238,15 +292,15 @@ export default function NuevoPermisoScreen() {
   const selectedCategoryLabel = selectedCategory?.label ?? "";
 
   const noticeWarning = useMemo(() => {
-    const required = 3;
-    if (category === "PERSONAL_ERRAND" && workingDaysUntilDate(permissionDate) < required) {
-      return `Los trámites requieren aviso con al menos ${required} días hábiles de anticipación.`;
+    if (category === "PERSONAL_ERRAND" && workingDaysUntilDate(permissionDate) < 3) {
+      return "Los trámites requieren aviso con al menos 3 días hábiles de anticipación.";
     }
     return null;
   }, [category, permissionDate]);
 
   const showDaysField =
-    category === "BEREAVEMENT" || (category === "SICKNESS" && restDaysSpecified);
+    category === "BEREAVEMENT" ||
+    (category === "SICKNESS" && restDaysSpecified);
 
   const openDatePicker = () => {
     setDatePickerDraft(permissionDate);
@@ -438,7 +492,7 @@ export default function NuevoPermisoScreen() {
           <PageFlipReveal delay={0} active={isFocused}>
             <SectionCard title="Tipo de permiso">
               <SoftPressable
-                onPress={() => setCategoryPickerOpen(true)}
+                onPress={openCategoryPicker}
                 scaleTo={0.99}
                 accessibilityLabel="Tipo de permiso"
               >
@@ -531,7 +585,13 @@ export default function NuevoPermisoScreen() {
               <Stepper
                 value={requestedDays}
                 onChange={setRequestedDays}
-                max={category === "BEREAVEMENT" ? 4 : category === "SICKNESS" ? 6 : 14}
+                max={
+                  category === "BEREAVEMENT"
+                    ? 4
+                    : category === "SICKNESS"
+                      ? 6
+                      : 14
+                }
                 suffix="días"
               />
             </>
@@ -633,17 +693,32 @@ export default function NuevoPermisoScreen() {
         </KeyboardAwareScrollView>
 
       <Modal
-        visible={categoryPickerOpen}
+        visible={categoryPickerVisible}
         transparent
-        animationType="slide"
-        onRequestClose={() => setCategoryPickerOpen(false)}
+        animationType="none"
+        onRequestClose={closeCategoryPicker}
       >
-        <View style={styles.pickerOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setCategoryPickerOpen(false)}
-          />
-          <View style={[styles.pickerCard, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        <View style={styles.pickerShell}>
+          <Animated.View
+            style={[
+              styles.pickerDim,
+              { opacity: categoryOverlayOpacity },
+            ]}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closeCategoryPicker}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.pickerCard,
+              {
+                paddingBottom: Math.max(insets.bottom, 16) + 8,
+                transform: [{ translateY: categorySheetY }],
+              },
+            ]}
+          >
             <View style={styles.pickerHandle} />
             <Text style={styles.pickerTitle}>Tipo de permiso</Text>
             <ScrollView style={styles.categoryList} keyboardShouldPersistTaps="handled">
@@ -663,7 +738,7 @@ export default function NuevoPermisoScreen() {
                         ]}
                         onPress={() => {
                           setCategory(option.value);
-                          setCategoryPickerOpen(false);
+                          closeCategoryPicker();
                         }}
                       >
                         <View style={styles.categoryOptionRow}>
@@ -706,7 +781,7 @@ export default function NuevoPermisoScreen() {
                 </View>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -1031,6 +1106,14 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+  },
+  pickerShell: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  pickerDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(28, 25, 23, 0.4)",
   },
   pickerOverlay: {
     flex: 1,

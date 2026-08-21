@@ -93,15 +93,17 @@ export default function QrScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-      <HeaderTitle
-        title={successWarehouseName ? "Chequeo exitoso" : "Mi asistencia"}
-        subtitle={resolveStatusLabel(
-          successWarehouseName,
-          selectedCheckTypeCode,
-        )}
-        tone="light"
-        style={styles.header}
-      />
+      <SoftReveal active={isFocused} delay={0}>
+        <HeaderTitle
+          title={successWarehouseName ? "Chequeo exitoso" : "Mi asistencia"}
+          subtitle={resolveStatusLabel(
+            successWarehouseName,
+            selectedCheckTypeCode,
+          )}
+          tone="light"
+          style={styles.header}
+        />
+      </SoftReveal>
 
       <ScrollView
         onScroll={onAutoTabBarScroll}
@@ -119,7 +121,7 @@ export default function QrScreen() {
           />
         }
       >
-        <SoftReveal style={styles.qrBlock}>
+        <SoftReveal active={isFocused} delay={40} style={styles.qrBlock}>
           {contextError ? (
             <Text style={styles.contextError}>{contextError}</Text>
           ) : null}
@@ -135,7 +137,7 @@ export default function QrScreen() {
         </SoftReveal>
 
         {showTypeSelector ? (
-          <SoftReveal delay={90}>
+          <SoftReveal active={isFocused} delay={120}>
             <AttendanceCheckTypeSelector
               options={checkTypeOptions}
               selectedCode={selectedCheckTypeCode}
@@ -146,14 +148,14 @@ export default function QrScreen() {
         ) : null}
 
         {showLateNotice ? (
-          <SoftReveal delay={150} style={styles.noticeBlock}>
+          <SoftReveal active={isFocused} delay={180} style={styles.noticeBlock}>
             <AttendanceLateNoticeButton
               onPress={() => setNoticeModalOpen(true)}
             />
           </SoftReveal>
         ) : null}
 
-        <SoftReveal delay={210} style={styles.sectionBlock}>
+        <SoftReveal active={isFocused} delay={240} style={styles.sectionBlock}>
           <AttendanceTodayChecks
             events={todayEvents}
             loading={contextLoading}

@@ -15,11 +15,11 @@ import {
   Barcode,
   Calendar1,
   ClipboardTick,
+  CalendarTick,
   CodeCircle,
   Coin,
   DocumentText1,
   FolderOpen,
-  Health,
   Edit2,
   Logout,
   Notification,
@@ -66,7 +66,7 @@ type MenuAction =
   | "none"
   | "MisRegistros"
   | "MisPermisos"
-  | "MisIncapacidades"
+  | "MisVacaciones"
   | "MisExpediente"
   | "MisComisiones"
   | "Inventory"
@@ -95,9 +95,9 @@ type Shortcut = {
 
 const SHORTCUTS: Shortcut[] = [
   { id: "permisos", label: "Permisos", icon: ClipboardTick, action: "MisPermisos" },
+  { id: "vacaciones", label: "Vacaciones", icon: CalendarTick, action: "MisVacaciones" },
   { id: "expediente", label: "Expediente", icon: FolderOpen, action: "MisExpediente" },
   { id: "comisiones", label: "Comisiones", icon: Coin, action: "MisComisiones" },
-  { id: "registros", label: "Registros", icon: Calendar1, action: "MisRegistros" },
 ];
 
 const MENU_SECTIONS: MenuSectionData[] = [
@@ -106,7 +106,6 @@ const MENU_SECTIONS: MenuSectionData[] = [
     title: "Perfil y cuenta",
     items: [
       { id: "edit", label: "Editar perfil", icon: Edit2, action: "none" },
-      { id: "incapacidades", label: "Mis incapacidades", icon: Health, action: "MisIncapacidades" },
     ],
   },
   {
@@ -114,6 +113,7 @@ const MENU_SECTIONS: MenuSectionData[] = [
     title: "Preferencias",
     items: [
       { id: "apariencia", label: "Apariencia", icon: Setting4, action: "none" },
+      { id: "registros", label: "Mis registros", icon: Calendar1, action: "MisRegistros" },
       { id: "dispositivos", label: "Gestionar dispositivos", icon: Profile2User, action: "none" },
       { id: "password", label: "Cambiar contraseña", icon: PasswordCheck, action: "none" },
       { id: "notify", label: "Notificaciones", icon: Notification, action: "none" },

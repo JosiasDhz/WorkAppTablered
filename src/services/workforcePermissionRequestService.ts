@@ -77,6 +77,8 @@ export type PermissionRequestDto = {
   hasAntibioticPrescription?: boolean;
   restDaysSpecified?: boolean;
   pendingWorkNotes?: string | null;
+  countsAsVacation?: boolean;
+  isVacationPayout?: boolean;
   status: PermissionRequestStatus;
   reviewReason: string | null;
   reviewedAt: string | null;

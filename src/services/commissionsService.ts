@@ -17,16 +17,55 @@ export type MyCommissionLineDto = {
   accruedAt: string | null;
 };
 
+export type CommissionGoalProgressDto = {
+  kind: "SHIPPING" | "EARNINGS";
+  label: string;
+  unit: "mxn";
+  current: number;
+  target: number;
+  progress: number;
+  remaining: number;
+  bonusAmount: number | null;
+  met: boolean;
+};
+
 export type MyCommissionsDto = {
   sellerId: string;
   sellerCode: string;
   workerName: string;
   workerRole: string | null;
   periodKey: string;
+  programActive: boolean;
+  goal: CommissionGoalProgressDto | null;
+  commissionTier: {
+    code: string;
+    name: string;
+    ratePercent: number;
+  };
+  maquilaCommissionMode: string | null;
+  settings: {
+    driverDeliveryRatePercent: number;
+    driverShippingGoalBonus: number;
+    motorcycleShippingGoalBonus: number;
+    camionetaShippingGoalBonus?: number;
+    camionShippingGoalBonus?: number;
+    driverShippingGoalAmount?: number;
+    motorcycleShippingGoalAmount?: number;
+    camionetaShippingGoalAmount?: number;
+    camionShippingGoalAmount?: number;
+    maquilaRatePercent: number;
+    maquilaGoalBonus?: number;
+  };
   totals: {
     total: number;
     byKind: Record<string, number>;
   };
+  fixedMaquilaBonuses?: Array<{
+    id: string;
+    concept: string;
+    amount: number;
+    frequency: string;
+  }>;
   lines: MyCommissionLineDto[];
 };
 
@@ -36,6 +75,7 @@ export const COMMISSION_KIND_LABELS: Record<string, string> = {
   SHIPPING_GOAL: "Meta envíos",
   MAQUILA_PERCENT: "Maquila %",
   MAQUILA_FIXED: "Maquila fija",
+  MAQUILA_GOAL: "Meta maquila",
   ADJUSTMENT: "Ajuste",
 };
 

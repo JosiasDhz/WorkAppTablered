@@ -18,10 +18,7 @@ import {
   Add,
   ArrowRight2,
   Calendar1,
-  ClipboardTick,
-  Heart,
-  Hospital,
-  User,
+  CalendarTick,
 } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
@@ -29,12 +26,12 @@ import { SoftPressable } from "../../components/SoftPressable";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
-  listMyPermissionRequests,
-  PERMISSION_CATEGORY_OPTIONS,
+  getMyVacationBalance,
+  listMyVacationRequests,
   permissionStatusLabel,
-  type PermissionCategory,
-  type PermissionRequestDto,
-} from "../../services/workforcePermissionRequestService";
+  type VacationBalanceDto,
+  type VacationRequestDto,
+} from "../../services/workforceVacationsService";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
 const COLORS = {
@@ -62,67 +59,35 @@ function clampFlipDelay(delay: number) {
   return Math.min(delay, MAX_FLIP_DELAY_MS);
 }
 
-function categoryLabel(category: PermissionCategory) {
-  return (
-    PERMISSION_CATEGORY_OPTIONS.find((option) => option.value === category)
-      ?.label ?? category
-  );
-}
-
-function CategoryGlyph({ category }: { category: PermissionCategory }) {
-  const props = { size: 20, color: COLORS.accent, variant: "Linear" as const };
-  if (category === "SICKNESS") return <Hospital {...props} />;
-  if (category === "BEREAVEMENT") return <Heart {...props} />;
-  if (category === "PERSONAL") return <User {...props} />;
-  if (category === "PERSONAL_ERRAND") return <ClipboardTick {...props} />;
-  return <Calendar1 {...props} />;
-}
-
-function statusTone(status: PermissionRequestDto["status"]) {
-  if (status === "APPROVED") {
-    return { bg: DONE_SOFT, text: DONE };
-  }
-  if (status === "REJECTED") {
-    return { bg: ROSE_SOFT, text: ROSE };
-  }
+function statusTone(status: VacationRequestDto["status"]) {
+  if (status === "APPROVED") return { bg: DONE_SOFT, text: DONE };
+  if (status === "REJECTED") return { bg: ROSE_SOFT, text: ROSE };
   return { bg: ACCENT_SOFT, text: COLORS.accent };
 }
 
-function evidenceLabel(count: number) {
-  if (count === 1) return "1 evidencia";
-  return `${count} evidencias`;
-}
-
-function headerSubtitle(items: PermissionRequestDto[], loading: boolean) {
-  if (loading) return "Cargando tus permisos";
-  const pending = items.filter((item) => PENDING_STATUSES.has(item.status)).length;
-  if (pending === 0) return "Estás al día con tus permisos";
-  if (pending === 1) return "Tienes 1 permiso en revisión";
-  return `Tienes ${pending} permisos en revisión`;
-}
-
-function PermisoCard({
+function VacacionCard({
   item,
   onPress,
 }: {
-  item: PermissionRequestDto;
+  item: VacationRequestDto;
   onPress: () => void;
 }) {
   const tone = statusTone(item.status);
+  const days = Math.max(1, item.requestedDays ?? 1);
   return (
     <SoftPressable
       onPress={onPress}
       scaleTo={0.99}
-      accessibilityLabel={`${categoryLabel(item.category)}. ${permissionStatusLabel(item.status)}`}
+      accessibilityLabel={`Vacaciones. ${permissionStatusLabel(item.status)}`}
     >
       <View style={styles.card}>
         <View style={styles.iconWell}>
-          <CategoryGlyph category={item.category} />
+          <CalendarTick size={20} color={COLORS.accent} variant="Linear" />
         </View>
         <View style={styles.cardCopy}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {categoryLabel(item.category)}
+              {days === 1 ? "1 día" : `${days} días`}
             </Text>
             <View style={[styles.badge, { backgroundColor: tone.bg }]}>
               <Text style={[styles.badgeText, { color: tone.text }]}>
@@ -131,9 +96,9 @@ function PermisoCard({
             </View>
           </View>
           <Text style={styles.cardMeta} numberOfLines={1}>
-            {formatWorkforceYmd(item.permissionDate)}
-            {" · "}
-            {evidenceLabel(item.files.length)}
+            Inicio {formatWorkforceYmd(item.permissionDate)}
+            {item.isVacationPayout ? " · Pago" : ""}
+            {item.countsAsVacation ? " · A cuenta" : ""}
           </Text>
           <Text style={styles.cardDesc} numberOfLines={2}>
             {item.description}
@@ -145,26 +110,82 @@ function PermisoCard({
   );
 }
 
-export default function MisPermisosScreen() {
+function BalanceCard({ balance }: { balance: VacationBalanceDto | null }) {
+  if (!balance) return null;
+  return (
+    <View style={styles.balanceCard}>
+      <View style={styles.balanceHeader}>
+        <Calendar1 size={18} color={COLORS.accent} variant="Linear" />
+        <Text style={styles.balanceTitle}>Tu saldo {new Date().getFullYear()}</Text>
+      </View>
+      {!balance.hireDate ? (
+        <Text style={styles.balanceHint}>
+          Falta tu fecha de ingreso. Pide a RH que la registre en tu expediente.
+        </Text>
+      ) : !balance.eligible ? (
+        <Text style={styles.balanceHint}>
+          Requieres al menos {balance.minServiceYears} año(s) de servicio
+          (llevas {balance.serviceYears}).
+        </Text>
+      ) : (
+        <React.Fragment>
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceStat}>
+              <Text style={styles.balanceValue}>{balance.daysRemaining}</Text>
+              <Text style={styles.balanceLabel}>Restantes</Text>
+            </View>
+            <View style={styles.balanceStat}>
+              <Text style={styles.balanceValue}>{balance.annualDays}</Text>
+              <Text style={styles.balanceLabel}>Anuales</Text>
+            </View>
+            <View style={styles.balanceStat}>
+              <Text style={styles.balanceValue}>{balance.daysUsed}</Text>
+              <Text style={styles.balanceLabel}>Usados</Text>
+            </View>
+            <View style={styles.balanceStat}>
+              <Text style={styles.balanceValue}>{balance.daysPending}</Text>
+              <Text style={styles.balanceLabel}>Pendientes</Text>
+            </View>
+          </View>
+          {balance.periodHint ? (
+            <Text style={styles.balanceHint}>
+              Periodo: {balance.periodHint}
+              {balance.noticeDays > 0
+                ? ` · aviso ${balance.noticeDays} días`
+                : ""}
+            </Text>
+          ) : null}
+        </React.Fragment>
+      )}
+    </View>
+  );
+}
+
+export default function MisVacacionesScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
-  const [items, setItems] = useState<PermissionRequestDto[]>([]);
+  const [items, setItems] = useState<VacationRequestDto[]>([]);
+  const [balance, setBalance] = useState<VacationBalanceDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const now = new Date();
-      const list = await listMyPermissionRequests({
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
-      });
-      setItems(list.filter((item) => item.category !== "VACATION"));
+      const [list, bal] = await Promise.all([
+        listMyVacationRequests({
+          year: now.getFullYear(),
+        }),
+        getMyVacationBalance(),
+      ]);
+      setItems(list);
+      setBalance(bal);
     } catch {
       setItems([]);
+      setBalance(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -178,11 +199,6 @@ export default function MisPermisosScreen() {
     }, [load]),
   );
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    void load();
-  };
-
   const pendingItems = useMemo(
     () => items.filter((item) => PENDING_STATUSES.has(item.status)),
     [items],
@@ -192,16 +208,18 @@ export default function MisPermisosScreen() {
     [items],
   );
 
-  const openDetail = (requestId: string) => {
-    navigation.navigate("PermisoDetalle", { requestId });
-  };
+  const subtitle = loading
+    ? "Cargando tus vacaciones"
+    : balance?.eligible
+      ? `${balance.daysRemaining} día(s) disponibles`
+      : "Consulta saldo y solicitudes";
 
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
         <HeaderTitle
-          title="Mis permisos"
-          subtitle={headerSubtitle(items, loading)}
+          title="Mis vacaciones"
+          subtitle={subtitle}
           tone="light"
           style={styles.header}
           onBack={() => {
@@ -209,10 +227,10 @@ export default function MisPermisosScreen() {
           }}
           rightAccessory={
             <SoftPressable
-              onPress={() => navigation.navigate("NuevoPermiso")}
+              onPress={() => navigation.navigate("NuevaVacacion")}
               scaleTo={0.94}
               style={styles.addBtn}
-              accessibilityLabel="Solicitar permiso"
+              accessibilityLabel="Solicitar vacaciones"
             >
               <Add size={20} color={COLORS.accent} variant="Linear" />
             </SoftPressable>
@@ -237,20 +255,27 @@ export default function MisPermisosScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={onRefresh}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  void load();
+                }}
                 tintColor={COLORS.ink}
               />
             }
           >
+            <PageFlipReveal delay={0} active={isFocused}>
+              <BalanceCard balance={balance} />
+            </PageFlipReveal>
+
             {items.length === 0 ? (
-              <PageFlipReveal delay={0} active={isFocused}>
+              <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
                 <View style={styles.empty}>
                   <View style={styles.emptyWell}>
-                    <ClipboardTick size={28} color={COLORS.accent} variant="Linear" />
+                    <CalendarTick size={28} color={COLORS.accent} variant="Linear" />
                   </View>
                   <Text style={styles.emptyTitle}>Sin solicitudes</Text>
                   <Text style={styles.emptyText}>
-                    Cuando pidas un permiso, aparece aquí con su estado.
+                    Aquí verás tus vacaciones pedidas, autorizadas o pagadas.
                   </Text>
                 </View>
               </PageFlipReveal>
@@ -258,19 +283,25 @@ export default function MisPermisosScreen() {
               <React.Fragment>
                 {pendingItems.length > 0 ? (
                   <View style={styles.sectionBlock}>
-                    <PageFlipReveal delay={0} active={isFocused}>
+                    <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
                       <Text style={styles.sectionTitle}>En revisión</Text>
                     </PageFlipReveal>
                     <View style={styles.list}>
                       {pendingItems.map((item, index) => (
                         <PageFlipReveal
                           key={item.id}
-                          delay={clampFlipDelay((index + 1) * FLIP_STAGGER_MS)}
+                          delay={clampFlipDelay(
+                            FLIP_STAGGER_MS * (index + 2),
+                          )}
                           active={isFocused}
                         >
-                          <PermisoCard
+                          <VacacionCard
                             item={item}
-                            onPress={() => openDetail(item.id)}
+                            onPress={() =>
+                              navigation.navigate("VacacionDetalle", {
+                                requestId: item.id,
+                              })
+                            }
                           />
                         </PageFlipReveal>
                       ))}
@@ -287,24 +318,29 @@ export default function MisPermisosScreen() {
                   >
                     <PageFlipReveal
                       delay={clampFlipDelay(
-                        (pendingItems.length + 1) * FLIP_STAGGER_MS,
+                        FLIP_STAGGER_MS * (pendingItems.length + 2),
                       )}
                       active={isFocused}
                     >
-                      <Text style={styles.sectionTitle}>Resueltos</Text>
+                      <Text style={styles.sectionTitle}>Historial</Text>
                     </PageFlipReveal>
                     <View style={styles.list}>
                       {resolvedItems.map((item, index) => (
                         <PageFlipReveal
                           key={item.id}
                           delay={clampFlipDelay(
-                            (pendingItems.length + index + 2) * FLIP_STAGGER_MS,
+                            FLIP_STAGGER_MS *
+                              (pendingItems.length + index + 3),
                           )}
                           active={isFocused}
                         >
-                          <PermisoCard
+                          <VacacionCard
                             item={item}
-                            onPress={() => openDetail(item.id)}
+                            onPress={() =>
+                              navigation.navigate("VacacionDetalle", {
+                                requestId: item.id,
+                              })
+                            }
                           />
                         </PageFlipReveal>
                       ))}
@@ -321,40 +357,73 @@ export default function MisPermisosScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: SCREEN_GUTTER,
-  },
+  root: { flex: 1, backgroundColor: "#F2F2F7" },
+  safe: { flex: 1 },
+  header: { paddingHorizontal: SCREEN_GUTTER },
   addBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
+    backgroundColor: ACCENT_SOFT,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ACCENT_SOFT,
   },
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
-  sectionBlock: {
-    width: "100%",
-    marginTop: 8,
+  balanceCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 8,
   },
-  sectionBlockFollow: {
-    width: "100%",
-    marginTop: 22,
+  balanceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
   },
+  balanceTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  balanceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  balanceStat: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "#F3F1EC",
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  balanceValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  balanceLabel: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.muted,
+  },
+  balanceHint: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
+    lineHeight: 18,
+  },
+  sectionBlock: { width: "100%", marginTop: 16 },
+  sectionBlockFollow: { width: "100%", marginTop: 22 },
   sectionTitle: {
     marginLeft: 4,
     marginBottom: 10,
@@ -362,9 +431,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.muted,
   },
-  list: {
-    gap: 12,
-  },
+  list: { gap: 12 },
   card: {
     minHeight: 78,
     paddingHorizontal: 14,
@@ -383,10 +450,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cardCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
+  cardCopy: { flex: 1, minWidth: 0 },
   cardTitleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -404,10 +468,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
+  badgeText: { fontSize: 11, fontWeight: "700" },
   cardMeta: {
     marginTop: 3,
     fontSize: 13,
@@ -422,11 +483,10 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
   empty: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
-    paddingTop: 48,
+    paddingTop: 40,
     gap: 8,
   },
   emptyWell: {

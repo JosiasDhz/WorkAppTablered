@@ -2,24 +2,22 @@ import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
-import { ShieldTick } from "iconsax-react-native";
 import { SoftReveal } from "../../../components/SoftPressable";
 import { isWorkerDriver } from "../../../auth/isWorkerDriver";
 import { RootState } from "../../../redux/store/store";
 import { useDriverPendingRoutes } from "../../profile/hooks/useDriverPendingRoutes";
 import { useHomeRevealActive } from "../HomeRevealActiveContext";
-import { HOME_COLORS } from "../homeTheme";
 import { buildDriverRoleHomeKpi } from "./buildDriverRoleHomeKpi";
-import { formatImssEnrolledDate } from "./formatImssEnrolledDate";
-import { HomeAttendanceKpi } from "./HomeAttendanceKpi";
 import {
   HomeExpedienteKpiRing,
   HomeExpedienteKpiTitle,
 } from "./HomeExpedienteKpi";
-import { HomeKpiCard, type HomeKpiTone } from "./HomeKpiCard";
 import { HomeShortcutCards } from "./HomeShortcutCards";
 import { HomeRoleKpi } from "./HomeRoleKpi";
+import { HomeAttendanceKpi } from "./HomeAttendanceKpi";
+import { HomeSideSlotCard } from "./HomeSideSlotCard";
 import { useWorkerHomeKpis } from "./useWorkerHomeKpis";
+import type { HomeKpiTone } from "./HomeKpiCard";
 
 function expedienteCaption(uploaded: number, total: number): string {
   if (total === 0) return "Sin documentos obligatorios";
@@ -58,6 +56,15 @@ export function HomeStatusKpis() {
 
   const openExpediente = () => {
     navigation.navigate("MisExpediente");
+  };
+
+  const openCommissions = () => {
+    const tabs = navigation.getParent();
+    if (tabs) {
+      tabs.navigate("UserProfileStack", { screen: "MisComisiones" });
+      return;
+    }
+    navigation.navigate("UserProfileStack", { screen: "MisComisiones" });
   };
 
   const openRoleKpi = () => {
@@ -107,37 +114,10 @@ export function HomeStatusKpis() {
     };
   }, [data, loading]);
 
-  const imss = useMemo(() => {
-    if (loading) {
-      return {
-        status: "Cargando",
-        caption: "Consultando tu alta IMSS",
-        tone: "neutral" as HomeKpiTone,
-      };
-    }
-    if (!data) {
-      return {
-        status: "No disponible",
-        caption: "Intenta de nuevo más tarde",
-        tone: "neutral" as HomeKpiTone,
-      };
-    }
-    if (!data.imss.isEnrolled) {
-      return {
-        status: "Sin alta",
-        caption: "Aún no estás dado de alta",
-        tone: "pending" as HomeKpiTone,
-      };
-    }
-    const enrolledLabel = formatImssEnrolledDate(data.imss.enrolledAt);
-    return {
-      status: "Dado de alta",
-      caption: enrolledLabel ? `Alta ${enrolledLabel}` : "Alta registrada",
-      tone: "ok" as HomeKpiTone,
-    };
-  }, [data, loading]);
-
   const attendance = data?.attendance ?? null;
+  const commission = data?.commission ?? null;
+  const sideRoleKpi =
+    commission?.programActive === true ? null : roleKpi;
 
   return (
     <View style={styles.board}>
@@ -173,24 +153,15 @@ export function HomeStatusKpis() {
         </View>
         <View style={styles.rightCol}>
           <SoftReveal delay={130} active={revealActive}>
-            <HomeKpiCard
-              title="IMSS"
-              status={imss.status}
-              caption={imss.caption}
-              tone={imss.tone}
-              accessibilityLabel={`IMSS ${imss.status}. ${imss.caption}`}
-              icon={
-                <ShieldTick
-                  size={18}
-                  color={
-                    imss.tone === "ok"
-                      ? HOME_COLORS.positive
-                      : imss.tone === "pending"
-                        ? HOME_COLORS.warning
-                        : HOME_COLORS.accent
-                  }
-                  variant="Linear"
-                />
+            <HomeSideSlotCard
+              loading={loading}
+              commission={commission}
+              roleKpi={sideRoleKpi}
+              onPressCommission={openCommissions}
+              onPressRole={
+                roleKpi?.action === "inventory" || roleKpi?.action === "routes"
+                  ? openRoleKpi
+                  : undefined
               }
             />
           </SoftReveal>

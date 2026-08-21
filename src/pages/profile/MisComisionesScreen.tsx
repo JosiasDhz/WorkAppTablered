@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,37 +9,65 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { ArrowLeft2, ArrowRight2, Coin } from "iconsax-react-native";
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+} from "@react-navigation/native";
+import {
+  ArrowLeft2,
+  ArrowRight2,
+  Coin,
+  TrendUp,
+} from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
+import { PageFlipReveal } from "../../components/PageFlipReveal";
+import { SoftPressable } from "../../components/SoftPressable";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   COMMISSION_KIND_LABELS,
   currentCommissionPeriodKey,
   fetchMyCommissions,
   formatCommissionPeriodLabel,
   shiftCommissionPeriodKey,
+  type CommissionGoalProgressDto,
   type MyCommissionLineDto,
   type MyCommissionsDto,
 } from "../../services/commissionsService";
 
 const COLORS = {
   surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
+  ink: "#1C1C1E",
+  muted: "#8E8E93",
+  divider: "rgba(60, 60, 67, 0.12)",
   accent: "#EA7600",
-  accentSoft: "#FFF4EB",
-  green: "#059669",
-  greenSoft: "#ECFDF5",
-  greenBorder: "#A7F3D0",
+  field: "#F3F1EC",
 };
+
+const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
+const DONE = "#16A34A";
+const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
+const FLIP_STAGGER_MS = 70;
+const MAX_FLIP_DELAY_MS = 700;
+
+function clampFlipDelay(delay: number) {
+  return Math.min(delay, MAX_FLIP_DELAY_MS);
+}
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
+  }).format(n);
+}
+
+function formatMoneyShort(n: number) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
   }).format(n);
 }
 
@@ -51,7 +78,6 @@ function formatAccruedAt(value: string | null) {
   const day = new Intl.DateTimeFormat("es-MX", {
     day: "numeric",
     month: "short",
-    year: "numeric",
   }).format(d);
   const time = new Intl.DateTimeFormat("es-MX", {
     hour: "2-digit",
@@ -73,32 +99,233 @@ function splitConcept(concept: string | null | undefined) {
   };
 }
 
+function headerSubtitle(
+  data: MyCommissionsDto | null,
+  loading: boolean,
+): string {
+  if (loading && !data) return "Cargando tu periodo";
+  if (!data) return "Tus comisiones del periodo";
+  if (data.programActive === false) return "Pronto habrá comisiones para ti";
+  if (data.goal) {
+    const pct = Math.round(data.goal.progress * 100);
+    if (data.goal.met) return "¡Meta del mes alcanzada!";
+    return `Vas al ${pct}% de tu meta`;
+  }
+  const total = data.totals.total ?? 0;
+  if (total > 0) return `${formatMoneyShort(total)} este periodo`;
+  return "Aún no hay movimientos este mes";
+}
+
+function PeriodSwitcher({
+  periodKey,
+  canGoNext,
+  onPrev,
+  onNext,
+}: {
+  periodKey: string;
+  canGoNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <View style={styles.periodRow}>
+      <SoftPressable
+        onPress={onPrev}
+        scaleTo={0.96}
+        style={styles.periodBtn}
+        accessibilityLabel="Periodo anterior"
+      >
+        <ArrowLeft2 size={18} color={COLORS.ink} variant="Linear" />
+      </SoftPressable>
+      <Text style={styles.periodLabel}>
+        {formatCommissionPeriodLabel(periodKey)}
+      </Text>
+      <SoftPressable
+        onPress={onNext}
+        disabled={!canGoNext}
+        scaleTo={0.96}
+        style={[styles.periodBtn, !canGoNext ? styles.periodBtnDisabled : null]}
+        accessibilityLabel="Periodo siguiente"
+      >
+        <ArrowRight2
+          size={18}
+          color={canGoNext ? COLORS.ink : "#C7C7CC"}
+          variant="Linear"
+        />
+      </SoftPressable>
+    </View>
+  );
+}
+
+function HeroTotalCard({
+  total,
+  tierLabel,
+}: {
+  total: number;
+  tierLabel: string | null;
+}) {
+  return (
+    <View style={styles.heroCard}>
+      <View style={styles.heroTop}>
+        <View style={styles.iconWell}>
+          <Coin size={20} color={COLORS.accent} variant="Bold" />
+        </View>
+        <View style={styles.heroCopy}>
+          <Text style={styles.heroHint}>Total del periodo</Text>
+          <Text style={styles.heroAmount}>{formatMoney(total)}</Text>
+        </View>
+      </View>
+      {tierLabel ? (
+        <View style={styles.tierStrip}>
+          <Text style={styles.tierStripLabel}>Tu esquema</Text>
+          <Text style={styles.tierStripValue}>{tierLabel}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
+  const pct = Math.round(goal.progress * 100);
+  const met = goal.met;
+  return (
+    <View style={styles.goalCard}>
+      <View style={styles.goalHeader}>
+        <View style={[styles.iconWell, met ? styles.iconWellDone : null]}>
+          <TrendUp
+            size={20}
+            color={met ? DONE : COLORS.accent}
+            variant="Bold"
+          />
+        </View>
+        <View style={styles.goalCopy}>
+          <Text style={styles.goalTitle}>{goal.label}</Text>
+          <Text style={styles.goalSubtitle}>
+            {met
+              ? "¡Ya llegaste a la meta!"
+              : `Te faltan ${formatMoneyShort(goal.remaining)}`}
+          </Text>
+        </View>
+        <Text style={[styles.goalPct, met ? { color: DONE } : null]}>
+          {pct}%
+        </Text>
+      </View>
+      <View style={styles.goalTrack}>
+        <View
+          style={[
+            styles.goalFill,
+            {
+              width: `${Math.max(4, Math.min(100, pct))}%`,
+              backgroundColor: met ? DONE : COLORS.accent,
+            },
+          ]}
+        />
+      </View>
+      <View style={styles.statRow}>
+        <View style={styles.statCell}>
+          <Text style={styles.statValue}>{formatMoneyShort(goal.current)}</Text>
+          <Text style={styles.statLabel}>Vas</Text>
+        </View>
+        <View style={styles.statCell}>
+          <Text style={styles.statValue}>{formatMoneyShort(goal.target)}</Text>
+          <Text style={styles.statLabel}>Meta</Text>
+        </View>
+        {goal.bonusAmount != null && goal.bonusAmount > 0 ? (
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: DONE }]}>
+              {formatMoneyShort(goal.bonusAmount)}
+            </Text>
+            <Text style={styles.statLabel}>Bono</Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function KindBreakdown({
+  entries,
+}: {
+  entries: Array<{ kind: string; label: string; amount: number }>;
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <View style={styles.kindGrid}>
+      {entries.map((entry) => (
+        <View key={entry.kind} style={styles.kindChip}>
+          <Text style={styles.kindChipLabel}>{entry.label}</Text>
+          <Text style={styles.kindChipAmount}>{formatMoney(entry.amount)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function LineCard({ line }: { line: MyCommissionLineDto }) {
   const { label, ref } = splitConcept(line.concept);
   const kindLabel = COMMISSION_KIND_LABELS[line.kind] ?? line.kind;
-
   return (
     <View style={styles.lineCard}>
-      <View style={styles.lineTop}>
-        <View style={styles.kindPill}>
-          <Text style={styles.kindPillText}>{kindLabel}</Text>
-        </View>
-        <Text style={styles.lineAmount}>{formatMoney(line.amount)}</Text>
+      <View style={styles.iconWell}>
+        <Coin size={18} color={COLORS.accent} variant="Bold" />
       </View>
-      <Text style={styles.lineLabel}>{label}</Text>
-      {ref ? <Text style={styles.lineRef}>{ref}</Text> : null}
-      <View style={styles.lineMeta}>
-        <Text style={styles.lineMetaText}>{formatAccruedAt(line.accruedAt)}</Text>
-        <Text style={styles.lineMetaText}>
-          Base {formatMoney(line.baseAmount)} · {line.ratePercent}%
+      <View style={styles.lineCopy}>
+        <View style={styles.lineTitleRow}>
+          <Text style={styles.lineTitle} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={styles.lineAmount}>{formatMoney(line.amount)}</Text>
+        </View>
+        <View style={styles.lineBadge}>
+          <Text style={styles.lineBadgeText}>{kindLabel}</Text>
+        </View>
+        {ref ? (
+          <Text style={styles.lineMeta} numberOfLines={1}>
+            {ref}
+          </Text>
+        ) : null}
+        <Text style={styles.lineMeta} numberOfLines={1}>
+          {formatAccruedAt(line.accruedAt)}
+          {line.ratePercent > 0 ? ` · ${line.ratePercent}%` : ""}
         </Text>
       </View>
     </View>
   );
 }
 
+function ComingSoonEmptyState() {
+  return (
+    <View style={styles.comingEmpty}>
+      <View style={styles.comingIconWell}>
+        <Coin size={28} color={COLORS.accent} variant="Linear" />
+      </View>
+      <Text style={styles.comingTitle}>Pronto habrá comisiones para ti</Text>
+      <Text style={styles.comingHint}>
+        Cuando se active el esquema para tu rol, aparecen aquí tu avance, metas
+        y lo que vayas generando.
+      </Text>
+    </View>
+  );
+}
+
+function EmptyMovements() {
+  return (
+    <View style={styles.empty}>
+      <View style={styles.iconWell}>
+        <Coin size={22} color={COLORS.muted} variant="Bold" />
+      </View>
+      <Text style={styles.emptyTitle}>Aún no hay movimientos</Text>
+      <Text style={styles.emptyHint}>
+        Cuando completes ventas o entregas, aquí verás lo que vas generando en
+        el periodo.
+      </Text>
+    </View>
+  );
+}
+
 export default function MisComisionesScreen() {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -139,290 +366,431 @@ export default function MisComisionesScreen() {
 
   const lines = data?.lines ?? [];
   const canGoNext = periodKey < currentCommissionPeriodKey();
+  const programActive = data == null ? true : data.programActive !== false;
+  const showTier =
+    Boolean(data?.commissionTier) && !data?.goal && programActive;
+  const tierLabel = showTier
+    ? `${data!.commissionTier.name} · ${data!.commissionTier.ratePercent}%`
+    : null;
+
+  let flip = 0;
+  const nextFlip = () => {
+    flip += 1;
+    return clampFlipDelay(FLIP_STAGGER_MS * flip);
+  };
 
   return (
-    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
-      <HeaderTitle
-        title="Mis comisiones"
-        subtitle="Lo generado en el periodo"
-        tone="light"
-        onBack={() => navigation.goBack()}
-      />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{
-          paddingBottom: Math.max(tabBarHeight, insets.bottom) + 24,
-          paddingHorizontal: 16,
-          paddingTop: 8,
-        }}
-        showsVerticalScrollIndicator={false}
-        onScroll={onAutoTabBarScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void load(periodKey, true);
-            }}
-            tintColor={COLORS.accent}
-          />
-        }
-      >
-        <View style={styles.periodRow}>
-          <Pressable
-            style={styles.periodBtn}
-            onPress={() => setPeriodKey((k) => shiftCommissionPeriodKey(k, -1))}
-            accessibilityRole="button"
-            accessibilityLabel="Periodo anterior"
-          >
-            <ArrowLeft2 size={18} color={COLORS.text} />
-          </Pressable>
-          <Text style={styles.periodLabel}>{formatCommissionPeriodLabel(periodKey)}</Text>
-          <Pressable
-            style={[styles.periodBtn, !canGoNext ? styles.periodBtnDisabled : null]}
-            onPress={() => {
-              if (!canGoNext) return;
-              setPeriodKey((k) => shiftCommissionPeriodKey(k, 1));
-            }}
-            disabled={!canGoNext}
-            accessibilityRole="button"
-            accessibilityLabel="Periodo siguiente"
-          >
-            <ArrowRight2 size={18} color={canGoNext ? COLORS.text : "#CBD5E1"} />
-          </Pressable>
-        </View>
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
+        <HeaderTitle
+          title="Mis comisiones"
+          subtitle={headerSubtitle(data, loading)}
+          tone="light"
+          style={styles.header}
+          onBack={() => navigation.goBack()}
+        />
 
         {loading && !data ? (
-          <View style={styles.center}>
+          <View style={styles.centered}>
             <ActivityIndicator size="large" color={COLORS.accent} />
           </View>
+        ) : !programActive ? (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingHorizontal: SCREEN_GUTTER,
+              paddingBottom: Math.max(tabBarHeight, insets.bottom) + 36,
+              paddingTop: 4,
+            }}
+            showsVerticalScrollIndicator={false}
+            onScroll={onAutoTabBarScroll}
+            scrollEventThrottle={16}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  void load(periodKey, true);
+                }}
+                tintColor={COLORS.accent}
+              />
+            }
+          >
+            <PageFlipReveal delay={0} active={isFocused} style={styles.comingReveal}>
+              <ComingSoonEmptyState />
+            </PageFlipReveal>
+          </ScrollView>
         ) : (
-          <>
-            <View style={styles.totalCard}>
-              <View style={styles.totalIconWrap}>
-                <Coin size={22} color={COLORS.green} variant="Bold" />
-              </View>
-              <View style={styles.totalCopy}>
-                <Text style={styles.totalHint}>Total del periodo</Text>
-                <Text style={styles.totalAmount}>
-                  {formatMoney(data?.totals.total ?? 0)}
-                </Text>
-              </View>
-            </View>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={{
+              paddingHorizontal: SCREEN_GUTTER,
+              paddingBottom: Math.max(tabBarHeight, insets.bottom) + 24,
+              paddingTop: 4,
+            }}
+            showsVerticalScrollIndicator={false}
+            onScroll={onAutoTabBarScroll}
+            scrollEventThrottle={16}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  void load(periodKey, true);
+                }}
+                tintColor={COLORS.accent}
+              />
+            }
+          >
+            <PageFlipReveal delay={nextFlip()} active={isFocused}>
+              <PeriodSwitcher
+                periodKey={periodKey}
+                canGoNext={canGoNext}
+                onPrev={() =>
+                  setPeriodKey((k) => shiftCommissionPeriodKey(k, -1))
+                }
+                onNext={() => {
+                  if (!canGoNext) return;
+                  setPeriodKey((k) => shiftCommissionPeriodKey(k, 1));
+                }}
+              />
+            </PageFlipReveal>
 
-            {kindEntries.length > 0 ? (
-              <View style={styles.kindRow}>
-                {kindEntries.map((entry) => (
-                  <View key={entry.kind} style={styles.kindChip}>
-                    <Text style={styles.kindChipLabel}>{entry.label}</Text>
-                    <Text style={styles.kindChipAmount}>{formatMoney(entry.amount)}</Text>
-                  </View>
-                ))}
-              </View>
+            <PageFlipReveal delay={nextFlip()} active={isFocused}>
+              <HeroTotalCard
+                total={data?.totals.total ?? 0}
+                tierLabel={tierLabel}
+              />
+            </PageFlipReveal>
+
+            {data?.goal ? (
+              <PageFlipReveal delay={nextFlip()} active={isFocused}>
+                <GoalProgressCard goal={data.goal} />
+              </PageFlipReveal>
             ) : null}
 
-            <Text style={styles.sectionTitle}>
-              {lines.length === 1 ? "1 línea" : `${lines.length} líneas`}
-            </Text>
+            {kindEntries.length > 0 ? (
+              <PageFlipReveal delay={nextFlip()} active={isFocused}>
+                <KindBreakdown entries={kindEntries} />
+              </PageFlipReveal>
+            ) : null}
+
+            <PageFlipReveal delay={nextFlip()} active={isFocused}>
+              <Text style={styles.sectionTitle}>
+                {lines.length === 1
+                  ? "1 movimiento"
+                  : `${lines.length} movimientos`}
+              </Text>
+            </PageFlipReveal>
 
             {lines.length === 0 ? (
-              <View style={styles.empty}>
-                <Coin size={40} color="#CBD5E1" variant="Bold" />
-                <Text style={styles.emptyTitle}>Sin comisiones</Text>
-                <Text style={styles.emptyHint}>
-                  Cuando completes entregas, aquí verás lo generado en el periodo.
-                </Text>
-              </View>
+              <PageFlipReveal delay={nextFlip()} active={isFocused}>
+                <EmptyMovements />
+              </PageFlipReveal>
             ) : (
-              lines.map((line) => <LineCard key={line.id} line={line} />)
+              <View style={styles.list}>
+                {lines.map((line, index) => (
+                  <PageFlipReveal
+                    key={line.id}
+                    delay={clampFlipDelay(FLIP_STAGGER_MS * (flip + index + 1))}
+                    active={isFocused}
+                  >
+                    <LineCard line={line} />
+                  </PageFlipReveal>
+                ))}
+              </View>
             )}
-          </>
+          </ScrollView>
         )}
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: { flex: 1, backgroundColor: "#F2F2F7" },
+  safe: { flex: 1 },
+  header: { paddingHorizontal: SCREEN_GUTTER },
+  scroll: { flex: 1 },
+  centered: {
     flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  center: {
-    paddingTop: 48,
     alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
   },
   periodRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 14,
-    paddingHorizontal: 4,
   },
   periodBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  periodBtnDisabled: {
-    opacity: 0.55,
-  },
+  periodBtnDisabled: { opacity: 0.45 },
   periodLabel: {
     flex: 1,
     textAlign: "center",
     fontSize: 16,
     fontWeight: "800",
-    color: COLORS.text,
+    color: COLORS.ink,
   },
-  totalCard: {
+  heroCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+  },
+  heroTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: COLORS.greenSoft,
-    borderWidth: 1,
-    borderColor: COLORS.greenBorder,
-    marginBottom: 12,
   },
-  totalIconWrap: {
+  iconWell: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: ACCENT_SOFT,
     alignItems: "center",
     justifyContent: "center",
   },
-  totalCopy: {
-    flex: 1,
+  iconWellDone: {
+    backgroundColor: DONE_SOFT,
   },
-  totalHint: {
+  heroCopy: { flex: 1, minWidth: 0 },
+  heroHint: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#065F46",
+    color: COLORS.muted,
   },
-  totalAmount: {
+  heroAmount: {
     marginTop: 2,
-    fontSize: 26,
-    fontWeight: "900",
-    color: COLORS.green,
-    letterSpacing: -0.4,
+    fontSize: 28,
+    fontWeight: "800",
+    color: COLORS.ink,
+    letterSpacing: -0.5,
   },
-  kindRow: {
+  tierStrip: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.divider,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  tierStripLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.muted,
+  },
+  tierStripValue: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.ink,
+  },
+  goalCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+  },
+  goalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  goalCopy: { flex: 1, minWidth: 0 },
+  goalTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  goalSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.muted,
+  },
+  goalPct: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.accent,
+  },
+  goalTrack: {
+    marginTop: 14,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: COLORS.field,
+    overflow: "hidden",
+  },
+  goalFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  statRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    gap: 8,
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: COLORS.field,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.ink,
+  },
+  statLabel: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.muted,
+  },
+  kindGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   kindChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minWidth: "47%",
     flexGrow: 1,
+    minWidth: "46%",
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   kindChipLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: COLORS.muted,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   kindChipAmount: {
     marginTop: 4,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
-    color: COLORS.text,
+    color: COLORS.ink,
   },
   sectionTitle: {
+    marginLeft: 4,
+    marginTop: 10,
     marginBottom: 10,
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "700",
     color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
   },
+  list: { gap: 10 },
   lineCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 18,
     padding: 14,
-    marginBottom: 10,
   },
-  lineTop: {
+  lineCopy: { flex: 1, minWidth: 0 },
+  lineTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
   },
-  kindPill: {
+  lineTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.ink,
+  },
+  lineAmount: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.ink,
+  },
+  lineBadge: {
+    alignSelf: "flex-start",
+    marginTop: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: ACCENT_SOFT,
   },
-  kindPillText: {
+  lineBadgeText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#2563EB",
-  },
-  lineAmount: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: COLORS.text,
-  },
-  lineLabel: {
-    marginTop: 10,
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  lineRef: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
+    color: COLORS.accent,
   },
   lineMeta: {
-    marginTop: 10,
-    gap: 2,
-  },
-  lineMetaText: {
+    marginTop: 4,
     fontSize: 12,
-    fontWeight: "600",
-    color: "#94A3B8",
+    fontWeight: "500",
+    color: COLORS.muted,
   },
   empty: {
     alignItems: "center",
-    paddingVertical: 40,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
     paddingHorizontal: 24,
+    paddingVertical: 36,
   },
   emptyTitle: {
     marginTop: 12,
     fontSize: 16,
     fontWeight: "800",
-    color: COLORS.text,
+    color: COLORS.ink,
   },
   emptyHint: {
     marginTop: 6,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: COLORS.muted,
     textAlign: "center",
     lineHeight: 18,
   },
+  comingEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    gap: 8,
+  },
+  comingReveal: {
+    flex: 1,
+  },
+  comingIconWell: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: ACCENT_SOFT,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  comingTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.ink,
+    textAlign: "center",
+  },
+  comingHint: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.muted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });
-

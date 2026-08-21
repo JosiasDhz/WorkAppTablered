@@ -92,6 +92,25 @@ export type WorkerHomeKpis = {
   imss: WorkerImssKpi;
   attendance: WorkerAttendanceKpi;
   roleKpi: WorkerRoleHomeKpi | null;
+  commission: WorkerCommissionKpi | null;
+};
+
+export type WorkerCommissionKpi = {
+  programActive: boolean;
+  periodKey: string;
+  earnedTotal: number;
+  title: string;
+  caption: string;
+  progress: number;
+  percentLabel: string;
+  goal: {
+    label: string;
+    current: number;
+    target: number;
+    remaining: number;
+    bonusAmount: number | null;
+    met: boolean;
+  } | null;
 };
 
 export async function getWorkerHomeKpis(): Promise<WorkerHomeKpis> {

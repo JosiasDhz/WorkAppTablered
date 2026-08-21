@@ -8,7 +8,7 @@ import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
 
 const SHORTCUTS = [
   { label: "Permisos", screen: "MisPermisos", Icon: ClipboardTick },
-  { label: "Vacaciones", screen: "MisPermisos", Icon: CalendarTick },
+  { label: "Vacaciones", screen: "MisVacaciones", Icon: CalendarTick },
   { label: "Chequeos", screen: "MisRegistros", Icon: Calendar1 },
 ] as const;
 
