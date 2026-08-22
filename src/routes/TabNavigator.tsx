@@ -164,10 +164,13 @@ const TabNavigator = () => {
   );
 };
 
+const BACKGROUND_LOCK_MS = 10 * 60 * 1000;
+
 const AppNavigator = () => {
   const dispatch = useDispatch();
   const { token } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = React.useState(true);
+  const backgroundedAtRef = React.useRef<number | null>(null);
   useOpenNotificationFromPush(Boolean(token) && !loading);
 
   const getData = async () => {
@@ -186,12 +189,22 @@ const AppNavigator = () => {
   React.useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "background") {
+        if (backgroundedAtRef.current == null && token) {
+          backgroundedAtRef.current = Date.now();
+        }
+        return;
+      }
+      if (next !== "active") return;
+
+      const leftAt = backgroundedAtRef.current;
+      backgroundedAtRef.current = null;
+      if (!token) return;
+
+      if (leftAt != null && Date.now() - leftAt >= BACKGROUND_LOCK_MS) {
         dispatch(logout());
         return;
       }
-      if (next === "active" && token) {
-        refreshAuthSessionOnAppForeground(dispatch);
-      }
+      refreshAuthSessionOnAppForeground(dispatch);
     });
     return () => sub.remove();
   }, [token, dispatch]);

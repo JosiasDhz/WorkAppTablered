@@ -48,6 +48,21 @@ const APPEARANCE_BY_TYPE: Record<string, NotificationAppearance> = {
     tint: NOTIFICATION_COLORS.rose,
     wash: NOTIFICATION_COLORS.roseSoft,
   },
+  LATE_ENTRY_AUTHORIZATION_PENDING: {
+    Icon: Clock,
+    tint: NOTIFICATION_COLORS.warning,
+    wash: NOTIFICATION_COLORS.warningSoft,
+  },
+  LATE_ENTRY_AUTHORIZATION_APPROVED: {
+    Icon: ClipboardTick,
+    tint: NOTIFICATION_COLORS.emerald,
+    wash: NOTIFICATION_COLORS.emeraldSoft,
+  },
+  LATE_ENTRY_AUTHORIZATION_REJECTED: {
+    Icon: CloseCircle,
+    tint: NOTIFICATION_COLORS.rose,
+    wash: NOTIFICATION_COLORS.roseSoft,
+  },
   RECORDATORIO_CHEQUEO: {
     Icon: Clock,
     tint: NOTIFICATION_COLORS.warning,

@@ -33,7 +33,7 @@ export function HomeShortcutCards() {
           delay={240 + index * 70}
           active={revealActive}
           style={styles.cardReveal}
-        >
+        > 
           <SoftPressable
             onPress={() => openProfileScreen(navigation, screen)}
             scaleTo={0.98}

@@ -10,18 +10,25 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
+import Toast from "react-native-toast-message";
 import { HeaderTitle } from "../../components/HeaderTitle";
-import { SoftReveal } from "../../components/SoftPressable";
+import { SoftPressable, SoftReveal } from "../../components/SoftPressable";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getInAppNotification,
   markInAppNotificationRead,
   type InAppNotificationRow,
 } from "../../services/inAppNotificationService";
+import {
+  authorizeLateEntry,
+  rejectLateEntry,
+} from "../../services/lateEntryAuthorizationService";
 import { refreshInAppUnreadCount } from "../../services/inAppUnreadBadge";
 import type { NotificationsStackParamList } from "../../routes/navigators/NotificationsStackParamList";
 import { resolveNotificationAppearance } from "./notificationAppearance";
 import { NOTIFICATION_COLORS, NOTIFICATION_RADIUS } from "./notificationsTheme";
+
+const LATE_ENTRY_PENDING = "LATE_ENTRY_AUTHORIZATION_PENDING";
 
 function formatDetailDate(iso: string): string {
   if (!iso) return "";
@@ -35,6 +42,30 @@ function formatDetailDate(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function readLateEntryPayload(payload: Record<string, unknown>) {
+  const sellerId =
+    typeof payload.sellerId === "string" ? payload.sellerId.trim() : "";
+  const workDayYmd =
+    typeof payload.workDayYmd === "string" ? payload.workDayYmd.trim() : "";
+  return {
+    sellerId,
+    workDayYmd: /^\d{4}-\d{2}-\d{2}$/.test(workDayYmd) ? workDayYmd : undefined,
+  };
+}
+
+function apiErrorMessage(error: unknown): string {
+  if (error && typeof error === "object") {
+    const data = error as Record<string, unknown>;
+    if (typeof data.message === "string" && data.message.trim()) {
+      return data.message;
+    }
+    if (Array.isArray(data.message) && data.message.length > 0) {
+      return String(data.message[0]);
+    }
+  }
+  return "No se pudo completar la acción.";
 }
 
 export default function NotificationDetailScreen() {
@@ -51,6 +82,8 @@ export default function NotificationDetailScreen() {
   const [row, setRow] = useState<InAppNotificationRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [acting, setActing] = useState<"approve" | "reject" | null>(null);
+  const [resolved, setResolved] = useState(false);
 
   const load = useCallback(async () => {
     if (!notificationId) {
@@ -89,6 +122,47 @@ export default function NotificationDetailScreen() {
   const type = row?.type || previewType || "";
   const { Icon, tint, wash } = resolveNotificationAppearance(type);
   const whenLabel = formatDetailDate(row?.createdAt ?? "");
+  const lateEntry = readLateEntryPayload(row?.payload ?? {});
+  const canReviewLateEntry =
+    type === LATE_ENTRY_PENDING && Boolean(lateEntry.sellerId) && !resolved;
+
+  const runLateEntryAction = async (action: "approve" | "reject") => {
+    if (!lateEntry.sellerId || acting) return;
+    setActing(action);
+    try {
+      if (action === "approve") {
+        await authorizeLateEntry({
+          sellerId: lateEntry.sellerId,
+          workDayYmd: lateEntry.workDayYmd,
+        });
+        Toast.show({
+          type: "success",
+          text1: "Entrada autorizada",
+          text2: "El colaborador ya puede continuar su jornada.",
+        });
+      } else {
+        await rejectLateEntry({
+          sellerId: lateEntry.sellerId,
+          workDayYmd: lateEntry.workDayYmd,
+        });
+        Toast.show({
+          type: "success",
+          text1: "Entrada rechazada",
+          text2: "Se avisó al colaborador.",
+        });
+      }
+      setResolved(true);
+      void refreshInAppUnreadCount();
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "No se pudo completar",
+        text2: apiErrorMessage(error),
+      });
+    } finally {
+      setActing(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
@@ -127,6 +201,39 @@ export default function NotificationDetailScreen() {
               <Text style={styles.title}>{title}</Text>
               {whenLabel ? <Text style={styles.when}>{whenLabel}</Text> : null}
               {body ? <Text style={styles.body}>{body}</Text> : null}
+              {canReviewLateEntry ? (
+                <View style={styles.actions}>
+                  <SoftPressable
+                    onPress={() => void runLateEntryAction("reject")}
+                    disabled={Boolean(acting)}
+                    style={[styles.actionBtn, styles.rejectBtn]}
+                    accessibilityLabel="Rechazar entrada"
+                  >
+                    {acting === "reject" ? (
+                      <ActivityIndicator color={NOTIFICATION_COLORS.rose} />
+                    ) : (
+                      <Text style={styles.rejectLabel}>Rechazar</Text>
+                    )}
+                  </SoftPressable>
+                  <SoftPressable
+                    onPress={() => void runLateEntryAction("approve")}
+                    disabled={Boolean(acting)}
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    accessibilityLabel="Autorizar entrada"
+                  >
+                    {acting === "approve" ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.approveLabel}>Autorizar</Text>
+                    )}
+                  </SoftPressable>
+                </View>
+              ) : null}
+              {resolved ? (
+                <Text style={styles.resolvedLabel}>
+                  Decisión registrada. El colaborador ya fue notificado.
+                </Text>
+              ) : null}
             </View>
           </SoftReveal>
         )}
@@ -195,5 +302,42 @@ const styles = StyleSheet.create({
     color: NOTIFICATION_COLORS.ink,
     textAlign: "center",
     alignSelf: "stretch",
+  },
+  actions: {
+    marginTop: 24,
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  rejectBtn: {
+    backgroundColor: NOTIFICATION_COLORS.roseSoft,
+  },
+  approveBtn: {
+    backgroundColor: NOTIFICATION_COLORS.accent,
+  },
+  rejectLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: NOTIFICATION_COLORS.rose,
+  },
+  approveLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  resolvedLabel: {
+    marginTop: 18,
+    fontSize: 14,
+    fontWeight: "600",
+    color: NOTIFICATION_COLORS.emerald,
+    textAlign: "center",
   },
 });
