@@ -179,6 +179,13 @@ export default function PermisoDetalleScreen() {
             <Text style={styles.bodyText}>{item.description}</Text>
           </View>
 
+          {item.pendingWorkNotes ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Cobertura y pendientes</Text>
+              <Text style={styles.bodyText}>{item.pendingWorkNotes}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Información</Text>
             <View style={styles.infoRow}>

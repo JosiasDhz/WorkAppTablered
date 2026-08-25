@@ -24,6 +24,10 @@ export type VacationBalanceDto = {
   tierId: string | null;
   noticeDays: number;
   minServiceYears: number;
+  monthKey?: string;
+  monthDaysUsed?: number;
+  monthDaysPending?: number;
+  monthDaysRemaining?: number;
 };
 
 export type VacationRequestDto = PermissionRequestDto;
@@ -63,6 +67,7 @@ export async function createVacationRequest(payload: {
   description: string;
   permissionDate: string;
   requestedDays: number;
+  pendingWorkNotes: string;
   fileIds: string[];
 }) {
   return createPermissionRequest({

@@ -108,6 +108,8 @@ export default function NuevaVacacionScreen() {
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
 
   const [description, setDescription] = useState("");
+  const [coverage, setCoverage] = useState("");
+  const [pendingWork, setPendingWork] = useState("");
   const [requestedDays, setRequestedDays] = useState(1);
   const [permissionDate, setPermissionDate] = useState(todayStart());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -115,6 +117,8 @@ export default function NuevaVacacionScreen() {
   const [evidence, setEvidence] = useState<LocalEvidence[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [motivoFocused, setMotivoFocused] = useState(false);
+  const [coverageFocused, setCoverageFocused] = useState(false);
+  const [pendingFocused, setPendingFocused] = useState(false);
   const [balance, setBalance] = useState<VacationBalanceDto | null>(null);
 
   const dateLabel = useMemo(() => localYmd(permissionDate), [permissionDate]);
@@ -128,6 +132,9 @@ export default function NuevaVacacionScreen() {
   const noticeDays = balance?.noticeDays ?? 30;
   const periodMin = balance?.periodMinDays ?? 1;
   const periodMax = balance?.periodMaxDays ?? 32;
+  const monthRemaining = balance?.monthDaysRemaining ?? periodMax;
+  const yearRemaining = balance?.daysRemaining ?? periodMax;
+  const stepMax = Math.min(periodMax, monthRemaining, yearRemaining);
 
   const noticeWarning = useMemo(() => {
     if (calendarDaysUntilDate(permissionDate) < noticeDays) {
@@ -136,10 +143,19 @@ export default function NuevaVacacionScreen() {
     return null;
   }, [permissionDate, noticeDays]);
 
+  const monthWarning = useMemo(() => {
+    if (stepMax < periodMin) {
+      return `Este mes ya no puedes tomar el mínimo de ${periodMin} día(s) según tu antigüedad.`;
+    }
+    return null;
+  }, [stepMax, periodMin]);
+
   useEffect(() => {
     if (requestedDays < periodMin) setRequestedDays(periodMin);
-    if (requestedDays > periodMax) setRequestedDays(periodMax);
-  }, [periodMin, periodMax, requestedDays]);
+    if (stepMax >= periodMin && requestedDays > stepMax) {
+      setRequestedDays(stepMax);
+    }
+  }, [periodMin, stepMax, requestedDays]);
 
   const addPhoto = async () => {
     if (evidence.length >= MAX_EVIDENCE) {
@@ -202,10 +218,23 @@ export default function NuevaVacacionScreen() {
 
   const submit = async () => {
     const desc = description.trim();
+    const whoCovers = coverage.trim();
+    const pending = pendingWork.trim();
     if (!desc) {
+      Alert.alert("Motivo requerido", "Escribe el motivo de tus vacaciones.");
+      return;
+    }
+    if (!whoCovers) {
       Alert.alert(
-        "Motivo requerido",
-        "Escribe el motivo y quién cubre tu lugar durante el periodo.",
+        "Cobertura requerida",
+        "Indica quién cubre tu lugar durante el periodo.",
+      );
+      return;
+    }
+    if (!pending) {
+      Alert.alert(
+        "Pendientes requeridos",
+        "Deja los pendientes del puesto para no entorpecer la operación.",
       );
       return;
     }
@@ -215,6 +244,10 @@ export default function NuevaVacacionScreen() {
     }
     if (noticeWarning) {
       Alert.alert("Aviso insuficiente", noticeWarning);
+      return;
+    }
+    if (monthWarning) {
+      Alert.alert("Tope del mes", monthWarning);
       return;
     }
     if (balance && !balance.eligible) {
@@ -252,6 +285,7 @@ export default function NuevaVacacionScreen() {
         description: desc,
         permissionDate: dateLabel,
         requestedDays,
+        pendingWorkNotes: `Quién cubre: ${whoCovers}\nPendientes: ${pending}`,
         fileIds,
       });
       Alert.alert(
@@ -305,7 +339,7 @@ export default function NuevaVacacionScreen() {
               {balance ? (
                 <Text style={styles.helperText}>
                   {balance.eligible
-                    ? `Restan ${balance.daysRemaining} de ${balance.annualDays} días · ${balance.periodHint ?? "periodo según antigüedad"}`
+                    ? `Restan ${balance.daysRemaining} de ${balance.annualDays} días este año · ${balance.monthDaysRemaining ?? 0} día(s) este mes · ${balance.periodHint ?? "periodo según antigüedad"}`
                     : balance.hireDate
                       ? `Aún no cumples ${balance.minServiceYears} año(s) de servicio`
                       : "Sin fecha de ingreso registrada"}
@@ -352,7 +386,9 @@ export default function NuevaVacacionScreen() {
                 <Text style={styles.stepValue}>{requestedDays}</Text>
                 <SoftPressable
                   onPress={() =>
-                    setRequestedDays((v) => Math.min(periodMax, v + 1))
+                    setRequestedDays((v) =>
+                      stepMax < periodMin ? v : Math.min(stepMax, v + 1),
+                    )
                   }
                   scaleTo={0.94}
                   style={styles.stepBtn}
@@ -362,13 +398,22 @@ export default function NuevaVacacionScreen() {
               </View>
               <Text style={styles.helperText}>
                 Permitido: {periodMin}
-                {periodMin === periodMax ? "" : `–${periodMax}`} día(s) por periodo
+                {periodMin === periodMax ? "" : `–${periodMax}`} día(s) al mes
+                {balance?.monthDaysRemaining != null
+                  ? ` · quedan ${balance.monthDaysRemaining} este mes`
+                  : ""}
               </Text>
 
               {noticeWarning ? (
                 <View style={styles.warnBox}>
                   <InfoCircle size={16} color={COLORS.warnText} variant="Bold" />
                   <Text style={styles.warnText}>{noticeWarning}</Text>
+                </View>
+              ) : null}
+              {monthWarning ? (
+                <View style={styles.warnBox}>
+                  <InfoCircle size={16} color={COLORS.warnText} variant="Bold" />
+                  <Text style={styles.warnText}>{monthWarning}</Text>
                 </View>
               ) : null}
             </SectionCard>
@@ -389,7 +434,51 @@ export default function NuevaVacacionScreen() {
                   onFocus={() => setMotivoFocused(true)}
                   onBlur={() => setMotivoFocused(false)}
                   multiline
-                  placeholder="Motivo, pendientes y quién cubre tu lugar…"
+                  placeholder="Motivo de las vacaciones…"
+                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  style={styles.motivoInput}
+                />
+              </View>
+            </SectionCard>
+          </PageFlipReveal>
+
+          <PageFlipReveal delay={175} active={isFocused}>
+            <SectionCard title="Cobertura y pendientes">
+              <Text style={styles.fieldCaption}>Quién cubre tu lugar</Text>
+              <View
+                style={[
+                  styles.fieldShell,
+                  styles.shortShell,
+                  coverageFocused && styles.fieldShellFocused,
+                ]}
+              >
+                <TextInput
+                  value={coverage}
+                  onChangeText={setCoverage}
+                  onFocus={() => setCoverageFocused(true)}
+                  onBlur={() => setCoverageFocused(false)}
+                  placeholder="Nombre de quien cubre tu puesto…"
+                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  style={styles.shortInput}
+                />
+              </View>
+              <Text style={[styles.fieldCaption, { marginTop: 16 }]}>
+                Pendientes del puesto
+              </Text>
+              <View
+                style={[
+                  styles.fieldShell,
+                  styles.motivoShell,
+                  pendingFocused && styles.fieldShellFocused,
+                ]}
+              >
+                <TextInput
+                  value={pendingWork}
+                  onChangeText={setPendingWork}
+                  onFocus={() => setPendingFocused(true)}
+                  onBlur={() => setPendingFocused(false)}
+                  multiline
+                  placeholder="Qué dejas pendiente para no detener la operación…"
                   placeholderTextColor="rgba(105, 97, 88, 0.55)"
                   style={styles.motivoInput}
                 />
@@ -588,6 +677,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(234, 118, 0, 0.35)",
   },
   motivoShell: { minHeight: 110, padding: 12 },
+  shortShell: { paddingHorizontal: 12, paddingVertical: 10 },
+  shortInput: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: COLORS.ink,
+    paddingVertical: 4,
+  },
   motivoInput: {
     flex: 1,
     minHeight: 90,
