@@ -36,8 +36,6 @@ export const LOGIN_COPY = {
   passwordPlaceholder: "••••••••",
   submit: "Ingresar",
   submitting: "Ingresando…",
-  enterPassword: "Ingresar con contraseña",
-  backWelcome: "Volver",
   footer: "Table Red · Arauco Oaxaca",
   genericError: "Ocurrio un error, intentelo mas tarde",
   quickHelp: "Ayuda",

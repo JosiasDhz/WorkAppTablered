@@ -31,14 +31,7 @@ export const removeFromStorage = async (key: string) => {
 
 export const clearStorage = async () => {
   try {
-    const biometricFlag = await AsyncStorage.getItem(
-      "tablered-biometric-enabled",
-    );
-    const response = await AsyncStorage.clear();
-    if (biometricFlag === "1") {
-      await AsyncStorage.setItem("tablered-biometric-enabled", "1");
-    }
-    return response;
+    return await AsyncStorage.clear();
   } catch (error) {
     throw error;
   }

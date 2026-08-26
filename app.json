@@ -16,7 +16,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.josiveloper.tableredoaxaca",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Table Red usa Face ID para iniciar sesión de forma rápida y segura.",
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "googlemaps",
@@ -36,9 +35,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.josiveloper.tableredoaxaca"
     },
@@ -81,12 +78,6 @@
           "sounds": [
             "./assets/sounds/tablered_notice.wav"
           ]
-        }
-      ],
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Table Red usa Face ID para iniciar sesión de forma rápida y segura."
         }
       ],
       "expo-secure-store"

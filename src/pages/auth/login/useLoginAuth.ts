@@ -3,11 +3,6 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../redux/store/store";
 import { saveInStorage } from "../../../utils";
 import { getFile } from "../../../services/s3Service";
-import {
-  isBiometricLoginEnabled,
-  promptEnableBiometricLogin,
-  saveBiometricCredentials,
-} from "../../../services/biometricAuth";
 import { LOGIN_COPY } from "./constants";
 import { persistLoginSession } from "./persistLoginSession";
 import { signIn } from "../../../services/authService";
@@ -26,24 +21,11 @@ export function useLoginAuth() {
   }, [error]);
 
   const submit = useCallback(
-    async (
-      email: string,
-      password: string,
-      options?: { skipBiometricPrompt?: boolean },
-    ) => {
+    async (email: string, password: string) => {
       setLoading(true);
       setError(null);
       try {
         const response = await signIn({ email, password });
-
-        if (!options?.skipBiometricPrompt) {
-          if (await isBiometricLoginEnabled()) {
-            await saveBiometricCredentials(email, password);
-          } else {
-            await promptEnableBiometricLogin({ email, password });
-          }
-        }
-
         await persistLoginSession(response, dispatch, {
           saveInStorage,
           getFile,

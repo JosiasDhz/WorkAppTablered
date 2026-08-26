@@ -5,11 +5,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LoginCurve } from "iconsax-react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
 import { TAB_BAR_CAFE_ANDROID } from "../../../routes/tabBar/tabBarConstants";
-import type { BiometricKind } from "../../../services/biometricAuth";
 import { LOGIN_COPY } from "./constants";
 
 type Props = {
@@ -17,32 +15,13 @@ type Props = {
   disabled: boolean;
   onPress: () => void;
   label?: string;
-  biometricEnabled?: boolean;
-  biometricKind?: BiometricKind | null;
 };
-
-function BiometricIcon({ kind }: { kind: BiometricKind | null | undefined }) {
-  if (kind === "fingerprint") {
-    return (
-      <MaterialCommunityIcons name="fingerprint" size={22} color="#FFFFFF" />
-    );
-  }
-  return (
-    <MaterialCommunityIcons
-      name="face-recognition"
-      size={22}
-      color="#FFFFFF"
-    />
-  );
-}
 
 export function LoginPrimaryButton({
   loading,
   disabled,
   onPress,
   label = LOGIN_COPY.submit,
-  biometricEnabled = false,
-  biometricKind = null,
 }: Props) {
   return (
     <SoftPressable
@@ -60,11 +39,7 @@ export function LoginPrimaryButton({
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
           <View style={styles.iconWell}>
-            {biometricEnabled ? (
-              <BiometricIcon kind={biometricKind} />
-            ) : (
-              <LoginCurve size={18} color="#FFFFFF" variant="Bold" />
-            )}
+            <LoginCurve size={18} color="#FFFFFF" variant="Bold" />
           </View>
         )}
       </View>
