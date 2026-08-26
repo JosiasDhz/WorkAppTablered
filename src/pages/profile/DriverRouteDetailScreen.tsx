@@ -16,7 +16,7 @@ import {
   useRoute,
 } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Car, Coin, MoneyRecive, Routing2 } from "iconsax-react-native";
+import { Car, MoneyRecive, Routing2 } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
@@ -33,7 +33,6 @@ import {
 import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
 import type { DriverRouteAssignmentDemoDestination } from "./driverDemo/driverRouteAssignmentDemo.types";
 import { useDriverRouteAssignmentDetail } from "./hooks/useDriverRouteAssignmentDetail";
-import { useDriverRouteMyCommission } from "./hooks/useDriverRouteMyCommission";
 import { tripMapModelFromAssignment } from "./driverRoute/tripMapModelFromAssignment";
 import { DriverRouteTripMapWebView } from "./driverRoute/DriverRouteTripMapWebView";
 import { DriverRouteConfettiLayer } from "./driverRoute/DriverRouteConfettiLayer";
@@ -162,7 +161,6 @@ export default function DriverRouteDetailScreen() {
   const { params } = useRoute<RouteProp<RootStackParamList, "DriverRouteDetail">>();
   const routeId = params?.routeId ?? "";
   const { detail, loading, error, refresh } = useDriverRouteAssignmentDetail(routeId);
-  const commission = useDriverRouteMyCommission(routeId, Boolean(routeId.trim()));
   const mapModel = useMemo(
     () => (detail ? tripMapModelFromAssignment(detail) : { path: [], stops: [] }),
     [detail],
@@ -353,9 +351,6 @@ export default function DriverRouteDetailScreen() {
   );
   const handedOver = Boolean(detail.route.driverCashHandoverAtCdmx);
   const showCashBanner = isCompleta && cashPending > 0 && !handedOver;
-  const commissionOnCajaMxn = commission.earnedMxn + commission.pendingMxn;
-  const showCommissionEarned =
-    !showCashBanner && commission.earnedMxn > 0;
 
   return (
     <View style={styles.root}>
@@ -480,26 +475,6 @@ export default function DriverRouteDetailScreen() {
                   <Text style={styles.cashHint}>
                     Pendiente de entregar a caja
                   </Text>
-                  {commissionOnCajaMxn > 0 ? (
-                    <Text style={styles.cashHint}>
-                      Generará {formatMxn(commissionOnCajaMxn)} de comisión al
-                      entregar a caja
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            </PageFlipReveal>
-          ) : showCommissionEarned ? (
-            <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
-              <View style={styles.cashCard}>
-                <View style={[styles.heroIcon, { backgroundColor: DONE_SOFT }]}>
-                  <Coin size={22} color={DONE} variant="Linear" />
-                </View>
-                <View style={styles.heroText}>
-                  <Text style={styles.commissionAmount}>
-                    {formatMxn(commission.earnedMxn)}
-                  </Text>
-                  <Text style={styles.cashHint}>Comisión generada</Text>
                 </View>
               </View>
             </PageFlipReveal>
@@ -783,11 +758,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: WARN,
-  },
-  commissionAmount: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: DONE,
   },
   cashHint: {
     marginTop: 2,
