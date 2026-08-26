@@ -7,13 +7,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { HeaderTitle } from "../../components/HeaderTitle";
+import { SoftPressable } from "../../components/SoftPressable";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   ArrowUp,
   CloseCircle,
@@ -29,16 +30,7 @@ import {
   type AuditProductLine,
   type InventoryAuditStatus,
 } from "../../services/inventoryAuditService";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  accent: "#EA7600",
-  green: "#16A34A",
-  amber: "#D97706",
-};
+import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -86,9 +78,9 @@ function ProductRow({
           </Text>
         </View>
         {showDone ? (
-          <TickCircle size={22} color={COLORS.green} variant="Bold" />
+          <TickCircle size={22} color={AUDIT_UI.green} variant="Bold" />
         ) : (
-          <Timer1 size={22} color={COLORS.amber} variant="Linear" />
+          <Timer1 size={22} color={AUDIT_UI.amber} variant="Linear" />
         )}
       </View>
       <View style={styles.countRow}>
@@ -98,7 +90,7 @@ function ProductRow({
           value={value}
           onChangeText={(t) => onChangeCount(t.replace(/[^0-9]/g, ""))}
           placeholder="-"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={AUDIT_UI.muted}
           keyboardType="number-pad"
           editable={!disabled}
           selectTextOnFocus
@@ -327,7 +319,6 @@ export default function InventoryAuditFamilyProducts() {
     try {
       await fetchPage(offsetRef.current, true);
     } catch {
-      // Keep current list
     } finally {
       setLoadingMore(false);
       loadingMoreRef.current = false;
@@ -357,11 +348,11 @@ export default function InventoryAuditFamilyProducts() {
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.searchRow}>
-        <SearchNormal1 size={16} color={COLORS.muted} variant="Linear" />
+        <SearchNormal1 size={16} color={AUDIT_UI.muted} variant="Linear" />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar por SKU o nombre"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={AUDIT_UI.muted}
           value={searchText}
           onChangeText={setSearchText}
           autoCapitalize="none"
@@ -369,9 +360,15 @@ export default function InventoryAuditFamilyProducts() {
           editable={!inputsLocked}
         />
         {searchText.length > 0 ? (
-          <TouchableOpacity onPress={() => setSearchText("")} hitSlop={10} disabled={inputsLocked}>
-            <CloseCircle size={16} color={COLORS.muted} variant="Linear" />
-          </TouchableOpacity>
+          <SoftPressable
+            style={styles.searchClear}
+            onPress={() => setSearchText("")}
+            disabled={inputsLocked}
+            scaleTo={0.95}
+            accessibilityLabel="Limpiar búsqueda"
+          >
+            <CloseCircle size={16} color={AUDIT_UI.muted} variant="Linear" />
+          </SoftPressable>
         ) : null}
       </View>
       {family ? (
@@ -420,35 +417,54 @@ export default function InventoryAuditFamilyProducts() {
 
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
-      <ProfileScreenHeader title="Conteo" subtitle={headerTitle} />
+      <HeaderTitle
+        title="Conteo"
+        subtitle={headerTitle}
+        tone="light"
+        style={styles.header}
+        onBack={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+        }}
+      />
 
       <View style={styles.actionBar}>
-        <TouchableOpacity
-          style={[styles.btnProgress, (saving || inputsLocked) && styles.btnDisabled]}
-          onPress={handleSaveProgress}
-          disabled={saving || inputsLocked}
-        >
-          {saving ? (
-            <ActivityIndicator color="#EA7600" size="small" />
-          ) : (
-            <Text style={styles.btnProgressText}>Guardar progreso</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.btnComplete,
-            (saving || inputsLocked || !canCompleteFamily) && styles.btnDisabled,
-          ]}
-          onPress={handleSaveFamily}
-          disabled={saving || inputsLocked || !canCompleteFamily}
-        >
-          <Text style={styles.btnCompleteText}>Guardar ubicación</Text>
-        </TouchableOpacity>
+        <View style={styles.actionSlot}>
+          <SoftPressable
+            onPress={handleSaveProgress}
+            disabled={saving || inputsLocked}
+            scaleTo={0.98}
+            style={(saving || inputsLocked) ? styles.btnDisabled : undefined}
+          >
+            <View style={styles.btnProgress}>
+              {saving ? (
+                <ActivityIndicator color={AUDIT_UI.accent} size="small" />
+              ) : (
+                <Text style={styles.btnProgressText}>Guardar progreso</Text>
+              )}
+            </View>
+          </SoftPressable>
+        </View>
+        <View style={styles.actionSlot}>
+          <SoftPressable
+            onPress={handleSaveFamily}
+            disabled={saving || inputsLocked || !canCompleteFamily}
+            scaleTo={0.98}
+            style={
+              saving || inputsLocked || !canCompleteFamily
+                ? styles.btnDisabled
+                : undefined
+            }
+          >
+            <View style={styles.btnComplete}>
+              <Text style={styles.btnCompleteText}>Guardar ubicación</Text>
+            </View>
+          </SoftPressable>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
         </View>
       ) : (
         <>
@@ -473,10 +489,11 @@ export default function InventoryAuditFamilyProducts() {
             ListHeaderComponent={listHeader}
             contentContainerStyle={styles.listContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AUDIT_UI.accent} />
             }
             onEndReached={onEndReached}
             onEndReachedThreshold={0.35}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>
@@ -491,20 +508,22 @@ export default function InventoryAuditFamilyProducts() {
             ListFooterComponent={
               loadingMore ? (
                 <View style={styles.footerLoading}>
-                  <ActivityIndicator color={COLORS.accent} />
+                  <ActivityIndicator color={AUDIT_UI.accent} />
                 </View>
               ) : null
             }
           />
           {!loading && lines.length > 0 ? (
-            <TouchableOpacity
-              style={styles.fab}
-              onPress={scrollToTop}
-              activeOpacity={0.9}
-              accessibilityLabel="Ir arriba"
-            >
-              <ArrowUp size={22} color="#FFFFFF" variant="Linear" />
-            </TouchableOpacity>
+            <View style={styles.fabAnchor}>
+              <SoftPressable
+                style={styles.fab}
+                onPress={scrollToTop}
+                scaleTo={0.94}
+                accessibilityLabel="Ir arriba"
+              >
+                <ArrowUp size={22} color="#FFFFFF" variant="Linear" />
+              </SoftPressable>
+            </View>
           ) : null}
         </>
       )}
@@ -513,62 +532,56 @@ export default function InventoryAuditFamilyProducts() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, backgroundColor: "transparent" },
+  header: { paddingHorizontal: SCREEN_GUTTER },
   actionBar: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_GUTTER,
     paddingVertical: 10,
     backgroundColor: "transparent",
   },
+  actionSlot: { flex: 1 },
   btnProgress: {
-    flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(234, 118, 0, 0.45)",
+    backgroundColor: AUDIT_UI.surface,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
   },
-  btnProgressText: { fontSize: 13, fontWeight: "800", color: COLORS.accent },
+  btnProgressText: { fontSize: 13, fontWeight: "700", color: AUDIT_UI.accent },
   btnComplete: {
-    flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: COLORS.accent,
+    borderRadius: 999,
+    backgroundColor: AUDIT_UI.accent,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
   },
-  btnCompleteText: { fontSize: 13, fontWeight: "800", color: "#FFFFFF" },
+  btnCompleteText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
   btnDisabled: { opacity: 0.45 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: { paddingHorizontal: 16, paddingBottom: 100 },
-  listHeader: { paddingTop: 10, paddingBottom: 6 },
+  listContent: { paddingHorizontal: SCREEN_GUTTER, paddingBottom: 100 },
+  listHeader: { paddingTop: 4, paddingBottom: 6 },
   doneBanner: {
-    backgroundColor: "#F0FDF4",
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-    borderRadius: 12,
+    backgroundColor: AUDIT_UI.greenSoft,
+    borderRadius: 14,
     padding: 10,
     marginBottom: 10,
   },
-  doneBannerText: { fontSize: 12, fontWeight: "700", color: "#15803D" },
+  doneBannerText: { fontSize: 12, fontWeight: "600", color: AUDIT_UI.green },
   auditLockedBanner: {
-    backgroundColor: "#EEF2FF",
-    borderWidth: 1,
-    borderColor: "#C7D2FE",
-    borderRadius: 12,
+    backgroundColor: AUDIT_UI.blueSoft,
+    borderRadius: 14,
     padding: 10,
     marginBottom: 8,
   },
-  auditLockedBannerText: { fontSize: 12, fontWeight: "700", color: "#3730A3" },
+  auditLockedBannerText: { fontSize: 12, fontWeight: "600", color: AUDIT_UI.blue },
   progressBlock: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    ...auditSoftCardStyle(),
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 8,
@@ -579,69 +592,68 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
-  progressMain: { fontSize: 13, fontWeight: "700", color: COLORS.text, flex: 1, paddingRight: 8 },
-  progressStrong: { fontWeight: "900", color: COLORS.text },
-  progressMuted: { fontWeight: "600", color: COLORS.muted },
+  progressMain: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: AUDIT_UI.ink,
+    flex: 1,
+    paddingRight: 8,
+  },
+  progressStrong: { fontWeight: "800", color: AUDIT_UI.ink },
+  progressMuted: { fontWeight: "500", color: AUDIT_UI.muted },
   progressPctPill: {
-    backgroundColor: "#FFF4E8",
-    borderWidth: 1,
-    borderColor: "#FDBA74",
+    backgroundColor: AUDIT_UI.accentSoft,
     borderRadius: 999,
     paddingHorizontal: 9,
-    paddingVertical: 2,
+    paddingVertical: 3,
     minWidth: 42,
     alignItems: "center",
   },
-  progressPctText: { fontSize: 11, fontWeight: "900", color: COLORS.accent },
+  progressPctText: { fontSize: 11, fontWeight: "800", color: AUDIT_UI.accent },
   progressTrack: {
     height: 6,
-    backgroundColor: "#E8EDF5",
+    backgroundColor: AUDIT_UI.field,
     borderRadius: 999,
     overflow: "hidden",
   },
-  progressFill: { height: "100%", backgroundColor: COLORS.accent, borderRadius: 999 },
-  totalHint: { fontSize: 11, color: "#9CA3AF", marginBottom: 8 },
+  progressFill: { height: "100%", backgroundColor: AUDIT_UI.accent, borderRadius: 999 },
+  totalHint: { fontSize: 12, fontWeight: "500", color: AUDIT_UI.muted, marginBottom: 8 },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
+    backgroundColor: AUDIT_UI.field,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
+    paddingVertical: 10,
+    marginBottom: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.text,
+    fontWeight: "500",
+    color: AUDIT_UI.ink,
     paddingVertical: 0,
     minHeight: 20,
   },
+  searchClear: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   errorBanner: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    borderRadius: 12,
+    backgroundColor: AUDIT_UI.roseSoft,
+    borderRadius: 14,
     padding: 10,
     marginTop: 4,
   },
-  errorText: { fontSize: 12, color: "#B91C1C" },
+  errorText: { fontSize: 12, fontWeight: "600", color: AUDIT_UI.rose },
   productRow: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#EDF1F6",
+    ...auditSoftCardStyle(),
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 10,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
   },
   productRowDisabled: { opacity: 0.85 },
   productRowTop: {
@@ -654,56 +666,60 @@ const styles = StyleSheet.create({
   productSku: {
     alignSelf: "flex-start",
     fontSize: 10,
-    fontWeight: "900",
-    color: COLORS.accent,
+    fontWeight: "800",
+    color: AUDIT_UI.accent,
     letterSpacing: 0.4,
-    backgroundColor: "#FFF4E8",
-    borderWidth: 1,
-    borderColor: "#FDBA74",
+    backgroundColor: AUDIT_UI.accentSoft,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
     overflow: "hidden",
   },
-  productName: { fontSize: 13, fontWeight: "800", color: COLORS.text, marginTop: 6, lineHeight: 17 },
+  productName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: AUDIT_UI.ink,
+    marginTop: 6,
+    lineHeight: 18,
+  },
   countRow: { marginTop: 12 },
   countLabel: {
-    fontSize: 9,
-    fontWeight: "900",
-    color: COLORS.muted,
+    fontSize: 10,
+    fontWeight: "700",
+    color: AUDIT_UI.muted,
     marginBottom: 6,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
   countInput: {
-    borderWidth: 1,
-    borderColor: "#E8EDF5",
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 18,
     fontWeight: "600",
-    color: COLORS.text,
-    backgroundColor: "#F8FAFC",
+    color: AUDIT_UI.ink,
+    backgroundColor: AUDIT_UI.field,
   },
-  inputDisabled: { backgroundColor: "#F1F4F9", color: COLORS.muted },
+  inputDisabled: { opacity: 0.7, color: AUDIT_UI.muted },
   empty: { paddingVertical: 40, alignItems: "center" },
-  emptyText: { color: COLORS.muted, fontSize: 14 },
+  emptyText: { color: AUDIT_UI.muted, fontSize: 14, fontWeight: "500" },
   footerLoading: { paddingVertical: 20 },
-  fab: {
+  fabAnchor: {
     position: "absolute",
-    right: 20,
+    right: SCREEN_GUTTER,
     bottom: 28,
+  },
+  fab: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: COLORS.accent,
+    backgroundColor: AUDIT_UI.accent,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: "#1A1410",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 6,
   },
 });

@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,8 +14,10 @@ import Toast from "react-native-toast-message";
 import SignatureScreen from "react-native-signature-canvas";
 import { WebView } from "react-native-webview";
 import { useSelector } from "react-redux";
-import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
+import { HeaderTitle } from "../../components/HeaderTitle";
+import { SoftPressable } from "../../components/SoftPressable";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import { RootState } from "../../redux/store/store";
 import {
   getMyLossDocumentById,
@@ -26,18 +27,9 @@ import {
   type MyLossDocumentItem,
 } from "../../services/inventoryAuditService";
 import { apiBaseUrl } from "../../api/http-common";
+import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
 
 type DocKind = "contract" | "delivery";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#EEF1F4",
-  accent: "#EA7600",
-  blue: "#1D4ED8",
-  blueSoft: "#EFF6FF",
-};
 
 const DOC_LABEL: Record<DocKind, string> = {
   contract: "ACTA DE INVENTARIO",
@@ -144,7 +136,14 @@ export default function AuditLossDocumentDetail() {
   if (!allocationId) {
     return (
       <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
-        <ProfileScreenHeader title="Documento" />
+        <HeaderTitle
+          title="Documento"
+          tone="light"
+          style={styles.header}
+          onBack={() => {
+            if (navigation.canGoBack()) navigation.goBack();
+          }}
+        />
         <View style={styles.centered}>
           <Text style={styles.muted}>Identificador no válido.</Text>
         </View>
@@ -168,11 +167,11 @@ export default function AuditLossDocumentDetail() {
             uri: `${apiBaseUrl}${getMyLossDocumentPdfUrl(allocationId, doc)}`,
             headers: { Authorization: `Bearer ${token}` },
           }}
-          style={{ flex: 1, backgroundColor: "#F1F5F9" }}
+          style={{ flex: 1, backgroundColor: AUDIT_UI.field }}
           startInLoadingState
           renderLoading={() => (
             <View style={styles.pdfLoading}>
-              <ActivityIndicator size="large" color={COLORS.blue} />
+              <ActivityIndicator size="large" color={AUDIT_UI.accent} />
             </View>
           )}
         />
@@ -203,13 +202,15 @@ export default function AuditLossDocumentDetail() {
       <View style={styles.block}>
         <View style={styles.blockHead}>
           <Text style={styles.blockLabel}>{DOC_LABEL[doc]}</Text>
-          <TouchableOpacity
-            style={styles.pdfBtn}
+          <SoftPressable
+            style={styles.pdfBtnWrap}
             onPress={() => setPdfDoc(doc)}
-            activeOpacity={0.85}
+            scaleTo={0.97}
           >
-            <Text style={styles.pdfBtnText}>Abrir PDF</Text>
-          </TouchableOpacity>
+            <View style={styles.pdfBtn}>
+              <Text style={styles.pdfBtnText}>Abrir PDF</Text>
+            </View>
+          </SoftPressable>
         </View>
 
         {renderInlinePdf(doc)}
@@ -258,27 +259,27 @@ export default function AuditLossDocumentDetail() {
               />
             </View>
             <View style={styles.sigActions}>
-              <TouchableOpacity
-                style={[styles.sigBtn, styles.sigBtnGhost]}
-                onPress={handleClearSig}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.sigBtnGhostText}>Limpiar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.sigBtn,
-                  styles.sigBtnSave,
-                  saving && styles.saveBtnDisabled,
-                ]}
-                onPress={() => handleSaveOne(doc)}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.sigBtnSaveText}>
-                  {saving ? "Guardando..." : "Guardar firma"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.sigSlot}>
+                <SoftPressable onPress={handleClearSig} scaleTo={0.98}>
+                  <View style={[styles.sigBtn, styles.sigBtnGhost]}>
+                    <Text style={styles.sigBtnGhostText}>Limpiar</Text>
+                  </View>
+                </SoftPressable>
+              </View>
+              <View style={styles.sigSlot}>
+                <SoftPressable
+                  onPress={() => handleSaveOne(doc)}
+                  disabled={saving}
+                  scaleTo={0.98}
+                  style={saving ? styles.saveBtnDisabled : undefined}
+                >
+                  <View style={[styles.sigBtn, styles.sigBtnSave]}>
+                    <Text style={styles.sigBtnSaveText}>
+                      {saving ? "Guardando..." : "Guardar firma"}
+                    </Text>
+                  </View>
+                </SoftPressable>
+              </View>
             </View>
           </>
         )}
@@ -293,20 +294,25 @@ export default function AuditLossDocumentDetail() {
 
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
-      <ProfileScreenHeader title="Documentos" subtitle="Revisa y firma" />
+      <HeaderTitle
+        title="Documentos"
+        subtitle="Revisa y firma"
+        tone="light"
+        style={styles.header}
+        onBack={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+        }}
+      />
       {loading || !item ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
         </View>
       ) : (
         <ScrollView
           scrollEnabled={!isSigning}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 8,
-            paddingBottom: 144,
-          }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
         >
           <View style={styles.summary}>
             <Text style={styles.summaryTitle}>
@@ -315,13 +321,11 @@ export default function AuditLossDocumentDetail() {
             <Text style={styles.summaryMeta}>
               {item.audit.warehouse?.name ?? "Sin almacén"} · {item.percentage}% · {formatMoney(item.amount)}
             </Text>
-            <TouchableOpacity
-              style={styles.summaryBtn}
-              onPress={handleOpenAudit}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.summaryBtnText}>Ver auditoría</Text>
-            </TouchableOpacity>
+            <SoftPressable onPress={handleOpenAudit} scaleTo={0.97} style={styles.summaryBtnWrap}>
+              <View style={styles.summaryBtn}>
+                <Text style={styles.summaryBtnText}>Ver auditoría</Text>
+              </View>
+            </SoftPressable>
           </View>
 
           {totalSteps === 0 ? (
@@ -340,41 +344,45 @@ export default function AuditLossDocumentDetail() {
 
               {totalSteps > 1 ? (
                 <View style={styles.navRow}>
-                  <TouchableOpacity
-                    style={[styles.navBtn, !canPrev && styles.navBtnDisabled]}
-                    onPress={() => canPrev && setStepIndex((i) => i - 1)}
-                    disabled={!canPrev}
-                    activeOpacity={0.85}
-                  >
-                    <Text
-                      style={[
-                        styles.navBtnText,
-                        !canPrev && styles.navBtnTextDisabled,
-                      ]}
+                  <View style={styles.navSlot}>
+                    <SoftPressable
+                      onPress={() => canPrev && setStepIndex((i) => i - 1)}
+                      disabled={!canPrev}
+                      scaleTo={0.98}
+                      style={!canPrev ? styles.navBtnDisabled : undefined}
                     >
-                      ‹ Anterior
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.navBtn,
-                      styles.navBtnPrimary,
-                      !canNext && styles.navBtnDisabled,
-                    ]}
-                    onPress={() => canNext && setStepIndex((i) => i + 1)}
-                    disabled={!canNext}
-                    activeOpacity={0.85}
-                  >
-                    <Text
-                      style={[
-                        styles.navBtnText,
-                        styles.navBtnTextPrimary,
-                        !canNext && styles.navBtnTextDisabled,
-                      ]}
+                      <View style={styles.navBtn}>
+                        <Text
+                          style={[
+                            styles.navBtnText,
+                            !canPrev && styles.navBtnTextDisabled,
+                          ]}
+                        >
+                          ‹ Anterior
+                        </Text>
+                      </View>
+                    </SoftPressable>
+                  </View>
+                  <View style={styles.navSlot}>
+                    <SoftPressable
+                      onPress={() => canNext && setStepIndex((i) => i + 1)}
+                      disabled={!canNext}
+                      scaleTo={0.98}
+                      style={!canNext ? styles.navBtnDisabled : undefined}
                     >
-                      Siguiente ›
-                    </Text>
-                  </TouchableOpacity>
+                      <View style={[styles.navBtn, styles.navBtnPrimary]}>
+                        <Text
+                          style={[
+                            styles.navBtnText,
+                            styles.navBtnTextPrimary,
+                            !canNext && styles.navBtnTextDisabled,
+                          ]}
+                        >
+                          Siguiente ›
+                        </Text>
+                      </View>
+                    </SoftPressable>
+                  </View>
                 </View>
               ) : null}
             </>
@@ -397,12 +405,15 @@ export default function AuditLossDocumentDetail() {
             <Text style={styles.pdfTitle} numberOfLines={1}>
               {pdfDoc ? DOC_LABEL[pdfDoc] : ""}
             </Text>
-            <TouchableOpacity
-              style={styles.pdfCloseBtn}
+            <SoftPressable
+              style={styles.pdfCloseBtnWrap}
               onPress={() => setPdfDoc(null)}
+              scaleTo={0.97}
             >
-              <Text style={styles.pdfCloseText}>Cerrar</Text>
-            </TouchableOpacity>
+              <View style={styles.pdfCloseBtn}>
+                <Text style={styles.pdfCloseText}>Cerrar</Text>
+              </View>
+            </SoftPressable>
           </View>
           {pdfDoc && allocationId && token ? (
             <WebView
@@ -415,7 +426,7 @@ export default function AuditLossDocumentDetail() {
               startInLoadingState
               renderLoading={() => (
                 <View style={styles.pdfLoading}>
-                  <ActivityIndicator size="large" color={COLORS.blue} />
+                  <ActivityIndicator size="large" color={AUDIT_UI.accent} />
                 </View>
               )}
             />
@@ -431,23 +442,34 @@ export default function AuditLossDocumentDetail() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, backgroundColor: "transparent" },
+  header: { paddingHorizontal: SCREEN_GUTTER },
+  scrollContent: {
+    paddingHorizontal: SCREEN_GUTTER,
+    paddingTop: 4,
+    paddingBottom: 36,
+  },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  muted: { fontSize: 14, color: COLORS.muted, textAlign: "center" },
+  muted: { fontSize: 14, fontWeight: "500", color: AUDIT_UI.muted, textAlign: "center" },
   summary: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    ...auditSoftCardStyle(),
     padding: 14,
     marginBottom: 14,
   },
-  summaryTitle: { fontSize: 16, fontWeight: "900", color: COLORS.text },
-  summaryMeta: { marginTop: 6, fontSize: 12, fontWeight: "700", color: COLORS.muted },
-  summaryBtn: {
+  summaryTitle: { fontSize: 16, fontWeight: "700", color: AUDIT_UI.ink },
+  summaryMeta: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+  },
+  summaryBtnWrap: {
     marginTop: 12,
+    width: 130,
+  },
+  summaryBtn: {
     alignSelf: "flex-start",
-    backgroundColor: "#16A34A",
+    backgroundColor: AUDIT_UI.green,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 999,
@@ -455,62 +477,64 @@ const styles = StyleSheet.create({
   summaryBtnText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.4,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   stepsBar: {
-    marginBottom: 8,
+    marginBottom: 10,
     alignSelf: "flex-start",
-    backgroundColor: COLORS.blueSoft,
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
+    backgroundColor: AUDIT_UI.accentSoft,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
   },
   stepsText: {
     fontSize: 11,
-    fontWeight: "900",
-    color: COLORS.blue,
-    letterSpacing: 0.4,
+    fontWeight: "800",
+    color: AUDIT_UI.accent,
+    letterSpacing: 0.3,
   },
-  block: { marginBottom: 18 },
+  block: {
+    ...auditSoftCardStyle(),
+    padding: 14,
+    marginBottom: 14,
+  },
   blockHead: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 10,
     gap: 8,
   },
-  blockLabel: { fontSize: 15, fontWeight: "900", color: COLORS.text, flex: 1 },
+  blockLabel: { fontSize: 14, fontWeight: "800", color: AUDIT_UI.ink, flex: 1 },
+  pdfBtnWrap: {
+    width: 96,
+  },
   pdfBtn: {
-    backgroundColor: COLORS.blue,
+    backgroundColor: AUDIT_UI.accent,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
+    alignItems: "center",
   },
   pdfBtnText: {
     color: "#FFFFFF",
-    fontWeight: "900",
+    fontWeight: "800",
     fontSize: 11,
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   pdfFrame: {
     height: 420,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#D9E1EC",
     overflow: "hidden",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: AUDIT_UI.field,
   },
   pdfPlaceholder: {
     height: 420,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#D9E1EC",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: AUDIT_UI.field,
   },
   pdfLoading: {
     position: "absolute",
@@ -529,39 +553,35 @@ const styles = StyleSheet.create({
   },
   sigLabel: {
     fontSize: 12,
-    fontWeight: "900",
-    color: COLORS.text,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
   },
   lockedBadge: {
-    backgroundColor: "#DCFCE7",
-    borderWidth: 1,
-    borderColor: "#86EFAC",
+    backgroundColor: AUDIT_UI.greenSoft,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 999,
   },
   lockedBadgeText: {
-    color: "#15803D",
+    color: AUDIT_UI.green,
     fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0.4,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   signatureBox: {
     marginTop: 6,
     height: 170,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: AUDIT_UI.divider,
+    backgroundColor: AUDIT_UI.surface,
     overflow: "hidden",
   },
   signatureLockedBox: {
     marginTop: 6,
     height: 130,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#86EFAC",
-    backgroundColor: "#F0FDF4",
+    backgroundColor: AUDIT_UI.greenSoft,
     alignItems: "center",
     justifyContent: "center",
     padding: 6,
@@ -575,82 +595,90 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 10,
   },
+  sigSlot: { flex: 1 },
   sigBtn: {
-    flex: 1,
     paddingVertical: 11,
-    borderRadius: 10,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   sigBtnGhost: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: AUDIT_UI.field,
   },
   sigBtnGhostText: {
-    color: COLORS.text,
+    color: AUDIT_UI.ink,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   sigBtnSave: {
-    backgroundColor: COLORS.blue,
+    backgroundColor: AUDIT_UI.accent,
   },
   sigBtnSaveText: {
     color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 0.3,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   navRow: {
     flexDirection: "row",
     gap: 10,
     marginBottom: 12,
   },
+  navSlot: { flex: 1 },
   navBtn: {
-    flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderRadius: 999,
+    backgroundColor: AUDIT_UI.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: AUDIT_UI.divider,
     alignItems: "center",
   },
   navBtnPrimary: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
+    backgroundColor: AUDIT_UI.accent,
+    borderColor: AUDIT_UI.accent,
   },
   navBtnDisabled: {
     opacity: 0.45,
   },
   navBtnText: {
     fontSize: 13,
-    fontWeight: "900",
-    color: COLORS.text,
-    letterSpacing: 0.3,
+    fontWeight: "800",
+    color: AUDIT_UI.ink,
+    letterSpacing: 0.2,
   },
   navBtnTextPrimary: {
     color: "#FFFFFF",
   },
   navBtnTextDisabled: {
-    color: COLORS.muted,
+    color: AUDIT_UI.muted,
   },
   saveBtnDisabled: { opacity: 0.6 },
-  pdfWrap: { flex: 1, backgroundColor: "#FFFFFF" },
+  pdfWrap: { flex: 1, backgroundColor: AUDIT_UI.surface },
   pdfTopBar: {
-    paddingHorizontal: 14,
+    paddingHorizontal: SCREEN_GUTTER,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: "#E2E8F0",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: AUDIT_UI.divider,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  pdfTitle: { fontSize: 14, fontWeight: "900", color: "#0F172A", flex: 1, marginRight: 12 },
+  pdfTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: AUDIT_UI.ink,
+    flex: 1,
+    marginRight: 12,
+  },
+  pdfCloseBtnWrap: {
+    width: 80,
+  },
   pdfCloseBtn: {
-    borderRadius: 10,
-    backgroundColor: "#0F172A",
+    borderRadius: 999,
+    backgroundColor: AUDIT_UI.ink,
     paddingHorizontal: 12,
     paddingVertical: 7,
+    alignItems: "center",
   },
-  pdfCloseText: { color: "#FFFFFF", fontWeight: "800", fontSize: 12 },
+  pdfCloseText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
 });

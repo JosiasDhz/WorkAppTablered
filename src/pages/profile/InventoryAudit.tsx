@@ -3,17 +3,20 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
-import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { ArrowRight2, Box, Building, Calendar } from "iconsax-react-native";
+import { HeaderTitle } from "../../components/HeaderTitle";
+import { PageFlipReveal } from "../../components/PageFlipReveal";
+import { SoftPressable } from "../../components/SoftPressable";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getMyAudits,
   auditFamilyDisplayLabel,
@@ -21,22 +24,10 @@ import {
   type MyInventoryAuditFamily,
 } from "../../services/inventoryAuditService";
 import { formatInventoryAuditCalendarDateMX } from "../../utils/auditCalendarDates";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  accent: "#EA7600",
-  blue: "#2563EB",
-  blueSoft: "#EFF6FF",
-  green: "#059669",
-  greenSoft: "#ECFDF5",
-  amber: "#D97706",
-  amberSoft: "#FFFBEB",
-};
+import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
 
 const PAGE_SIZE = 10;
+const FLIP_STAGGER_MS = 55;
 
 const FINALIZED_AUDIT_STATUSES = new Set<MyInventoryAudit["status"]>([
   "finalized",
@@ -83,12 +74,24 @@ function auditTitle(audit: MyInventoryAudit) {
 
 function tabMeta(tab: AuditTab) {
   if (tab === "pending") {
-    return { label: "Pendientes", color: COLORS.amber, soft: COLORS.amberSoft };
+    return {
+      label: "Pendientes",
+      color: AUDIT_UI.amber,
+      soft: AUDIT_UI.amberSoft,
+    };
   }
   if (tab === "in_progress") {
-    return { label: "En curso", color: COLORS.blue, soft: COLORS.blueSoft };
+    return {
+      label: "En curso",
+      color: AUDIT_UI.accent,
+      soft: AUDIT_UI.accentSoft,
+    };
   }
-  return { label: "Finalizadas", color: COLORS.green, soft: COLORS.greenSoft };
+  return {
+    label: "Finalizadas",
+    color: AUDIT_UI.green,
+    soft: AUDIT_UI.greenSoft,
+  };
 }
 
 function AuditTabBar({
@@ -107,18 +110,42 @@ function AuditTabBar({
       {tabs.map((tab) => {
         const meta = tabMeta(tab);
         const selected = activeTab === tab;
+        const count = counts[tab];
         return (
-          <TouchableOpacity
+          <Pressable
             key={tab}
-            style={[styles.tab, selected && { backgroundColor: meta.soft, borderColor: meta.color }]}
+            style={[
+              styles.tab,
+              selected ? { borderColor: meta.color, borderWidth: 1.5 } : null,
+            ]}
             onPress={() => onChange(tab)}
-            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
           >
-            <Text style={[styles.tabLabel, selected && { color: meta.color }]}>{meta.label}</Text>
-            <View style={[styles.tabCount, selected && { backgroundColor: meta.color }]}>
-              <Text style={[styles.tabCountText, selected && { color: "#FFFFFF" }]}>{counts[tab]}</Text>
+            <Text
+              style={[
+                styles.tabLabel,
+                selected ? { color: meta.color } : null,
+              ]}
+            >
+              {meta.label}
+            </Text>
+            <View
+              style={[
+                styles.tabCount,
+                selected ? { backgroundColor: meta.color } : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabCountText,
+                  selected ? styles.tabCountTextActive : null,
+                ]}
+              >
+                {count}
+              </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
@@ -137,9 +164,11 @@ function ProgressBar({ progress, color }: { progress: number; color: string }) {
 function AuditListCard({
   audit,
   tab,
+  onPress,
 }: {
   audit: MyInventoryAudit;
   tab: AuditTab;
+  onPress: () => void;
 }) {
   const meta = tabMeta(tab);
   const families = audit.families ?? [];
@@ -152,66 +181,58 @@ function AuditListCard({
   const primaryLocation = families[0] ? familyLocationLabel(families[0]) : null;
 
   return (
-    <View style={[styles.card, { borderLeftColor: meta.color }]}>
-      <View style={styles.cardTop}>
-        <View style={styles.cardTitleRow}>
-          <View style={[styles.cardIcon, { backgroundColor: meta.soft }]}>
-            <Building size={18} color={meta.color} variant="Bold" />
-          </View>
-          <View style={styles.cardTitleCol}>
+    <SoftPressable onPress={onPress} scaleTo={0.99} accessibilityLabel={auditTitle(audit)}>
+      <View style={styles.card}>
+        <View style={[styles.iconWell, { backgroundColor: meta.soft }]}>
+          <Building size={20} color={meta.color} variant="Linear" />
+        </View>
+        <View style={styles.cardCopy}>
+          <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {auditTitle(audit)}
             </Text>
-            {primaryLocation ? (
-              <Text style={styles.cardSubtitle} numberOfLines={1}>
-                {primaryLocation}
-                {familiesTotal > 1 ? ` · +${familiesTotal - 1} ubicaciones` : ""}
+            <View style={[styles.badge, { backgroundColor: meta.soft }]}>
+              <Text style={[styles.badgeText, { color: meta.color }]}>
+                {meta.label}
               </Text>
-            ) : null}
+            </View>
           </View>
-        </View>
-        <View style={[styles.statusPill, { backgroundColor: meta.soft }]}>
-          <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
-        </View>
-      </View>
-
-      {tab === "finalized" ? (
-        <Text style={styles.finalizedLine}>Finalizada el {finalizedDateText(audit)}</Text>
-      ) : (
-        <View style={styles.dateRow}>
-          <Calendar size={14} color={COLORS.muted} variant="Linear" />
-          <Text style={styles.dateText}>
-            {formatInventoryAuditCalendarDateMX(audit.scheduledStartDate)} →{" "}
-            {formatInventoryAuditCalendarDateMX(audit.scheduledEndDate)}
+          {primaryLocation ? (
+            <Text style={styles.cardMeta} numberOfLines={1}>
+              {primaryLocation}
+              {familiesTotal > 1 ? ` · +${familiesTotal - 1} ubicaciones` : ""}
+            </Text>
+          ) : null}
+          {tab === "finalized" ? (
+            <Text style={[styles.cardMeta, { color: AUDIT_UI.green }]}>
+              Finalizada el {finalizedDateText(audit)}
+            </Text>
+          ) : (
+            <View style={styles.dateRow}>
+              <Calendar size={13} color={AUDIT_UI.muted} variant="Linear" />
+              <Text style={styles.cardMeta} numberOfLines={1}>
+                {formatInventoryAuditCalendarDateMX(audit.scheduledStartDate)} →{" "}
+                {formatInventoryAuditCalendarDateMX(audit.scheduledEndDate)}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.cardMeta} numberOfLines={1}>
+            {audit.countedProducts}/{audit.totalProducts} productos · {familiesDone}/
+            {familiesTotal} ubicaciones
           </Text>
+          {tab !== "pending" ? (
+            <View style={styles.progressBlock}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Avance</Text>
+                <Text style={styles.progressValue}>{productsPct}%</Text>
+              </View>
+              <ProgressBar progress={productsPct} color={meta.color} />
+            </View>
+          ) : null}
         </View>
-      )}
-
-      <View style={styles.statsRow}>
-        <Text style={styles.statText}>
-          {audit.countedProducts}/{audit.totalProducts} productos
-        </Text>
-        <Text style={styles.statDot}>·</Text>
-        <Text style={styles.statText}>
-          {familiesDone}/{familiesTotal} ubicaciones
-        </Text>
+        <ArrowRight2 size={16} color={AUDIT_UI.muted} variant="Linear" />
       </View>
-
-      {tab !== "pending" ? (
-        <View style={styles.progressBlock}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Avance del recuento</Text>
-            <Text style={styles.progressValue}>{productsPct}%</Text>
-          </View>
-          <ProgressBar progress={productsPct} color={meta.color} />
-        </View>
-      ) : null}
-
-      <View style={styles.cardFooter}>
-        <Text style={styles.cardFooterHint}>Ver detalle</Text>
-        <ArrowRight2 size={16} color={COLORS.muted} variant="Linear" />
-      </View>
-    </View>
+    </SoftPressable>
   );
 }
 
@@ -220,17 +241,28 @@ function ListSkeleton() {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(animated, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(animated, { toValue: 0, duration: 900, useNativeDriver: true }),
+        Animated.timing(animated, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animated, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
       ]),
     );
     loop.start();
     return () => loop.stop();
   }, [animated]);
-  const opacity = animated.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.92] });
+  const opacity = animated.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.45, 0.92],
+  });
 
   return (
-    <View style={{ paddingTop: 8 }}>
+    <View style={{ paddingTop: 8, gap: 10 }}>
       {[0, 1, 2].map((i) => (
         <Animated.View key={i} style={[styles.skeletonCard, { opacity }]} />
       ))}
@@ -242,10 +274,12 @@ function EmptyTabState({ tab }: { tab: AuditTab }) {
   const meta = tabMeta(tab);
   return (
     <View style={styles.empty}>
-      <View style={[styles.emptyIconWrap, { backgroundColor: meta.soft }]}>
-        <Box size={32} color={meta.color} variant="Bold" />
+      <View style={[styles.emptyWell, { backgroundColor: meta.soft }]}>
+        <Box size={28} color={meta.color} variant="Linear" />
       </View>
-      <Text style={styles.emptyTitle}>Sin auditorías {meta.label.toLowerCase()}</Text>
+      <Text style={styles.emptyTitle}>
+        Sin auditorías {meta.label.toLowerCase()}
+      </Text>
       <Text style={styles.emptySub}>
         {tab === "finalized"
           ? "Las auditorías cerradas aparecerán en esta pestaña."
@@ -257,6 +291,7 @@ function EmptyTabState({ tab }: { tab: AuditTab }) {
 
 export default function InventoryAudit() {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
   const [items, setItems] = useState<MyInventoryAudit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -323,38 +358,41 @@ export default function InventoryAudit() {
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const res = await getMyAudits({ limit: PAGE_SIZE, offset: offsetRef.current });
+      const res = await getMyAudits({
+        limit: PAGE_SIZE,
+        offset: offsetRef.current,
+      });
       setItems((prev) => [...prev, ...res.data]);
       offsetRef.current += res.data.length;
       hasMoreRef.current = offsetRef.current < res.total;
     } catch {
-      // keep list
     } finally {
       setLoadingMore(false);
       loadingMoreRef.current = false;
     }
   }, [loading]);
 
-  const { inProgressAudits, pendingAudits, finalizedAudits, tabCounts } = useMemo(() => {
-    const inProgress: MyInventoryAudit[] = [];
-    const pending: MyInventoryAudit[] = [];
-    const finalized: MyInventoryAudit[] = [];
-    for (const a of items) {
-      if (isFinalizedAudit(a)) finalized.push(a);
-      else if (a.status === "in_progress") inProgress.push(a);
-      else pending.push(a);
-    }
-    return {
-      inProgressAudits: inProgress,
-      pendingAudits: pending,
-      finalizedAudits: finalized,
-      tabCounts: {
-        pending: pending.length,
-        in_progress: inProgress.length,
-        finalized: finalized.length,
-      } satisfies Record<AuditTab, number>,
-    };
-  }, [items]);
+  const { inProgressAudits, pendingAudits, finalizedAudits, tabCounts } =
+    useMemo(() => {
+      const inProgress: MyInventoryAudit[] = [];
+      const pending: MyInventoryAudit[] = [];
+      const finalized: MyInventoryAudit[] = [];
+      for (const a of items) {
+        if (isFinalizedAudit(a)) finalized.push(a);
+        else if (a.status === "in_progress") inProgress.push(a);
+        else pending.push(a);
+      }
+      return {
+        inProgressAudits: inProgress,
+        pendingAudits: pending,
+        finalizedAudits: finalized,
+        tabCounts: {
+          pending: pending.length,
+          in_progress: inProgress.length,
+          finalized: finalized.length,
+        } satisfies Record<AuditTab, number>,
+      };
+    }, [items]);
 
   useEffect(() => {
     if (loading || tabInitializedRef.current) return;
@@ -372,7 +410,11 @@ export default function InventoryAudit() {
 
   const listHeader = (
     <View>
-      <AuditTabBar activeTab={activeTab} counts={tabCounts} onChange={setActiveTab} />
+      <AuditTabBar
+        activeTab={activeTab}
+        counts={tabCounts}
+        onChange={setActiveTab}
+      />
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
@@ -382,10 +424,18 @@ export default function InventoryAudit() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
-      <ProfileScreenHeader
+    <SafeAreaView
+      style={styles.safe}
+      edges={headerSafeEdges("top", "left", "right")}
+    >
+      <HeaderTitle
         title="Auditorías de inventario"
         subtitle="Revisa el avance y entra al detalle de cada auditoría"
+        tone="light"
+        style={styles.header}
+        onBack={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+        }}
       />
 
       {loading ? (
@@ -401,18 +451,31 @@ export default function InventoryAudit() {
         <FlatList
           data={visibleAudits}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => navigation.navigate("InventoryAuditDetail", { auditId: item.id })}
+          renderItem={({ item, index }) => (
+            <PageFlipReveal
+              delay={Math.min(700, index * FLIP_STAGGER_MS)}
+              active={isFocused}
+              style={styles.cardWrap}
             >
-              <AuditListCard audit={item} tab={activeTab} />
-            </TouchableOpacity>
+              <AuditListCard
+                audit={item}
+                tab={activeTab}
+                onPress={() =>
+                  navigation.navigate("InventoryAuditDetail", {
+                    auditId: item.id,
+                  })
+                }
+              />
+            </PageFlipReveal>
           )}
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={AUDIT_UI.accent}
+            />
           }
           onEndReached={onEndReached}
           onEndReachedThreshold={0.35}
@@ -420,10 +483,11 @@ export default function InventoryAudit() {
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoading}>
-                <ActivityIndicator color={COLORS.accent} />
+                <ActivityIndicator color={AUDIT_UI.accent} />
               </View>
             ) : null
           }
+          showsVerticalScrollIndicator={false}
         />
       )}
     </SafeAreaView>
@@ -431,9 +495,14 @@ export default function InventoryAudit() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  listPad: { paddingHorizontal: 16, flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 28 },
+  safe: { flex: 1, backgroundColor: "transparent" },
+  header: { paddingHorizontal: SCREEN_GUTTER },
+  listPad: { paddingHorizontal: SCREEN_GUTTER, flex: 1 },
+  listContent: {
+    paddingHorizontal: SCREEN_GUTTER,
+    paddingBottom: 36,
+    flexGrow: 1,
+  },
   tabBar: {
     flexDirection: "row",
     gap: 8,
@@ -442,208 +511,166 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    minHeight: 40,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderRadius: 999,
+    backgroundColor: AUDIT_UI.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: AUDIT_UI.divider,
   },
   tabLabel: {
     fontSize: 12,
-    fontWeight: "800",
-    color: COLORS.muted,
+    fontWeight: "700",
+    color: AUDIT_UI.muted,
   },
   tabCount: {
     minWidth: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: AUDIT_UI.field,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
   },
   tabCountText: {
     fontSize: 11,
-    fontWeight: "900",
-    color: COLORS.muted,
+    fontWeight: "800",
+    color: AUDIT_UI.muted,
+  },
+  tabCountTextActive: {
+    color: "#FFFFFF",
+  },
+  cardWrap: {
+    marginBottom: 10,
   },
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderLeftWidth: 4,
-    padding: 14,
-    marginBottom: 12,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardTop: {
+    ...auditSoftCardStyle(),
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 72,
+  },
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   cardTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
+  },
+  cardTitle: {
     flex: 1,
     minWidth: 0,
-  },
-  cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitleCol: { flex: 1, minWidth: 0 },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: COLORS.text,
-    letterSpacing: -0.2,
-  },
-  cardSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "600",
-    color: COLORS.muted,
+    color: AUDIT_UI.ink,
   },
-  statusPill: {
+  badge: {
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  statusPillText: {
+  badgeText: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
+  },
+  cardMeta: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
   },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 12,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.muted,
-    flex: 1,
-  },
-  finalizedLine: {
-    marginTop: 12,
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.green,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 10,
-  },
-  statText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  statDot: {
-    fontSize: 12,
-    color: "#CBD5E1",
-    fontWeight: "700",
+    gap: 5,
+    marginTop: 3,
   },
   progressBlock: {
-    marginTop: 12,
+    marginTop: 10,
   },
   progressHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   progressLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    fontWeight: "600",
+    color: AUDIT_UI.muted,
   },
   progressValue: {
     fontSize: 11,
     fontWeight: "800",
-    color: COLORS.text,
+    color: AUDIT_UI.ink,
   },
   progressTrack: {
     height: 6,
     borderRadius: 999,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: AUDIT_UI.field,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
     borderRadius: 999,
   },
-  cardFooter: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  cardFooterHint: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.muted,
-  },
   errorBanner: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: AUDIT_UI.roseSoft,
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 10,
   },
-  errorText: { fontSize: 12, color: "#B91C1C", fontWeight: "600" },
-  empty: { alignItems: "center", paddingVertical: 48, paddingHorizontal: 24 },
-  emptyIconWrap: {
+  errorText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: AUDIT_UI.rose,
+  },
+  empty: {
+    alignItems: "center",
+    paddingVertical: 48,
+    paddingHorizontal: 28,
+    gap: 8,
+  },
+  emptyWell: {
     width: 64,
     height: 64,
-    borderRadius: 18,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.text,
-    marginTop: 16,
+    fontSize: 18,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+    textAlign: "center",
   },
   emptySub: {
-    fontSize: 13,
-    color: COLORS.muted,
+    fontSize: 14,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
     textAlign: "center",
-    marginTop: 8,
     lineHeight: 20,
-    fontWeight: "600",
   },
   footerLoading: { paddingVertical: 20 },
   skeletonCard: {
-    height: 132,
+    height: 88,
     borderRadius: 16,
-    backgroundColor: "#E2E8F0",
-    marginBottom: 12,
+    backgroundColor: AUDIT_UI.field,
   },
 });

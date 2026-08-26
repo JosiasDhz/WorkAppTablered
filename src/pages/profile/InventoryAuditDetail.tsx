@@ -1,21 +1,35 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import Toast from "react-native-toast-message";
-import Svg, { Circle } from "react-native-svg";
-import { ArrowRight2, Building, Calendar, Lock, User } from "iconsax-react-native";
-import { ProfileScreenHeader } from "../../components/ProfileScreenHeader";
-import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import {
+  ArrowRight2,
+  Box,
+  Building,
+  Calendar,
+  Lock,
+  TickCircle,
+  User,
+} from "iconsax-react-native";
+import { HeaderTitle } from "../../components/HeaderTitle";
+import { PageFlipReveal } from "../../components/PageFlipReveal";
+import { SoftPressable } from "../../components/SoftPressable";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
+import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getAuditCostReport,
   getMyAuditSummary,
@@ -29,15 +43,13 @@ import {
   formatInventoryAuditCalendarDateMX,
   parseInventoryAuditCalendarDate,
 } from "../../utils/auditCalendarDates";
+import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  accent: "#EA7600",
-  blue: "#2563EB",
-};
+const FLIP_STAGGER_MS = 70;
+
+function clampFlipDelay(delay: number) {
+  return Math.min(700, delay);
+}
 
 function formatApiError(e: unknown): string {
   if (typeof e === "string") return e;
@@ -72,7 +84,45 @@ function getScheduleWindow(
   return "during";
 }
 
-function SummaryRing({
+function auditStatusMeta(status: string) {
+  if (status === "pending") {
+    return { label: "Pendiente", color: AUDIT_UI.amber, soft: AUDIT_UI.amberSoft };
+  }
+  if (status === "in_progress") {
+    return { label: "En curso", color: AUDIT_UI.accent, soft: AUDIT_UI.accentSoft };
+  }
+  if (status === "finalized" || status === "completed") {
+    return { label: "Finalizada", color: AUDIT_UI.green, soft: AUDIT_UI.greenSoft };
+  }
+  if (status === "pending_review" || status === "pending_responsibility" || status === "submitted") {
+    return { label: "En revisión", color: AUDIT_UI.blue, soft: AUDIT_UI.blueSoft };
+  }
+  return { label: status, color: AUDIT_UI.muted, soft: AUDIT_UI.field };
+}
+
+function familyStatusMeta(status: string, locked: boolean) {
+  if (locked) {
+    return { label: "Bloqueada", color: AUDIT_UI.muted, soft: AUDIT_UI.field };
+  }
+  if (status === "completed") {
+    return { label: "Completada", color: AUDIT_UI.green, soft: AUDIT_UI.greenSoft };
+  }
+  if (status === "in_progress") {
+    return { label: "En curso", color: AUDIT_UI.accent, soft: AUDIT_UI.accentSoft };
+  }
+  return { label: "Pendiente", color: AUDIT_UI.amber, soft: AUDIT_UI.amberSoft };
+}
+
+function ProgressBar({ progress, color }: { progress: number; color: string }) {
+  const width = `${Math.max(0, Math.min(100, progress))}%` as `${number}%`;
+  return (
+    <View style={styles.progressTrack}>
+      <View style={[styles.progressFill, { width, backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function StatTile({
   label,
   value,
   total,
@@ -85,38 +135,87 @@ function SummaryRing({
   progress: number;
   color: string;
 }) {
-  const size = 84;
-  const stroke = 8;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const ringProgress = Math.max(0, Math.min(100, progress));
-  const strokeDashoffset = circumference * (1 - ringProgress / 100);
-
   return (
-    <View style={styles.summaryRingCol}>
-      <Text style={styles.summaryRingLabel}>{label}</Text>
-      <View style={styles.summaryRingWrap}>
-        <Svg width={size} height={size}>
-          <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#D9DEE7" strokeWidth={stroke} fill="none" />
-          <Circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={color}
-            strokeWidth={stroke}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={`${circumference} ${circumference}`}
-            strokeDashoffset={strokeDashoffset}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        </Svg>
-        <Text style={styles.summaryRingValue}>
-          {value}
-          <Text style={styles.summaryRingValueMuted}>/{total}</Text>
-        </Text>
+    <View style={styles.statTile}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>
+        {value}
+        <Text style={styles.statTotal}>/{total}</Text>
+      </Text>
+      <ProgressBar progress={progress} color={color} />
+      <Text style={[styles.statPct, { color }]}>{progress}%</Text>
+    </View>
+  );
+}
+
+function FamilyCard({
+  family,
+  index,
+  locked,
+  onPress,
+}: {
+  family: AuditDetailFamily;
+  index: number;
+  locked: boolean;
+  onPress: () => void;
+}) {
+  const pct =
+    family.totalProducts > 0
+      ? Math.round((family.countedProducts / family.totalProducts) * 100)
+      : 0;
+  const done = family.status === "completed";
+  const meta = familyStatusMeta(family.status, locked);
+  const dept = family.departament?.name ?? "Ubicación";
+  const label = auditFamilyDisplayLabel(family);
+
+  const body = (
+    <View style={[styles.familyCard, locked ? styles.familyCardLocked : null]}>
+      <View style={styles.familyTop}>
+        <View style={[styles.iconWell, { backgroundColor: meta.soft }]}>
+          {done && !locked ? (
+            <TickCircle size={20} color={meta.color} variant="Bold" />
+          ) : locked ? (
+            <Lock size={18} color={meta.color} variant="Linear" />
+          ) : (
+            <Text style={[styles.stopNum, { color: meta.color }]}>{index + 1}</Text>
+          )}
+        </View>
+        <View style={styles.familyCopy}>
+          <View style={styles.familyTitleRow}>
+            <Text style={styles.familyTitle} numberOfLines={1}>
+              {dept}
+            </Text>
+            <View style={[styles.badge, { backgroundColor: meta.soft }]}>
+              <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+            </View>
+          </View>
+          <Text style={styles.familySub} numberOfLines={2}>
+            {label}
+          </Text>
+          <Text style={styles.familyMeta}>
+            {family.countedProducts}/{family.totalProducts} productos
+          </Text>
+        </View>
+        {locked ? null : <ArrowRight2 size={16} color={AUDIT_UI.muted} variant="Linear" />}
+      </View>
+      <View style={styles.familyProgress}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressLabel}>Avance</Text>
+          <Text style={[styles.progressValue, { color: meta.color }]}>{pct}%</Text>
+        </View>
+        <ProgressBar progress={pct} color={meta.color} />
       </View>
     </View>
+  );
+
+  if (locked) {
+    return body;
+  }
+
+  return (
+    <SoftPressable onPress={onPress} scaleTo={0.99} accessibilityLabel={label}>
+      {body}
+    </SoftPressable>
   );
 }
 
@@ -124,6 +223,7 @@ export default function InventoryAuditDetail() {
   const navigation = useNavigation<any>();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { auditId } = route.params as { auditId: string };
 
   const [detail, setDetail] = useState<MyAuditDetail | null>(null);
@@ -157,7 +257,10 @@ export default function InventoryAuditDetail() {
   );
 
   useEffect(() => {
-    if ((detail?.status === "finalized" || detail?.status === "pending_responsibility") && auditId) {
+    if (
+      (detail?.status === "finalized" || detail?.status === "pending_responsibility") &&
+      auditId
+    ) {
       setLoadingCostReport(true);
       getAuditCostReport(auditId)
         .then(setCostReport)
@@ -215,130 +318,239 @@ export default function InventoryAuditDetail() {
 
   const showStartDock = !!detail && familiesLocked && scheduleWindow === "during";
 
+  const families = detail?.families ?? [];
+  const familiesDone = useMemo(
+    () => families.filter((f) => f.status === "completed").length,
+    [families],
+  );
+  const familiesPct =
+    families.length > 0 ? Math.round((familiesDone / families.length) * 100) : 0;
+  const productsPct =
+    detail && detail.totalProducts > 0
+      ? Math.round((detail.countedProducts / detail.totalProducts) * 100)
+      : 0;
+
+  const statusMeta = detail ? auditStatusMeta(detail.status) : null;
+  const warehouseName = detail?.warehouse?.name?.trim() || "Auditoría";
+  const workerName = detail?.worker?.user
+    ? [detail.worker.user.name, detail.worker.user.lastName].filter(Boolean).join(" ")
+    : null;
+  const dateRange = detail
+    ? `${formatInventoryAuditCalendarDateMX(detail.scheduledStartDate)} → ${formatInventoryAuditCalendarDateMX(detail.scheduledEndDate)}`
+    : "";
+
+  const headerSubtitle = familiesLocked
+    ? "Desliza para iniciar y desbloquear ubicaciones"
+    : "Elige una ubicación para continuar el conteo";
+
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
-      <ProfileScreenHeader title="Detalle de auditoría" subtitle="Elige una ubicación para revisar o retomar" />
+      <HeaderTitle
+        title={warehouseName}
+        subtitle={headerSubtitle}
+        tone="light"
+        style={styles.header}
+        onBack={() => {
+          if (navigation.canGoBack()) navigation.goBack();
+        }}
+      />
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
         </View>
       ) : error ? (
         <View style={styles.pad}>
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
-          <TouchableOpacity style={styles.retryBtn} onPress={load}>
+          <SoftPressable style={styles.retryBtn} onPress={load} scaleTo={0.98}>
             <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
+          </SoftPressable>
         </View>
       ) : detail ? (
         <View style={styles.detailBody}>
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, showStartDock && styles.scrollContentDock]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              showStartDock && styles.scrollContentDock,
+            ]}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={AUDIT_UI.accent}
+              />
             }
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Resumen</Text>
-              <View style={styles.summaryRingsRow}>
-                <SummaryRing
-                  label="UBICACIONES"
-                  value={(detail.families ?? []).filter((f) => f.status === "completed").length}
-                  total={detail.families?.length ?? 0}
-                  progress={
-                    (detail.families?.length ?? 0) > 0
-                      ? Math.round(
-                          (((detail.families ?? []).filter((f) => f.status === "completed").length /
-                            (detail.families?.length ?? 0)) *
-                            100),
-                        )
-                      : 0
-                  }
-                  color="#33B15E"
+            <PageFlipReveal delay={0} active={isFocused}>
+              <View style={styles.heroCard}>
+                <View style={styles.heroRow}>
+                  <View style={[styles.heroIcon, { backgroundColor: statusMeta?.soft }]}>
+                    <Building size={22} color={statusMeta?.color} variant="Linear" />
+                  </View>
+                  <View style={styles.heroText}>
+                    <Text style={styles.heroTitle} numberOfLines={1}>
+                      {warehouseName}
+                    </Text>
+                    <Text style={styles.heroSub} numberOfLines={2}>
+                      {families.length} ubicación{families.length === 1 ? "" : "es"} ·{" "}
+                      {detail.totalProducts} productos
+                    </Text>
+                  </View>
+                  {statusMeta ? (
+                    <View style={[styles.badge, { backgroundColor: statusMeta.soft }]}>
+                      <Text style={[styles.badgeText, { color: statusMeta.color }]}>
+                        {statusMeta.label}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.metaList}>
+                  <View style={styles.metaRow}>
+                    <Calendar size={15} color={AUDIT_UI.muted} variant="Linear" />
+                    <Text style={styles.metaText}>{dateRange}</Text>
+                  </View>
+                  {workerName ? (
+                    <View style={styles.metaRow}>
+                      <User size={15} color={AUDIT_UI.muted} variant="Linear" />
+                      <Text style={styles.metaText}>{workerName}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            </PageFlipReveal>
+
+            <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
+              <View style={styles.statsRow}>
+                <StatTile
+                  label="Ubicaciones"
+                  value={familiesDone}
+                  total={families.length}
+                  progress={familiesPct}
+                  color={AUDIT_UI.green}
                 />
-                <SummaryRing
-                  label="PRODUCTOS"
+                <StatTile
+                  label="Productos"
                   value={detail.countedProducts}
                   total={detail.totalProducts}
-                  progress={
-                    detail.totalProducts > 0
-                      ? Math.round((detail.countedProducts / detail.totalProducts) * 100)
-                      : 0
-                  }
-                  color="#2F7DE1"
+                  progress={productsPct}
+                  color={AUDIT_UI.accent}
                 />
               </View>
-              <View style={styles.summaryInfoCard}>
-                <Calendar size={14} color="#64748B" variant="Linear" />
-                <Text style={styles.summaryInfoText}>
-                  {formatInventoryAuditCalendarDateMX(detail.scheduledStartDate)} →{" "}
-                  {formatInventoryAuditCalendarDateMX(detail.scheduledEndDate)}
-                </Text>
-              </View>
-              {detail.warehouse?.name ? (
-                <View style={styles.summaryInfoCard}>
-                  <Building size={14} color="#64748B" variant="Linear" />
-                  <Text style={styles.summaryInfoText}>{detail.warehouse.name}</Text>
-                </View>
-              ) : null}
-              {detail.worker?.user ? (
-                <View style={styles.summaryInfoCard}>
-                  <User size={14} color="#64748B" variant="Linear" />
-                  <Text style={styles.summaryInfoText}>
-                    {[detail.worker.user.name, detail.worker.user.lastName].filter(Boolean).join(" ")}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
+            </PageFlipReveal>
 
-            {(detail.families ?? []).map((f) => {
-              const pct = f.totalProducts > 0 ? Math.round((f.countedProducts / f.totalProducts) * 100) : 0;
-              return (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[styles.familyRow, familiesLocked && styles.familyRowLocked]}
-                  activeOpacity={familiesLocked ? 1 : 0.88}
-                  onPress={() => goFamily(f)}
-                  disabled={familiesLocked}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.familyDept}>{f.departament?.name ?? "—"}</Text>
-                    <Text style={styles.familyBrand}>{auditFamilyDisplayLabel(f)}</Text>
-                    <Text style={styles.familyMeta}>{f.countedProducts}/{f.totalProducts} contados · {pct}%</Text>
+            {familiesLocked ? (
+              <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+                <View style={styles.lockBanner}>
+                  <View style={[styles.iconWell, { backgroundColor: AUDIT_UI.amberSoft }]}>
+                    <Lock size={18} color={AUDIT_UI.amber} variant="Linear" />
                   </View>
-                  {familiesLocked ? (
-                    <Lock size={16} color="#9CA3AF" variant="Linear" />
-                  ) : (
-                    <ArrowRight2 size={16} color={COLORS.blue} variant="Linear" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-
-            {auditReadOnly && (detail?.status === "finalized" || detail?.status === "pending_responsibility") ? (
-              <View style={styles.resultsCard}>
-                <Text style={styles.resultsTitle}>Resultados finales</Text>
-                {loadingCostReport ? (
-                  <ActivityIndicator color={COLORS.accent} />
-                ) : costReport ? (
-                  <>
-                    <Text style={styles.resultsLine}>Pérdidas: {fmtMXN(costReport.totalLoss)}</Text>
-                    <Text style={styles.resultsLine}>
-                      Neto:{" "}
-                      {fmtMXN(
-                        costReport.totalLoss > 0 ? -Math.abs(costReport.totalLoss) : 0,
-                      )}
+                  <View style={styles.lockCopy}>
+                    <Text style={styles.lockTitle}>Ubicaciones bloqueadas</Text>
+                    <Text style={styles.lockSub}>
+                      {scheduleWindow === "before"
+                        ? "Aún no inicia el periodo programado."
+                        : scheduleWindow === "after"
+                          ? "El periodo programado ya terminó."
+                          : "Desliza abajo para iniciar la auditoría."}
                     </Text>
-                  </>
+                  </View>
+                </View>
+              </PageFlipReveal>
+            ) : null}
+
+            <View style={styles.sectionBlock}>
+              <PageFlipReveal
+                delay={clampFlipDelay(FLIP_STAGGER_MS * 3)}
+                active={isFocused}
+              >
+                <Text style={styles.sectionTitle}>
+                  Ubicaciones
+                  {families.length > 0 ? ` · ${families.length}` : ""}
+                </Text>
+              </PageFlipReveal>
+
+              <View style={styles.list}>
+                {families.map((f, index) => (
+                  <PageFlipReveal
+                    key={f.id}
+                    delay={clampFlipDelay((index + 4) * FLIP_STAGGER_MS)}
+                    active={isFocused}
+                  >
+                    <FamilyCard
+                      family={f}
+                      index={index}
+                      locked={familiesLocked}
+                      onPress={() => goFamily(f)}
+                    />
+                  </PageFlipReveal>
+                ))}
+                {families.length === 0 ? (
+                  <View style={styles.emptyBlock}>
+                    <View style={[styles.emptyWell, { backgroundColor: AUDIT_UI.accentSoft }]}>
+                      <Box size={26} color={AUDIT_UI.accent} variant="Linear" />
+                    </View>
+                    <Text style={styles.emptyTitle}>Sin ubicaciones</Text>
+                    <Text style={styles.emptySub}>
+                      Esta auditoría todavía no tiene familias asignadas.
+                    </Text>
+                  </View>
                 ) : null}
               </View>
+            </View>
+
+            {auditReadOnly &&
+            (detail.status === "finalized" || detail.status === "pending_responsibility") ? (
+              <PageFlipReveal
+                delay={clampFlipDelay(FLIP_STAGGER_MS * 5)}
+                active={isFocused}
+              >
+                <View style={styles.resultsCard}>
+                  <Text style={styles.resultsTitle}>Resultados finales</Text>
+                  {loadingCostReport ? (
+                    <ActivityIndicator color={AUDIT_UI.accent} />
+                  ) : costReport ? (
+                    <View style={styles.resultsRows}>
+                      <View style={styles.resultsRow}>
+                        <Text style={styles.resultsLabel}>Pérdidas</Text>
+                        <Text style={styles.resultsValue}>
+                          {fmtMXN(costReport.totalLoss)}
+                        </Text>
+                      </View>
+                      <View style={styles.resultsRow}>
+                        <Text style={styles.resultsLabel}>Neto</Text>
+                        <Text
+                          style={[
+                            styles.resultsValue,
+                            costReport.totalLoss > 0 ? styles.resultsLoss : null,
+                          ]}
+                        >
+                          {fmtMXN(
+                            costReport.totalLoss > 0
+                              ? -Math.abs(costReport.totalLoss)
+                              : 0,
+                          )}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.resultsEmpty}>Sin reporte de costos.</Text>
+                  )}
+                </View>
+              </PageFlipReveal>
             ) : null}
           </ScrollView>
 
           {showStartDock ? (
-            <View style={[styles.startDock, { paddingBottom: Math.max(insets.bottom, 10) + 8 }]}>
+            <View
+              style={[
+                styles.startDock,
+                { paddingBottom: Math.max(insets.bottom, 10) + 8 },
+              ]}
+            >
               <SlideToStartAudit
                 inDock
                 onSlideComplete={confirmStartAudit}
@@ -354,91 +566,276 @@ export default function InventoryAuditDetail() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, backgroundColor: "transparent" },
+  header: { paddingHorizontal: SCREEN_GUTTER },
   detailBody: { flex: 1 },
   startDock: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_GUTTER,
     backgroundColor: "transparent",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 10,
   },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  pad: { padding: 20 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
+  pad: { paddingHorizontal: SCREEN_GUTTER, paddingTop: 8 },
+  scrollContent: {
+    paddingHorizontal: SCREEN_GUTTER,
+    paddingTop: 8,
+    paddingBottom: 40,
+    gap: 12,
+  },
   scrollContentDock: { paddingBottom: 150 },
   errorBanner: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    borderRadius: 12,
+    backgroundColor: AUDIT_UI.roseSoft,
+    borderRadius: 14,
     padding: 12,
   },
-  errorText: { fontSize: 13, color: "#B91C1C" },
+  errorText: { fontSize: 13, fontWeight: "600", color: AUDIT_UI.rose },
   retryBtn: {
     marginTop: 16,
-    backgroundColor: COLORS.accent,
+    backgroundColor: AUDIT_UI.accent,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: "center",
   },
   retryText: { color: "#FFF", fontWeight: "800", fontSize: 14 },
-  summaryCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  heroCard: {
+    ...auditSoftCardStyle(),
     padding: 14,
-    marginBottom: 12,
+    gap: 12,
   },
-  summaryTitle: { fontSize: 14, fontWeight: "900", color: COLORS.text, marginBottom: 10 },
-  summaryRingsRow: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginBottom: 12 },
-  summaryRingCol: { flex: 1, alignItems: "center" },
-  summaryRingLabel: { fontSize: 10, fontWeight: "900", color: COLORS.muted, marginBottom: 6 },
-  summaryRingWrap: { width: 84, height: 84, alignItems: "center", justifyContent: "center" },
-  summaryRingValue: { position: "absolute", fontSize: 14, fontWeight: "900", color: COLORS.text },
-  summaryRingValueMuted: { fontSize: 10, color: COLORS.muted },
-  summaryInfoCard: {
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  heroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroText: { flex: 1, minWidth: 0 },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  heroSub: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 18,
+    color: AUDIT_UI.muted,
+  },
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  metaList: { gap: 8 },
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 6,
   },
-  summaryInfoText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
-  familyRow: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
-    marginBottom: 8,
+  metaText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  statTile: {
+    ...auditSoftCardStyle(),
+    flex: 1,
+    padding: 14,
+    gap: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: AUDIT_UI.muted,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: AUDIT_UI.ink,
+  },
+  statTotal: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: AUDIT_UI.muted,
+  },
+  statPct: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: AUDIT_UI.field,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  lockBanner: {
+    ...auditSoftCardStyle(),
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  lockCopy: { flex: 1, minWidth: 0 },
+  lockTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  lockSub: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+    lineHeight: 18,
+  },
+  sectionBlock: { gap: 10 },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  list: { gap: 10 },
+  familyCard: {
+    ...auditSoftCardStyle(),
+    padding: 14,
+    gap: 12,
+  },
+  familyCardLocked: { opacity: 0.88 },
+  familyTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stopNum: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  familyCopy: { flex: 1, minWidth: 0 },
+  familyTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  familyTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 15,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  familySub: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+    lineHeight: 18,
+  },
+  familyMeta: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+  },
+  familyProgress: { gap: 6 },
+  progressHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  familyRowLocked: { opacity: 0.72, backgroundColor: "#F9FAFB" },
-  familyDept: { fontSize: 14, fontWeight: "900", color: COLORS.text },
-  familyBrand: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
-  familyMeta: { fontSize: 11, color: COLORS.muted, marginTop: 4 },
-  resultsCard: {
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 8,
-    marginBottom: 8,
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: AUDIT_UI.muted,
   },
-  resultsTitle: { fontSize: 14, fontWeight: "900", color: "#047857", marginBottom: 8 },
-  resultsLine: { fontSize: 13, color: "#065F46", marginBottom: 3, fontWeight: "700" },
+  progressValue: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  emptyBlock: {
+    alignItems: "center",
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  emptyWell: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  emptySub: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  resultsCard: {
+    ...auditSoftCardStyle(),
+    padding: 14,
+    gap: 12,
+  },
+  resultsTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  resultsRows: { gap: 10 },
+  resultsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  resultsLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+  },
+  resultsValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: AUDIT_UI.ink,
+  },
+  resultsLoss: { color: AUDIT_UI.rose },
+  resultsEmpty: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: AUDIT_UI.muted,
+  },
 });
