@@ -53,7 +53,7 @@ export function LoginCredentialFields({
           placeholderTextColor="rgba(105, 97, 88, 0.55)"
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="email-address"
+          keyboardType="default"
           returnKeyType="next"
           onFocus={() => onEmailFocus(true)}
           onBlur={() => onEmailFocus(false)}

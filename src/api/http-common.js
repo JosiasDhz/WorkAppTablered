@@ -1,6 +1,6 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-export const apiBaseUrl = "http://192.168.0.228:9005";
+export const apiBaseUrl = "http://192.168.0.227:9005";
 // export const apiBaseUrl = "https://table-redapi.karimnot.dev";
 const baseURL = apiBaseUrl;
 

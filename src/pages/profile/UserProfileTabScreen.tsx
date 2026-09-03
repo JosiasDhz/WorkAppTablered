@@ -23,8 +23,6 @@ import {
   Edit2,
   Logout,
   Notification,
-  PasswordCheck,
-  Profile2User,
   Setting4,
 } from "iconsax-react-native";
 import { useDispatch, useSelector } from "react-redux";
@@ -69,6 +67,7 @@ type MenuAction =
   | "MisVacaciones"
   | "MisExpediente"
   | "MisComisiones"
+  | "NotificationsStack"
   | "Inventory"
   | "InventoryAudit"
   | "InventoryAuditLossDocuments";
@@ -114,9 +113,7 @@ const MENU_SECTIONS: MenuSectionData[] = [
     items: [
       { id: "apariencia", label: "Apariencia", icon: Setting4, action: "none" },
       { id: "registros", label: "Mis registros", icon: Calendar1, action: "MisRegistros" },
-      { id: "dispositivos", label: "Gestionar dispositivos", icon: Profile2User, action: "none" },
-      { id: "password", label: "Cambiar contraseña", icon: PasswordCheck, action: "none" },
-      { id: "notify", label: "Notificaciones", icon: Notification, action: "none" },
+      { id: "notify", label: "Notificaciones", icon: Notification, action: "NotificationsStack" },
     ],
   },
   {
@@ -211,6 +208,15 @@ export default function UserProfileTabScreen() {
   const go = useCallback(
     (action: MenuAction) => {
       if (action === "none") return;
+      if (action === "NotificationsStack") {
+        const tabs = navigation.getParent();
+        if (tabs) {
+          tabs.navigate("NotificationsStack");
+          return;
+        }
+        navigation.navigate("NotificationsStack" as never);
+        return;
+      }
       navigation.navigate(action as never);
     },
     [navigation],

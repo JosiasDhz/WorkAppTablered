@@ -4,10 +4,12 @@ import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { SoftReveal } from "../../../components/SoftPressable";
 import { isWorkerDriver } from "../../../auth/isWorkerDriver";
+import { isWorkerSupervisor } from "../../../auth/isWorkerSupervisor";
 import { RootState } from "../../../redux/store/store";
 import { useDriverPendingRoutes } from "../../profile/hooks/useDriverPendingRoutes";
 import { useHomeRevealActive } from "../HomeRevealActiveContext";
 import { buildDriverRoleHomeKpi } from "./buildDriverRoleHomeKpi";
+import { buildEmptySupervisorRoleHomeKpi } from "./buildSupervisorRoleHomeKpi";
 import {
   HomeExpedienteKpiRing,
   HomeExpedienteKpiTitle,
@@ -27,21 +29,29 @@ function expedienteCaption(uploaded: number, total: number): string {
 export function HomeStatusKpis() {
   const navigation = useNavigation<any>();
   const revealActive = useHomeRevealActive();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, seller } = useSelector((state: RootState) => state.auth);
   const { data, loading } = useWorkerHomeKpis();
   const isDriver = isWorkerDriver(user);
+  const isSupervisor = isWorkerSupervisor(user, seller);
   const needLocalDriverKpi = isDriver && !loading && !data?.roleKpi;
   const driverRoutes = useDriverPendingRoutes(needLocalDriverKpi);
 
   const roleKpi = useMemo(() => {
     if (data?.roleKpi) return data.roleKpi;
-    if (!needLocalDriverKpi) return null;
-    if (driverRoutes.loading && driverRoutes.items.length === 0) return null;
-    return buildDriverRoleHomeKpi(driverRoutes.items);
+    if (needLocalDriverKpi) {
+      if (driverRoutes.loading && driverRoutes.items.length === 0) return null;
+      return buildDriverRoleHomeKpi(driverRoutes.items);
+    }
+    if (isSupervisor && !loading) {
+      return buildEmptySupervisorRoleHomeKpi();
+    }
+    return null;
   }, [
     data?.roleKpi,
     driverRoutes.items,
     driverRoutes.loading,
+    isSupervisor,
+    loading,
     needLocalDriverKpi,
   ]);
 

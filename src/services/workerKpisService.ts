@@ -90,7 +90,7 @@ export type WorkerRoleHomeKpi = {
 export type WorkerHomeKpis = {
   expediente: WorkerExpedienteKpi;
   imss: WorkerImssKpi;
-  attendance: WorkerAttendanceKpi;
+  attendance: WorkerAttendanceKpi | null;
   roleKpi: WorkerRoleHomeKpi | null;
   commission: WorkerCommissionKpi | null;
 };

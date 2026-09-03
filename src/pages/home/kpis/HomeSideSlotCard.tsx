@@ -107,6 +107,37 @@ function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
   centerLabel: string;
   toneColor: string;
 } {
+  const payments = roleKpi.chart?.payments ?? [];
+  if (payments.length > 0 || roleKpi.chart?.valueFormat === "mxn") {
+    const total = Math.max(
+      0,
+      payments.reduce((sum, item) => sum + Math.max(0, item.value), 0),
+    );
+    const peak = payments.reduce(
+      (max, item) => Math.max(max, Math.max(0, item.value)),
+      0,
+    );
+    const top = [...payments].sort((a, b) => b.value - a.value)[0];
+    const pct =
+      total > 0 && peak > 0 ? Math.round((peak / total) * 100) : 0;
+    return {
+      title: roleKpi.title || "Ventas",
+      status: roleKpi.percentLabel || roleKpi.status,
+      caption: top && top.value > 0 ? `Top ${top.shortLabel || top.label}` : roleKpi.caption,
+      done: pct,
+      open: Math.max(0, 100 - pct),
+      centerLabel: roleKpi.percentLabel.includes("$")
+        ? roleKpi.percentLabel.replace(/\s/g, "")
+        : `${pct}%`,
+      toneColor:
+        roleKpi.tone === "ok"
+          ? HOME_COLORS.positive
+          : roleKpi.tone === "pending"
+            ? HOME_COLORS.warning
+            : HOME_COLORS.accent,
+    };
+  }
+
   const items = roleKpi.chart?.items ?? [];
   const closedRe =
     /finaliz|complet|cerrad|listo|hecho|ok|entregad|cobrad|pagad/i;

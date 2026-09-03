@@ -32,7 +32,7 @@ export const LOGIN_COPY = {
   subtitle: "Accede para continuar con tu jornada.",
   userLabel: "Usuario",
   passwordLabel: "Contraseña",
-  userPlaceholder: "correo o usuario",
+  userPlaceholder: "correo o teléfono",
   passwordPlaceholder: "••••••••",
   submit: "Ingresar",
   submitting: "Ingresando…",
