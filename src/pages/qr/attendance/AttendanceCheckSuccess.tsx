@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { TickCircle } from "iconsax-react-native";
 import { DriverRouteConfettiLayer } from "../../profile/driverRoute/DriverRouteConfettiLayer";
-import { ATTENDANCE_COLORS } from "./attendanceTheme";
+import { useAttendanceColors } from "./attendanceTheme";
 
 export type AttendanceCheckSuccessProps = {
   warehouseName: string;
@@ -12,6 +12,7 @@ export type AttendanceCheckSuccessProps = {
 export function AttendanceCheckSuccess({
   warehouseName,
 }: AttendanceCheckSuccessProps) {
+  const colors = useAttendanceColors();
   const badgeScale = useRef(new Animated.Value(0)).current;
   const badgeOpacity = useRef(new Animated.Value(0)).current;
   const badgeRotate = useRef(new Animated.Value(-18)).current;
@@ -74,14 +75,20 @@ export function AttendanceCheckSuccess({
             ],
           }}
         >
-          <View style={styles.badge}>
-            <TickCircle size={64} color="#FFFFFF" variant="Bold" />
+          <View style={[styles.badge, { backgroundColor: colors.success }]}>
+            <TickCircle size={64} color={colors.surface} variant="Bold" />
           </View>
         </Animated.View>
         <Animated.View style={[styles.copy, { opacity: copyOpacity }]}>
-          <Text style={styles.title}>¡Chequeo exitoso!</Text>
-          <Text style={styles.subtitle}>{warehouseName}</Text>
-          <Text style={styles.hint}>Generando nuevo QR…</Text>
+          <Text style={[styles.title, { color: colors.successInk }]}>
+            ¡Chequeo exitoso!
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.ink }]}>
+            {warehouseName}
+          </Text>
+          <Text style={[styles.hint, { color: colors.success }]}>
+            Generando nuevo QR…
+          </Text>
         </Animated.View>
       </View>
     </View>
@@ -105,7 +112,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: ATTENDANCE_COLORS.success,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -116,21 +122,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "800",
-    color: ATTENDANCE_COLORS.successInk,
     textAlign: "center",
   },
   subtitle: {
     marginTop: 8,
     fontSize: 16,
     fontWeight: "700",
-    color: ATTENDANCE_COLORS.ink,
     textAlign: "center",
   },
   hint: {
     marginTop: 12,
     fontSize: 13,
     fontWeight: "600",
-    color: ATTENDANCE_COLORS.success,
     textAlign: "center",
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { CloseCircle, Eye, EyeSlash } from "iconsax-react-native";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 type DriverRouteWorkerCodeModalProps = {
   visible: boolean;
@@ -33,6 +34,8 @@ export function DriverRouteWorkerCodeModal({
   onClose,
   onConfirm,
 }: DriverRouteWorkerCodeModalProps) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const [workerCode, setWorkerCode] = useState("");
   const [showCode, setShowCode] = useState(false);
 
@@ -64,7 +67,7 @@ export function DriverRouteWorkerCodeModal({
               hitSlop={10}
               accessibilityLabel="Cerrar"
             >
-              <CloseCircle size={26} color="#64748B" variant="Bold" />
+              <CloseCircle size={26} color={ui.muted} variant="Bold" />
             </Pressable>
           </View>
 
@@ -74,7 +77,7 @@ export function DriverRouteWorkerCodeModal({
               value={workerCode}
               onChangeText={setWorkerCode}
               placeholder="Ej. TR-1234"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={ui.faint}
               autoCapitalize="characters"
               autoCorrect={false}
               secureTextEntry={!showCode}
@@ -89,9 +92,9 @@ export function DriverRouteWorkerCodeModal({
               accessibilityLabel={showCode ? "Ocultar código" : "Mostrar código"}
             >
               {showCode ? (
-                <EyeSlash size={20} color="#64748B" variant="Bold" />
+                <EyeSlash size={20} color={ui.muted} variant="Bold" />
               ) : (
-                <Eye size={20} color="#64748B" variant="Bold" />
+                <Eye size={20} color={ui.muted} variant="Bold" />
               )}
             </Pressable>
           </View>
@@ -115,89 +118,91 @@ export function DriverRouteWorkerCodeModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 28,
-  },
-  head: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 18,
-  },
-  headText: {
-    flex: 1,
-    gap: 6,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 20,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 8,
-  },
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  eyeBtn: {
-    padding: 4,
-  },
-  error: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#C2410C",
-    lineHeight: 18,
-  },
-  confirmBtn: {
-    marginTop: 18,
-    height: 52,
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  confirmBtnDisabled: {
-    opacity: 0.55,
-  },
-  confirmTxt: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: ui.overlay,
+      justifyContent: "flex-end",
+    },
+    sheet: {
+      backgroundColor: ui.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 28,
+    },
+    head: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      marginBottom: 18,
+    },
+    headText: {
+      flex: 1,
+      gap: 6,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    subtitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 20,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginBottom: 8,
+    },
+    inputWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      backgroundColor: ui.field,
+      paddingHorizontal: 12,
+    },
+    input: {
+      flex: 1,
+      paddingVertical: 14,
+      fontSize: 18,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    eyeBtn: {
+      padding: 4,
+    },
+    error: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.accentInk,
+      lineHeight: 18,
+    },
+    confirmBtn: {
+      marginTop: 18,
+      height: 52,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    confirmBtnDisabled: {
+      opacity: 0.55,
+    },
+    confirmTxt: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "800",
+    },
+  });
+}

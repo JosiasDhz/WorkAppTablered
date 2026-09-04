@@ -1,7 +1,7 @@
 import React, { useCallback, useId, useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
-import { SOFT } from "../theme/softUi";
+import { useAppAppearance } from "../theme/appearance";
 
 type Box = {
   width: number;
@@ -9,10 +9,14 @@ type Box = {
 };
 
 export function SoftOrangeGlowBackdrop() {
+  const { colors, scheme } = useAppAppearance();
   const reactId = useId().replace(/:/g, "");
   const topId = `softOrangeGlowTop${reactId}`;
   const bottomId = `softOrangeGlowBottom${reactId}`;
   const [box, setBox] = useState<Box>({ width: 0, height: 0 });
+  const glow = scheme === "dark" ? "#C86800" : "#F3B07A";
+  const topOpacity = scheme === "dark" ? 0.28 : 0.36;
+  const bottomOpacity = scheme === "dark" ? 0.18 : 0.22;
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -24,7 +28,11 @@ export function SoftOrangeGlowBackdrop() {
   }, []);
 
   return (
-    <View pointerEvents="none" style={styles.layer} onLayout={onLayout}>
+    <View
+      pointerEvents="none"
+      style={styles.layer}
+      onLayout={onLayout}
+    >
       {box.width > 0 ? (
         <Svg width={box.width} height={box.height}>
           <Defs>
@@ -38,10 +46,10 @@ export function SoftOrangeGlowBackdrop() {
               fy={box.height * 0.02}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor="#F3B07A" stopOpacity="0.36" />
-              <Stop offset="0.4" stopColor="#F3B07A" stopOpacity="0.16" />
-              <Stop offset="0.72" stopColor={SOFT.layout} stopOpacity="0.05" />
-              <Stop offset="1" stopColor={SOFT.layout} stopOpacity="0" />
+              <Stop offset="0" stopColor={glow} stopOpacity={topOpacity} />
+              <Stop offset="0.4" stopColor={glow} stopOpacity={topOpacity * 0.45} />
+              <Stop offset="0.72" stopColor={colors.layout} stopOpacity="0.05" />
+              <Stop offset="1" stopColor={colors.layout} stopOpacity="0" />
             </RadialGradient>
             <RadialGradient
               id={bottomId}
@@ -53,10 +61,14 @@ export function SoftOrangeGlowBackdrop() {
               fy={box.height * 0.86}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor="#F3B07A" stopOpacity="0.22" />
-              <Stop offset="0.4" stopColor="#F3B07A" stopOpacity="0.1" />
-              <Stop offset="0.72" stopColor={SOFT.layout} stopOpacity="0.04" />
-              <Stop offset="1" stopColor={SOFT.layout} stopOpacity="0" />
+              <Stop offset="0" stopColor={glow} stopOpacity={bottomOpacity} />
+              <Stop
+                offset="0.4"
+                stopColor={glow}
+                stopOpacity={bottomOpacity * 0.45}
+              />
+              <Stop offset="0.72" stopColor={colors.layout} stopOpacity="0.04" />
+              <Stop offset="1" stopColor={colors.layout} stopOpacity="0" />
             </RadialGradient>
           </Defs>
           <Rect
@@ -82,7 +94,6 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
-    backgroundColor: SOFT.layout,
   },
 });
 
@@ -92,8 +103,9 @@ export function withSoftOrangeGlow<P extends object>(
   const MemoScreen = React.memo(Screen);
 
   function SoftOrangeGlowScreen(props: P) {
+    const { colors } = useAppAppearance();
     return (
-      <View style={styles.page}>
+      <View style={[styles.page, { backgroundColor: colors.layout }]}>
         <SoftOrangeGlowBackdrop />
         <MemoScreen {...props} />
       </View>

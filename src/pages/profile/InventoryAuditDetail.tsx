@@ -43,7 +43,8 @@ import {
   formatInventoryAuditCalendarDateMX,
   parseInventoryAuditCalendarDate,
 } from "../../utils/auditCalendarDates";
-import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
+import { createThemedStyles } from "../../theme/themedStyles";
+import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
 
 const FLIP_STAGGER_MS = 70;
 
@@ -84,36 +85,37 @@ function getScheduleWindow(
   return "during";
 }
 
-function auditStatusMeta(status: string) {
+function auditStatusMeta(status: string, ui: AuditUi) {
   if (status === "pending") {
-    return { label: "Pendiente", color: AUDIT_UI.amber, soft: AUDIT_UI.amberSoft };
+    return { label: "Pendiente", color: ui.amber, soft: ui.amberSoft };
   }
   if (status === "in_progress") {
-    return { label: "En curso", color: AUDIT_UI.accent, soft: AUDIT_UI.accentSoft };
+    return { label: "En curso", color: ui.accent, soft: ui.accentSoft };
   }
   if (status === "finalized" || status === "completed") {
-    return { label: "Finalizada", color: AUDIT_UI.green, soft: AUDIT_UI.greenSoft };
+    return { label: "Finalizada", color: ui.green, soft: ui.greenSoft };
   }
   if (status === "pending_review" || status === "pending_responsibility" || status === "submitted") {
-    return { label: "En revisión", color: AUDIT_UI.blue, soft: AUDIT_UI.blueSoft };
+    return { label: "En revisión", color: ui.blue, soft: ui.blueSoft };
   }
-  return { label: status, color: AUDIT_UI.muted, soft: AUDIT_UI.field };
+  return { label: status, color: ui.muted, soft: ui.field };
 }
 
-function familyStatusMeta(status: string, locked: boolean) {
+function familyStatusMeta(status: string, locked: boolean, ui: AuditUi) {
   if (locked) {
-    return { label: "Bloqueada", color: AUDIT_UI.muted, soft: AUDIT_UI.field };
+    return { label: "Bloqueada", color: ui.muted, soft: ui.field };
   }
   if (status === "completed") {
-    return { label: "Completada", color: AUDIT_UI.green, soft: AUDIT_UI.greenSoft };
+    return { label: "Completada", color: ui.green, soft: ui.greenSoft };
   }
   if (status === "in_progress") {
-    return { label: "En curso", color: AUDIT_UI.accent, soft: AUDIT_UI.accentSoft };
+    return { label: "En curso", color: ui.accent, soft: ui.accentSoft };
   }
-  return { label: "Pendiente", color: AUDIT_UI.amber, soft: AUDIT_UI.amberSoft };
+  return { label: "Pendiente", color: ui.amber, soft: ui.amberSoft };
 }
 
 function ProgressBar({ progress, color }: { progress: number; color: string }) {
+  const styles = useAuditDetailStyles();
   const width = `${Math.max(0, Math.min(100, progress))}%` as `${number}%`;
   return (
     <View style={styles.progressTrack}>
@@ -135,6 +137,7 @@ function StatTile({
   progress: number;
   color: string;
 }) {
+  const styles = useAuditDetailStyles();
   return (
     <View style={styles.statTile}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -159,12 +162,14 @@ function FamilyCard({
   locked: boolean;
   onPress: () => void;
 }) {
+  const ui = useAuditUi();
+  const styles = useAuditDetailStyles();
   const pct =
     family.totalProducts > 0
       ? Math.round((family.countedProducts / family.totalProducts) * 100)
       : 0;
   const done = family.status === "completed";
-  const meta = familyStatusMeta(family.status, locked);
+  const meta = familyStatusMeta(family.status, locked, ui);
   const dept = family.departament?.name ?? "Ubicación";
   const label = auditFamilyDisplayLabel(family);
 
@@ -196,7 +201,7 @@ function FamilyCard({
             {family.countedProducts}/{family.totalProducts} productos
           </Text>
         </View>
-        {locked ? null : <ArrowRight2 size={16} color={AUDIT_UI.muted} variant="Linear" />}
+        {locked ? null : <ArrowRight2 size={16} color={ui.muted} variant="Linear" />}
       </View>
       <View style={styles.familyProgress}>
         <View style={styles.progressHeader}>
@@ -224,6 +229,8 @@ export default function InventoryAuditDetail() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const ui = useAuditUi();
+  const styles = useAuditDetailStyles();
   const { auditId } = route.params as { auditId: string };
 
   const [detail, setDetail] = useState<MyAuditDetail | null>(null);
@@ -330,7 +337,7 @@ export default function InventoryAuditDetail() {
       ? Math.round((detail.countedProducts / detail.totalProducts) * 100)
       : 0;
 
-  const statusMeta = detail ? auditStatusMeta(detail.status) : null;
+  const statusMeta = detail ? auditStatusMeta(detail.status, ui) : null;
   const warehouseName = detail?.warehouse?.name?.trim() || "Auditoría";
   const workerName = detail?.worker?.user
     ? [detail.worker.user.name, detail.worker.user.lastName].filter(Boolean).join(" ")
@@ -357,7 +364,7 @@ export default function InventoryAuditDetail() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       ) : error ? (
         <View style={styles.pad}>
@@ -379,7 +386,7 @@ export default function InventoryAuditDetail() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={AUDIT_UI.accent}
+                tintColor={ui.accent}
               />
             }
             showsVerticalScrollIndicator={false}
@@ -410,12 +417,12 @@ export default function InventoryAuditDetail() {
 
                 <View style={styles.metaList}>
                   <View style={styles.metaRow}>
-                    <Calendar size={15} color={AUDIT_UI.muted} variant="Linear" />
+                    <Calendar size={15} color={ui.muted} variant="Linear" />
                     <Text style={styles.metaText}>{dateRange}</Text>
                   </View>
                   {workerName ? (
                     <View style={styles.metaRow}>
-                      <User size={15} color={AUDIT_UI.muted} variant="Linear" />
+                      <User size={15} color={ui.muted} variant="Linear" />
                       <Text style={styles.metaText}>{workerName}</Text>
                     </View>
                   ) : null}
@@ -430,14 +437,14 @@ export default function InventoryAuditDetail() {
                   value={familiesDone}
                   total={families.length}
                   progress={familiesPct}
-                  color={AUDIT_UI.green}
+                  color={ui.green}
                 />
                 <StatTile
                   label="Productos"
                   value={detail.countedProducts}
                   total={detail.totalProducts}
                   progress={productsPct}
-                  color={AUDIT_UI.accent}
+                  color={ui.accent}
                 />
               </View>
             </PageFlipReveal>
@@ -445,8 +452,8 @@ export default function InventoryAuditDetail() {
             {familiesLocked ? (
               <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
                 <View style={styles.lockBanner}>
-                  <View style={[styles.iconWell, { backgroundColor: AUDIT_UI.amberSoft }]}>
-                    <Lock size={18} color={AUDIT_UI.amber} variant="Linear" />
+                  <View style={[styles.iconWell, { backgroundColor: ui.amberSoft }]}>
+                    <Lock size={18} color={ui.amber} variant="Linear" />
                   </View>
                   <View style={styles.lockCopy}>
                     <Text style={styles.lockTitle}>Ubicaciones bloqueadas</Text>
@@ -490,8 +497,8 @@ export default function InventoryAuditDetail() {
                 ))}
                 {families.length === 0 ? (
                   <View style={styles.emptyBlock}>
-                    <View style={[styles.emptyWell, { backgroundColor: AUDIT_UI.accentSoft }]}>
-                      <Box size={26} color={AUDIT_UI.accent} variant="Linear" />
+                    <View style={[styles.emptyWell, { backgroundColor: ui.accentSoft }]}>
+                      <Box size={26} color={ui.accent} variant="Linear" />
                     </View>
                     <Text style={styles.emptyTitle}>Sin ubicaciones</Text>
                     <Text style={styles.emptySub}>
@@ -511,7 +518,7 @@ export default function InventoryAuditDetail() {
                 <View style={styles.resultsCard}>
                   <Text style={styles.resultsTitle}>Resultados finales</Text>
                   {loadingCostReport ? (
-                    <ActivityIndicator color={AUDIT_UI.accent} />
+                    <ActivityIndicator color={ui.accent} />
                   ) : costReport ? (
                     <View style={styles.resultsRows}>
                       <View style={styles.resultsRow}>
@@ -565,277 +572,284 @@ export default function InventoryAuditDetail() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "transparent" },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  detailBody: { flex: 1 },
-  startDock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: SCREEN_GUTTER,
-    backgroundColor: "transparent",
-  },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  pad: { paddingHorizontal: SCREEN_GUTTER, paddingTop: 8 },
-  scrollContent: {
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingTop: 8,
-    paddingBottom: 40,
-    gap: 12,
-  },
-  scrollContentDock: { paddingBottom: 150 },
-  errorBanner: {
-    backgroundColor: AUDIT_UI.roseSoft,
-    borderRadius: 14,
-    padding: 12,
-  },
-  errorText: { fontSize: 13, fontWeight: "600", color: AUDIT_UI.rose },
-  retryBtn: {
-    marginTop: 16,
-    backgroundColor: AUDIT_UI.accent,
-    paddingVertical: 12,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  retryText: { color: "#FFF", fontWeight: "800", fontSize: 14 },
-  heroCard: {
-    ...auditSoftCardStyle(),
-    padding: 14,
-    gap: 12,
-  },
-  heroRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  heroIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroText: { flex: 1, minWidth: 0 },
-  heroTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  heroSub: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: AUDIT_UI.muted,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  metaList: { gap: 8 },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  metaText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statTile: {
-    ...auditSoftCardStyle(),
-    flex: 1,
-    padding: 14,
-    gap: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: AUDIT_UI.muted,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: AUDIT_UI.ink,
-  },
-  statTotal: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: AUDIT_UI.muted,
-  },
-  statPct: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: AUDIT_UI.field,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
-  lockBanner: {
-    ...auditSoftCardStyle(),
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-  },
-  lockCopy: { flex: 1, minWidth: 0 },
-  lockTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  lockSub: {
-    marginTop: 2,
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-    lineHeight: 18,
-  },
-  sectionBlock: { gap: 10 },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  list: { gap: 10 },
-  familyCard: {
-    ...auditSoftCardStyle(),
-    padding: 14,
-    gap: 12,
-  },
-  familyCardLocked: { opacity: 0.88 },
-  familyTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stopNum: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  familyCopy: { flex: 1, minWidth: 0 },
-  familyTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  familyTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 15,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  familySub: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-    lineHeight: 18,
-  },
-  familyMeta: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  familyProgress: { gap: 6 },
-  progressHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: AUDIT_UI.muted,
-  },
-  progressValue: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  emptyBlock: {
-    alignItems: "center",
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  emptyWell: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  emptySub: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  resultsCard: {
-    ...auditSoftCardStyle(),
-    padding: 14,
-    gap: 12,
-  },
-  resultsTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  resultsRows: { gap: 10 },
-  resultsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  resultsLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  resultsValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  resultsLoss: { color: AUDIT_UI.rose },
-  resultsEmpty: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-});
+function buildAuditDetailStyles(ui: AuditUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: "transparent" },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    detailBody: { flex: 1 },
+    startDock: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: SCREEN_GUTTER,
+      backgroundColor: "transparent",
+    },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+    pad: { paddingHorizontal: SCREEN_GUTTER, paddingTop: 8 },
+    scrollContent: {
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingTop: 8,
+      paddingBottom: 40,
+      gap: 12,
+    },
+    scrollContentDock: { paddingBottom: 150 },
+    errorBanner: {
+      backgroundColor: ui.roseSoft,
+      borderRadius: 14,
+      padding: 12,
+    },
+    errorText: { fontSize: 13, fontWeight: "600", color: ui.rose },
+    retryBtn: {
+      marginTop: 16,
+      backgroundColor: ui.accent,
+      paddingVertical: 12,
+      borderRadius: 999,
+      alignItems: "center",
+    },
+    retryText: { color: "#FFF", fontWeight: "800", fontSize: 14 },
+    heroCard: {
+      ...auditSoftCardStyle(ui),
+      padding: 14,
+      gap: 12,
+    },
+    heroRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    heroIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    heroText: { flex: 1, minWidth: 0 },
+    heroTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    heroSub: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: ui.muted,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    metaList: { gap: 8 },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    metaText: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    statsRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    statTile: {
+      ...auditSoftCardStyle(ui),
+      flex: 1,
+      padding: 14,
+      gap: 8,
+    },
+    statLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    statValue: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    statTotal: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    statPct: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    progressTrack: {
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: ui.field,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: 999,
+    },
+    lockBanner: {
+      ...auditSoftCardStyle(ui),
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+    },
+    lockCopy: { flex: 1, minWidth: 0 },
+    lockTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    lockSub: {
+      marginTop: 2,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    sectionBlock: { gap: 10 },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    list: { gap: 10 },
+    familyCard: {
+      ...auditSoftCardStyle(ui),
+      padding: 14,
+      gap: 12,
+    },
+    familyCardLocked: { opacity: 0.88 },
+    familyTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stopNum: {
+      fontSize: 15,
+      fontWeight: "800",
+    },
+    familyCopy: { flex: 1, minWidth: 0 },
+    familyTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    familyTitle: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    familySub: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    familyMeta: {
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    familyProgress: { gap: 6 },
+    progressHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    progressLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    progressValue: {
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    emptyBlock: {
+      alignItems: "center",
+      paddingVertical: 28,
+      paddingHorizontal: 16,
+      gap: 8,
+    },
+    emptyWell: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 4,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    emptySub: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 18,
+    },
+    resultsCard: {
+      ...auditSoftCardStyle(ui),
+      padding: 14,
+      gap: 12,
+    },
+    resultsTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    resultsRows: { gap: 10 },
+    resultsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    resultsLabel: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    resultsValue: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    resultsLoss: { color: ui.rose },
+    resultsEmpty: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+  });
+}
+
+const useAuditDetailStyles = createThemedStyles(
+  useAuditUi,
+  buildAuditDetailStyles,
+);

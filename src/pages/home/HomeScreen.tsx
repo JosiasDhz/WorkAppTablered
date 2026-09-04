@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useIsFocused } from "@react-navigation/native";
 import { HeaderAvatar } from "../../components/HeaderAvatar";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
@@ -11,7 +10,7 @@ import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionCon
 import { SCREEN_GUTTER } from "../../theme/layout";
 import { HomeRevealActiveProvider } from "./HomeRevealActiveContext";
 import { HOME_SECTIONS } from "./homeSections";
-import { HOME_COLORS } from "./homeTheme";
+import { useHomeColors } from "./homeTheme";
 import { consumeHomeWelcomePending } from "./homeWelcomePending";
 import { HomeWelcomeSplash } from "./HomeWelcomeSplash";
 import { useHomeIdentity } from "./useHomeIdentity";
@@ -21,9 +20,9 @@ const SECTION_REVEAL_STEP_MS = 90;
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const isFocused = useIsFocused();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
   const { firstName, roleLabel, welcomeHeadline } = useHomeIdentity();
+  const homeColors = useHomeColors();
   const [showWelcome] = useState(() => consumeHomeWelcomePending());
   const [welcomeDone, setWelcomeDone] = useState(!showWelcome);
 
@@ -31,7 +30,7 @@ export default function HomeScreen() {
     setWelcomeDone(true);
   }, []);
 
-  const cardsActive = welcomeDone && isFocused;
+  const cardsActive = welcomeDone;
 
   const revealDelays = useMemo(
     () => HOME_SECTIONS.map((_, index) => index * SECTION_REVEAL_STEP_MS),
@@ -48,7 +47,7 @@ export default function HomeScreen() {
               subtitle={roleLabel}
               tone="light"
               style={styles.header}
-              titleColor={HOME_COLORS.heading}
+              titleColor={homeColors.heading}
               leadingAccessory={<HeaderAvatar size={52} />}
             />
           </SoftReveal>

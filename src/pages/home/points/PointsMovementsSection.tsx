@@ -13,7 +13,12 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
-import { POINTS_COLORS, POINTS_RADIUS } from "./pointsTheme";
+import { createThemedStyles } from "../../../theme/themedStyles";
+import {
+  POINTS_RADIUS,
+  usePointsColors,
+  type PointsColors,
+} from "./pointsTheme";
 import {
   describeKind,
   formatPoints,
@@ -47,13 +52,15 @@ export type PointsMovementsSectionProps = {
   onSelect: (row: PointsLedgerRow) => void;
 };
 
-function kindChipStyle(kind: string) {
+type PointsStyles = ReturnType<typeof buildPointsStyles>;
+
+function kindChipStyle(kind: string, styles: PointsStyles) {
   if (kind === "redeem") return styles.kindChipRedeem;
   if (kind === "adjust") return styles.kindChipAdjust;
   return styles.kindChipEarn;
 }
 
-function kindTextStyle(kind: string) {
+function kindTextStyle(kind: string, styles: PointsStyles) {
   if (kind === "redeem") return styles.kindTextRedeem;
   if (kind === "adjust") return styles.kindTextAdjust;
   return styles.kindTextEarn;
@@ -66,6 +73,7 @@ function LedgerRow({
   row: PointsLedgerRow;
   onPress: () => void;
 }) {
+  const styles = usePointsStyles();
   return (
     <SoftPressable
       onPress={onPress}
@@ -92,8 +100,8 @@ function LedgerRow({
           {formatPoints(row.balance)}
         </Text>
         <View style={styles.kindCell}>
-          <View style={[styles.kindChip, kindChipStyle(row.kind)]}>
-            <Text style={[styles.kindText, kindTextStyle(row.kind)]}>
+          <View style={[styles.kindChip, kindChipStyle(row.kind, styles)]}>
+            <Text style={[styles.kindText, kindTextStyle(row.kind, styles)]}>
               {describeKind(row.kind)}
             </Text>
           </View>
@@ -107,6 +115,7 @@ function LedgerRow({
 }
 
 function TableHeader() {
+  const styles = usePointsStyles();
   return (
     <View style={styles.headerRow}>
       <Text style={[styles.headerLabel, styles.refCell]}>Referencia</Text>
@@ -120,10 +129,12 @@ function TableHeader() {
 }
 
 function Separator() {
+  const styles = usePointsStyles();
   return <View style={styles.separator} />;
 }
 
 function EmptyState({ visibleWidth }: { visibleWidth: number }) {
+  const styles = usePointsStyles();
   return (
     <View style={[styles.emptyRow, { width: visibleWidth }]}>
       <Text style={styles.emptyText}>Aún no tienes movimientos de puntos.</Text>
@@ -142,11 +153,13 @@ function ListFooter({
   isEmpty: boolean;
   visibleWidth: number;
 }) {
+  const colors = usePointsColors();
+  const styles = usePointsStyles();
   if (isEmpty) return null;
   if (loadingMore) {
     return (
       <View style={[styles.footer, { width: visibleWidth }]}>
-        <ActivityIndicator size="small" color={POINTS_COLORS.accent} />
+        <ActivityIndicator size="small" color={colors.accent} />
       </View>
     );
   }
@@ -168,6 +181,8 @@ export function PointsMovementsSection({
   onScroll,
   onSelect,
 }: PointsMovementsSectionProps) {
+  const colors = usePointsColors();
+  const styles = usePointsStyles();
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<PointsLedgerRow>) => (
       <LedgerRow row={item} onPress={() => onSelect(item)} />
@@ -216,7 +231,7 @@ export function PointsMovementsSection({
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={onRefresh}
-                  tintColor={POINTS_COLORS.ink}
+                  tintColor={colors.ink}
                 />
               }
               showsVerticalScrollIndicator={false}
@@ -230,149 +245,153 @@ export function PointsMovementsSection({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: "100%",
-  },
-  card: {
-    flex: 1,
-    maxHeight: TABLE_HEIGHT,
-    backgroundColor: POINTS_COLORS.surface,
-    borderRadius: POINTS_RADIUS.section,
-    overflow: "hidden",
-  },
-  table: {
-    width: TABLE_WIDTH,
-    alignSelf: "stretch",
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: POINTS_COLORS.tableHeader,
-  },
-  headerLabel: {
-    fontSize: 10.5,
-    fontWeight: "700",
-    letterSpacing: 0.7,
-    textTransform: "uppercase",
-    color: POINTS_COLORS.tableHeaderInk,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 52,
-    paddingVertical: 10,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: POINTS_COLORS.divider,
-  },
-  refCell: {
-    width: COLUMN_WIDTHS.reference,
-    paddingLeft: TABLE_GUTTER,
-    paddingRight: 10,
-  },
-  conceptCell: {
-    width: COLUMN_WIDTHS.concept,
-    paddingRight: 12,
-  },
-  pointsCell: {
-    width: COLUMN_WIDTHS.points,
-    paddingRight: 12,
-    textAlign: "right",
-  },
-  balanceCell: {
-    width: COLUMN_WIDTHS.balance,
-    paddingRight: 14,
-    textAlign: "right",
-  },
-  kindCell: {
-    width: COLUMN_WIDTHS.kind,
-    paddingRight: 10,
-  },
-  dateCell: {
-    width: COLUMN_WIDTHS.date,
-    paddingRight: TABLE_GUTTER,
-  },
-  reference: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: POINTS_COLORS.muted,
-    fontVariant: ["tabular-nums"],
-  },
-  concept: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: POINTS_COLORS.ink,
-  },
-  date: {
-    fontSize: 12.5,
-    fontWeight: "500",
-    color: POINTS_COLORS.muted,
-  },
-  kindChip: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  kindChipEarn: {
-    backgroundColor: POINTS_COLORS.positiveSoft,
-  },
-  kindChipRedeem: {
-    backgroundColor: POINTS_COLORS.negativeSoft,
-  },
-  kindChipAdjust: {
-    backgroundColor: POINTS_COLORS.accentSoft,
-  },
-  kindText: {
-    fontSize: 10.5,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  kindTextEarn: {
-    color: POINTS_COLORS.positive,
-  },
-  kindTextRedeem: {
-    color: POINTS_COLORS.negative,
-  },
-  kindTextAdjust: {
-    color: POINTS_COLORS.accent,
-  },
-  numeric: {
-    fontSize: 14.5,
-    fontWeight: "700",
-    color: POINTS_COLORS.ink,
-    fontVariant: ["tabular-nums"],
-  },
-  pointsPositive: {
-    color: POINTS_COLORS.positive,
-  },
-  pointsNegative: {
-    color: POINTS_COLORS.negative,
-  },
-  footer: {
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  footerSpacer: {
-    height: 12,
-  },
-  footerText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: POINTS_COLORS.muted,
-  },
-  emptyRow: {
-    paddingVertical: 22,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: POINTS_COLORS.muted,
-  },
-});
+function buildPointsStyles(colors: PointsColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      width: "100%",
+    },
+    card: {
+      flex: 1,
+      maxHeight: TABLE_HEIGHT,
+      backgroundColor: colors.surface,
+      borderRadius: POINTS_RADIUS.section,
+      overflow: "hidden",
+    },
+    table: {
+      width: TABLE_WIDTH,
+      alignSelf: "stretch",
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingTop: 12,
+      paddingBottom: 10,
+      backgroundColor: colors.tableHeader,
+    },
+    headerLabel: {
+      fontSize: 10.5,
+      fontWeight: "700",
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
+      color: colors.tableHeaderInk,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 52,
+      paddingVertical: 10,
+    },
+    separator: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.divider,
+    },
+    refCell: {
+      width: COLUMN_WIDTHS.reference,
+      paddingLeft: TABLE_GUTTER,
+      paddingRight: 10,
+    },
+    conceptCell: {
+      width: COLUMN_WIDTHS.concept,
+      paddingRight: 12,
+    },
+    pointsCell: {
+      width: COLUMN_WIDTHS.points,
+      paddingRight: 12,
+      textAlign: "right",
+    },
+    balanceCell: {
+      width: COLUMN_WIDTHS.balance,
+      paddingRight: 14,
+      textAlign: "right",
+    },
+    kindCell: {
+      width: COLUMN_WIDTHS.kind,
+      paddingRight: 10,
+    },
+    dateCell: {
+      width: COLUMN_WIDTHS.date,
+      paddingRight: TABLE_GUTTER,
+    },
+    reference: {
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: colors.muted,
+      fontVariant: ["tabular-nums"],
+    },
+    concept: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.ink,
+    },
+    date: {
+      fontSize: 12.5,
+      fontWeight: "500",
+      color: colors.muted,
+    },
+    kindChip: {
+      alignSelf: "flex-start",
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    kindChipEarn: {
+      backgroundColor: colors.positiveSoft,
+    },
+    kindChipRedeem: {
+      backgroundColor: colors.negativeSoft,
+    },
+    kindChipAdjust: {
+      backgroundColor: colors.accentSoft,
+    },
+    kindText: {
+      fontSize: 10.5,
+      fontWeight: "700",
+      letterSpacing: 0.2,
+    },
+    kindTextEarn: {
+      color: colors.positive,
+    },
+    kindTextRedeem: {
+      color: colors.negative,
+    },
+    kindTextAdjust: {
+      color: colors.accent,
+    },
+    numeric: {
+      fontSize: 14.5,
+      fontWeight: "700",
+      color: colors.ink,
+      fontVariant: ["tabular-nums"],
+    },
+    pointsPositive: {
+      color: colors.positive,
+    },
+    pointsNegative: {
+      color: colors.negative,
+    },
+    footer: {
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    footerSpacer: {
+      height: 12,
+    },
+    footerText: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: colors.muted,
+    },
+    emptyRow: {
+      paddingVertical: 22,
+      alignItems: "center",
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: colors.muted,
+    },
+  });
+}
+
+const usePointsStyles = createThemedStyles(usePointsColors, buildPointsStyles);

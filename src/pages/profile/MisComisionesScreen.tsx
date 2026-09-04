@@ -25,6 +25,7 @@ import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   COMMISSION_KIND_LABELS,
@@ -37,18 +38,8 @@ import {
   type MyCommissionsDto,
 } from "../../services/commissionsService";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  accent: "#EA7600",
-  field: "#F3F1EC",
-};
+type Styles = ReturnType<typeof createStyles>;
 
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
 const FLIP_STAGGER_MS = 70;
 const MAX_FLIP_DELAY_MS = 700;
 
@@ -121,11 +112,15 @@ function PeriodSwitcher({
   canGoNext,
   onPrev,
   onNext,
+  styles,
+  COLORS,
 }: {
   periodKey: string;
   canGoNext: boolean;
   onPrev: () => void;
   onNext: () => void;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
   return (
     <View style={styles.periodRow}>
@@ -149,7 +144,7 @@ function PeriodSwitcher({
       >
         <ArrowRight2
           size={18}
-          color={canGoNext ? COLORS.ink : "#C7C7CC"}
+          color={canGoNext ? COLORS.ink : COLORS.muted}
           variant="Linear"
         />
       </SoftPressable>
@@ -160,9 +155,13 @@ function PeriodSwitcher({
 function HeroTotalCard({
   total,
   tierLabel,
+  styles,
+  COLORS,
 }: {
   total: number;
   tierLabel: string | null;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
   return (
     <View style={styles.heroCard}>
@@ -185,7 +184,15 @@ function HeroTotalCard({
   );
 }
 
-function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
+function GoalProgressCard({
+  goal,
+  styles,
+  COLORS,
+}: {
+  goal: CommissionGoalProgressDto;
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   const pct = Math.round(goal.progress * 100);
   const met = goal.met;
   return (
@@ -194,7 +201,7 @@ function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
         <View style={[styles.iconWell, met ? styles.iconWellDone : null]}>
           <TrendUp
             size={20}
-            color={met ? DONE : COLORS.accent}
+            color={met ? COLORS.emerald : COLORS.accent}
             variant="Bold"
           />
         </View>
@@ -206,7 +213,7 @@ function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
               : `Te faltan ${formatMoneyShort(goal.remaining)}`}
           </Text>
         </View>
-        <Text style={[styles.goalPct, met ? { color: DONE } : null]}>
+        <Text style={[styles.goalPct, met ? { color: COLORS.emerald } : null]}>
           {pct}%
         </Text>
       </View>
@@ -216,7 +223,7 @@ function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
             styles.goalFill,
             {
               width: `${Math.max(4, Math.min(100, pct))}%`,
-              backgroundColor: met ? DONE : COLORS.accent,
+              backgroundColor: met ? COLORS.emerald : COLORS.accent,
             },
           ]}
         />
@@ -232,7 +239,7 @@ function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
         </View>
         {goal.bonusAmount != null && goal.bonusAmount > 0 ? (
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: DONE }]}>
+            <Text style={[styles.statValue, { color: COLORS.emerald }]}>
               {formatMoneyShort(goal.bonusAmount)}
             </Text>
             <Text style={styles.statLabel}>Bono</Text>
@@ -245,8 +252,10 @@ function GoalProgressCard({ goal }: { goal: CommissionGoalProgressDto }) {
 
 function KindBreakdown({
   entries,
+  styles,
 }: {
   entries: Array<{ kind: string; label: string; amount: number }>;
+  styles: Styles;
 }) {
   if (entries.length === 0) return null;
   return (
@@ -261,7 +270,15 @@ function KindBreakdown({
   );
 }
 
-function LineCard({ line }: { line: MyCommissionLineDto }) {
+function LineCard({
+  line,
+  styles,
+  COLORS,
+}: {
+  line: MyCommissionLineDto;
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   const { label, ref } = splitConcept(line.concept);
   const kindLabel = COMMISSION_KIND_LABELS[line.kind] ?? line.kind;
   return (
@@ -293,7 +310,13 @@ function LineCard({ line }: { line: MyCommissionLineDto }) {
   );
 }
 
-function ComingSoonEmptyState() {
+function ComingSoonEmptyState({
+  styles,
+  COLORS,
+}: {
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   return (
     <View style={styles.comingEmpty}>
       <View style={styles.comingIconWell}>
@@ -308,7 +331,13 @@ function ComingSoonEmptyState() {
   );
 }
 
-function EmptyMovements() {
+function EmptyMovements({
+  styles,
+  COLORS,
+}: {
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   return (
     <View style={styles.empty}>
       <View style={styles.iconWell}>
@@ -326,6 +355,8 @@ function EmptyMovements() {
 export default function MisComisionesScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -418,7 +449,7 @@ export default function MisComisionesScreen() {
             }
           >
             <PageFlipReveal delay={0} active={isFocused} style={styles.comingReveal}>
-              <ComingSoonEmptyState />
+              <ComingSoonEmptyState styles={styles} COLORS={COLORS} />
             </PageFlipReveal>
           </ScrollView>
         ) : (
@@ -454,6 +485,8 @@ export default function MisComisionesScreen() {
                   if (!canGoNext) return;
                   setPeriodKey((k) => shiftCommissionPeriodKey(k, 1));
                 }}
+                styles={styles}
+                COLORS={COLORS}
               />
             </PageFlipReveal>
 
@@ -461,18 +494,20 @@ export default function MisComisionesScreen() {
               <HeroTotalCard
                 total={data?.totals.total ?? 0}
                 tierLabel={tierLabel}
+                styles={styles}
+                COLORS={COLORS}
               />
             </PageFlipReveal>
 
             {data?.goal ? (
               <PageFlipReveal delay={nextFlip()} active={isFocused}>
-                <GoalProgressCard goal={data.goal} />
+                <GoalProgressCard goal={data.goal} styles={styles} COLORS={COLORS} />
               </PageFlipReveal>
             ) : null}
 
             {kindEntries.length > 0 ? (
               <PageFlipReveal delay={nextFlip()} active={isFocused}>
-                <KindBreakdown entries={kindEntries} />
+                <KindBreakdown entries={kindEntries} styles={styles} />
               </PageFlipReveal>
             ) : null}
 
@@ -486,7 +521,7 @@ export default function MisComisionesScreen() {
 
             {lines.length === 0 ? (
               <PageFlipReveal delay={nextFlip()} active={isFocused}>
-                <EmptyMovements />
+                <EmptyMovements styles={styles} COLORS={COLORS} />
               </PageFlipReveal>
             ) : (
               <View style={styles.list}>
@@ -496,7 +531,7 @@ export default function MisComisionesScreen() {
                     delay={clampFlipDelay(FLIP_STAGGER_MS * (flip + index + 1))}
                     active={isFocused}
                   >
-                    <LineCard line={line} />
+                    <LineCard line={line} styles={styles} COLORS={COLORS} />
                   </PageFlipReveal>
                 ))}
               </View>
@@ -508,289 +543,291 @@ export default function MisComisionesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F2F2F7" },
-  safe: { flex: 1 },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  scroll: { flex: 1 },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  periodRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-  periodBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  periodBtnDisabled: { opacity: 0.45 },
-  periodLabel: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.ink,
-  },
-  heroCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-  },
-  heroTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconWellDone: {
-    backgroundColor: DONE_SOFT,
-  },
-  heroCopy: { flex: 1, minWidth: 0 },
-  heroHint: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  heroAmount: {
-    marginTop: 2,
-    fontSize: 28,
-    fontWeight: "800",
-    color: COLORS.ink,
-    letterSpacing: -0.5,
-  },
-  tierStrip: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.divider,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  tierStripLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  tierStripValue: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: COLORS.ink,
-  },
-  goalCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-  },
-  goalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  goalCopy: { flex: 1, minWidth: 0 },
-  goalTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  goalSubtitle: {
-    marginTop: 2,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  goalPct: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.accent,
-  },
-  goalTrack: {
-    marginTop: 14,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: COLORS.field,
-    overflow: "hidden",
-  },
-  goalFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
-  statRow: {
-    marginTop: 14,
-    flexDirection: "row",
-    gap: 8,
-  },
-  statCell: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: COLORS.field,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: COLORS.ink,
-  },
-  statLabel: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  kindGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 8,
-  },
-  kindChip: {
-    flexGrow: 1,
-    minWidth: "46%",
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  kindChipLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  kindChipAmount: {
-    marginTop: 4,
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.ink,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-    marginTop: 10,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.muted,
-  },
-  list: { gap: 10 },
-  lineCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 14,
-  },
-  lineCopy: { flex: 1, minWidth: 0 },
-  lineTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  lineTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  lineAmount: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: COLORS.ink,
-  },
-  lineBadge: {
-    alignSelf: "flex-start",
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: ACCENT_SOFT,
-  },
-  lineBadgeText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: COLORS.accent,
-  },
-  lineMeta: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  empty: {
-    alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    paddingHorizontal: 24,
-    paddingVertical: 36,
-  },
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.ink,
-  },
-  emptyHint: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  comingEmpty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    gap: 8,
-  },
-  comingReveal: {
-    flex: 1,
-  },
-  comingIconWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  comingTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.ink,
-    textAlign: "center",
-  },
-  comingHint: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: COLORS.layout },
+    safe: { flex: 1 },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    scroll: { flex: 1 },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    periodRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 14,
+    },
+    periodBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      backgroundColor: COLORS.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    periodBtnDisabled: { opacity: 0.45 },
+    periodLabel: {
+      flex: 1,
+      textAlign: "center",
+      fontSize: 16,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    heroCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 12,
+    },
+    heroTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconWellDone: {
+      backgroundColor: COLORS.emeraldSoft,
+    },
+    heroCopy: { flex: 1, minWidth: 0 },
+    heroHint: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    heroAmount: {
+      marginTop: 2,
+      fontSize: 28,
+      fontWeight: "800",
+      color: COLORS.ink,
+      letterSpacing: -0.5,
+    },
+    tierStrip: {
+      marginTop: 14,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: COLORS.divider,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    tierStripLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    tierStripValue: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    goalCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 12,
+    },
+    goalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    goalCopy: { flex: 1, minWidth: 0 },
+    goalTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    goalSubtitle: {
+      marginTop: 2,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+    },
+    goalPct: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: COLORS.accent,
+    },
+    goalTrack: {
+      marginTop: 14,
+      height: 10,
+      borderRadius: 999,
+      backgroundColor: COLORS.field,
+      overflow: "hidden",
+    },
+    goalFill: {
+      height: "100%",
+      borderRadius: 999,
+    },
+    statRow: {
+      marginTop: 14,
+      flexDirection: "row",
+      gap: 8,
+    },
+    statCell: {
+      flex: 1,
+      alignItems: "center",
+      backgroundColor: COLORS.field,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 6,
+    },
+    statValue: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    statLabel: {
+      marginTop: 2,
+      fontSize: 11,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    kindGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 8,
+    },
+    kindChip: {
+      flexGrow: 1,
+      minWidth: "46%",
+      backgroundColor: COLORS.surface,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    kindChipLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: COLORS.muted,
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
+    },
+    kindChipAmount: {
+      marginTop: 4,
+      fontSize: 16,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    sectionTitle: {
+      marginLeft: 4,
+      marginTop: 10,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "700",
+      color: COLORS.muted,
+    },
+    list: { gap: 10 },
+    lineCard: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      backgroundColor: COLORS.surface,
+      borderRadius: 18,
+      padding: 14,
+    },
+    lineCopy: { flex: 1, minWidth: 0 },
+    lineTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    lineTitle: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    lineAmount: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    lineBadge: {
+      alignSelf: "flex-start",
+      marginTop: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+      backgroundColor: COLORS.accentSoft,
+    },
+    lineBadgeText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: COLORS.accent,
+    },
+    lineMeta: {
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: "500",
+      color: COLORS.muted,
+    },
+    empty: {
+      alignItems: "center",
+      backgroundColor: COLORS.surface,
+      borderRadius: 18,
+      paddingHorizontal: 24,
+      paddingVertical: 36,
+    },
+    emptyTitle: {
+      marginTop: 12,
+      fontSize: 16,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    emptyHint: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+      textAlign: "center",
+      lineHeight: 18,
+    },
+    comingEmpty: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 32,
+      gap: 8,
+    },
+    comingReveal: {
+      flex: 1,
+    },
+    comingIconWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    comingTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: COLORS.ink,
+      textAlign: "center",
+    },
+    comingHint: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+  });
+}

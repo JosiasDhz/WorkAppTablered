@@ -1,14 +1,16 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useLiveAttendanceClock } from "./useLiveAttendanceClock";
+import { useAttendanceColors } from "./attendanceTheme";
 
 export function AttendanceDateTimeStrip() {
   const { dateLine, timeLine } = useLiveAttendanceClock();
+  const colors = useAttendanceColors();
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.time}>{timeLine}</Text>
-      <Text style={styles.date}>{dateLine}</Text>
+      <Text style={[styles.time, { color: colors.ink }]}>{timeLine}</Text>
+      <Text style={[styles.date, { color: colors.muted }]}>{dateLine}</Text>
     </View>
   );
 }
@@ -22,7 +24,6 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 38,
     fontWeight: "900",
-    color: "#020617",
     letterSpacing: -0.75,
     lineHeight: 44,
     fontVariant: ["tabular-nums"],
@@ -31,7 +32,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
     fontSize: 13,
     fontWeight: "500",
-    color: "#64748B",
     textAlign: "center",
     lineHeight: 17,
   },

@@ -9,10 +9,11 @@ import {
 import {
   TAB_BAR_FOCUSED,
   TAB_BAR_LAYOUT,
-  TAB_BAR_SURFACE,
   TAB_BAR_UNFOCUSED,
   tabBarShadow,
+  tabBarSurfaceForScheme,
 } from "./tabBarConstants";
+import { useAppAppearance } from "../../theme/appearance";
 
 type IconProps = {
   size?: number;
@@ -104,6 +105,8 @@ export function CafePillTab({ focused, label, Icon, badge }: PillProps) {
 export function CafeProfileOrb({ focused }: { focused: boolean }) {
   const d = TAB_BAR_LAYOUT.profileCircle;
   const color = focused ? TAB_BAR_FOCUSED : TAB_BAR_UNFOCUSED;
+  const { scheme } = useAppAppearance();
+  const surface = tabBarSurfaceForScheme(scheme);
 
   return (
     <View
@@ -114,7 +117,7 @@ export function CafeProfileOrb({ focused }: { focused: boolean }) {
           width: d,
           height: d,
           borderRadius: d / 2,
-          backgroundColor: TAB_BAR_SURFACE,
+          backgroundColor: surface,
         },
       ]}
     >

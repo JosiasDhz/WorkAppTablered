@@ -16,26 +16,24 @@ import { useNavigation } from "@react-navigation/native";
 import { ArrowDown2, Calendar1, Clock } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useAppAppearance } from "../../theme/appearance";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import {
   fetchMyAttendanceEvents,
   type MyAttendanceEventDto,
 } from "../../services/attendanceService";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  absentBg: "#F3E8FF",
-  absentText: "#7C3AED",
-  leaveBg: "#FFF4EB",
-  leaveText: "#EA7600",
-  lateBg: "#FEF2F2",
-  lateText: "#DC2626",
-  checkIn: "#16A34A",
-  checkOut: "#DC2626",
-  totalH: "#2563EB",
-  dateBox: "#F3F4F6",
+type RegistrosColors = FormColors & {
+  absentBg: string;
+  absentText: string;
+  leaveBg: string;
+  leaveText: string;
+  lateBg: string;
+  lateText: string;
+  checkIn: string;
+  checkOut: string;
+  totalH: string;
+  dateBox: string;
 };
 
 type DayRecord = {
@@ -206,6 +204,25 @@ function formatMonthYearEs(d: Date): string {
 
 export default function MisRegistrosScreen() {
   const navigation = useNavigation<any>();
+  const base = useFormColors();
+  const { scheme } = useAppAppearance();
+  const COLORS = useMemo<RegistrosColors>(() => {
+    const dark = scheme === "dark";
+    return {
+      ...base,
+      absentBg: dark ? "rgba(139, 92, 246, 0.22)" : "#F3E8FF",
+      absentText: dark ? "#C4B5FD" : "#7C3AED",
+      leaveBg: base.accentSoft,
+      leaveText: base.accent,
+      lateBg: base.roseSoft,
+      lateText: base.roseText,
+      checkIn: base.emerald,
+      checkOut: base.roseText,
+      totalH: dark ? "#60A5FA" : "#2563EB",
+      dateBox: base.field,
+    };
+  }, [base, scheme]);
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -287,7 +304,7 @@ export default function MisRegistrosScreen() {
           accessibilityRole="button"
           accessibilityLabel="Seleccionar mes"
         >
-          <Calendar1 size={22} color={COLORS.text} variant="Linear" />
+          <Calendar1 size={22} color={COLORS.ink} variant="Linear" />
           <Text style={styles.monthBarText} numberOfLines={1}>
             {formatMonthYearEs(anchorMonth)}
           </Text>
@@ -296,7 +313,7 @@ export default function MisRegistrosScreen() {
 
         {loading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color={COLORS.text} />
+            <ActivityIndicator color={COLORS.ink} />
           </View>
         ) : null}
 
@@ -421,7 +438,7 @@ export default function MisRegistrosScreen() {
               onChange={(_, d) => {
                 if (d) setPickerValue(new Date(d.getFullYear(), d.getMonth(), 1));
               }}
-              themeVariant="light"
+              themeVariant={scheme}
             />
             <Pressable style={styles.pickerConfirm} onPress={confirmMonth}>
               <Text style={styles.pickerConfirmText}>Listo</Text>
@@ -433,216 +450,218 @@ export default function MisRegistrosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: { flex: 1 },
-  monthBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FAFAF9",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-    gap: 12,
-  },
-  monthBarPressed: { opacity: 0.92 },
-  monthBarText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.text,
-  },
-  loadingWrap: {
-    paddingVertical: 24,
-    alignItems: "center",
-  },
-  errBox: {
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    marginBottom: 16,
-  },
-  errText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#991B1B",
-    marginBottom: 10,
-  },
-  retryBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: "#0F172A",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  retryBtnText: {
-    color: "#FFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  emptyBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 12,
-  },
-  emptyText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  pickerOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-  },
-  pickerCard: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  pickerTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: COLORS.text,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  pickerConfirm: {
-    marginTop: 12,
-    backgroundColor: "#0F172A",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  pickerConfirmText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  weekSection: { marginBottom: 20 },
-  weekCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  weekCardLeft: { flex: 1, minWidth: 0 },
-  weekTitle: { fontSize: 17, fontWeight: "900", color: COLORS.text },
-  weekRange: { marginTop: 2, fontSize: 13, fontWeight: "600", color: COLORS.muted },
-  weekBadges: { flexDirection: "row", alignItems: "center", gap: 8, marginRight: 8 },
-  badge: {
-    minWidth: 36,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  badgeText: { fontSize: 14, fontWeight: "900" },
-  badgeLabel: { fontSize: 9, fontWeight: "700", marginTop: 1 },
-  dayList: { gap: 8 },
-  dayRow: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: "hidden",
-  },
-  dateBox: {
-    width: 54,
-    backgroundColor: COLORS.dateBox,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
-  },
-  dateNum: { fontSize: 15, fontWeight: "900", color: COLORS.text },
-  dateWd: { marginTop: 2, fontSize: 11, fontWeight: "700", color: COLORS.muted },
-  dayMain: { flex: 1, minWidth: 0 },
-  dayCols: { flexDirection: "row" },
-  timeCol: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 0,
-  },
-  timeColBorder: {
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
-  },
-  timeValue: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: "800",
-    color: COLORS.text,
-    textAlign: "center",
-  },
-  timeCaption: {
-    marginTop: 2,
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.muted,
-    textAlign: "center",
-  },
-  warehouseLine: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    paddingTop: 2,
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  checkDetailsWrap: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    gap: 6,
-  },
-  checkDetailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 6,
-  },
-  checkDetailLabel: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  checkDetailTime: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: COLORS.muted,
-  },
-});
+function createStyles(COLORS: RegistrosColors) {
+  return StyleSheet.create({
+    root: { flex: 1 },
+    scroll: { flex: 1 },
+    monthBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      marginBottom: 16,
+      gap: 12,
+    },
+    monthBarPressed: { opacity: 0.92 },
+    monthBarText: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: "800",
+      color: COLORS.ink,
+    },
+    loadingWrap: {
+      paddingVertical: 24,
+      alignItems: "center",
+    },
+    errBox: {
+      padding: 14,
+      borderRadius: 12,
+      backgroundColor: COLORS.roseSoft,
+      borderWidth: 1,
+      borderColor: COLORS.roseText,
+      marginBottom: 16,
+    },
+    errText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.roseText,
+      marginBottom: 10,
+    },
+    retryBtn: {
+      alignSelf: "flex-start",
+      backgroundColor: COLORS.accent,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+    },
+    retryBtnText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    emptyBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 16,
+      borderRadius: 14,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      marginBottom: 12,
+    },
+    emptyText: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    pickerOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(15, 23, 42, 0.45)",
+    },
+    pickerCard: {
+      backgroundColor: COLORS.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 20,
+      paddingTop: 16,
+    },
+    pickerTitle: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: COLORS.ink,
+      marginBottom: 8,
+      textAlign: "center",
+    },
+    pickerConfirm: {
+      marginTop: 12,
+      backgroundColor: COLORS.accent,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    pickerConfirmText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    weekSection: { marginBottom: 20 },
+    weekCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      marginBottom: 10,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    weekCardLeft: { flex: 1, minWidth: 0 },
+    weekTitle: { fontSize: 17, fontWeight: "900", color: COLORS.ink },
+    weekRange: { marginTop: 2, fontSize: 13, fontWeight: "600", color: COLORS.muted },
+    weekBadges: { flexDirection: "row", alignItems: "center", gap: 8, marginRight: 8 },
+    badge: {
+      minWidth: 36,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      borderRadius: 10,
+      alignItems: "center",
+    },
+    badgeText: { fontSize: 14, fontWeight: "900" },
+    badgeLabel: { fontSize: 9, fontWeight: "700", marginTop: 1 },
+    dayList: { gap: 8 },
+    dayRow: {
+      flexDirection: "row",
+      alignItems: "stretch",
+      backgroundColor: COLORS.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      overflow: "hidden",
+    },
+    dateBox: {
+      width: 54,
+      backgroundColor: COLORS.dateBox,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      borderRightWidth: 1,
+      borderRightColor: COLORS.divider,
+    },
+    dateNum: { fontSize: 15, fontWeight: "900", color: COLORS.ink },
+    dateWd: { marginTop: 2, fontSize: 11, fontWeight: "700", color: COLORS.muted },
+    dayMain: { flex: 1, minWidth: 0 },
+    dayCols: { flexDirection: "row" },
+    timeCol: {
+      flex: 1,
+      paddingVertical: 10,
+      paddingHorizontal: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 0,
+    },
+    timeColBorder: {
+      borderRightWidth: 1,
+      borderRightColor: COLORS.divider,
+    },
+    timeValue: {
+      marginTop: 4,
+      fontSize: 13,
+      fontWeight: "800",
+      color: COLORS.ink,
+      textAlign: "center",
+    },
+    timeCaption: {
+      marginTop: 2,
+      fontSize: 10,
+      fontWeight: "600",
+      color: COLORS.muted,
+      textAlign: "center",
+    },
+    warehouseLine: {
+      paddingHorizontal: 10,
+      paddingBottom: 10,
+      paddingTop: 2,
+      fontSize: 11,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    checkDetailsWrap: {
+      paddingHorizontal: 10,
+      paddingBottom: 10,
+      gap: 6,
+    },
+    checkDetailRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.divider,
+      paddingTop: 6,
+    },
+    checkDetailLabel: {
+      flex: 1,
+      fontSize: 11,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    checkDetailTime: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: COLORS.muted,
+    },
+  });
+}

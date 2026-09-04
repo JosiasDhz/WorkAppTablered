@@ -7,7 +7,7 @@ import type {
   WorkerCommissionKpi,
   WorkerRoleHomeKpi,
 } from "../../../services/workerKpisService";
-import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
+import { HOME_RADIUS, useHomeColors } from "../homeTheme";
 
 type Props = {
   loading: boolean;
@@ -32,10 +32,14 @@ function MiniDonut({
   done,
   open,
   centerLabel,
+  trackColor,
+  labelColor,
 }: {
   done: number;
   open: number;
   centerLabel: string;
+  trackColor: string;
+  labelColor: string;
 }) {
   const size = 84;
   const stroke = 12;
@@ -52,7 +56,7 @@ function MiniDonut({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={HOME_COLORS.track}
+          stroke={trackColor}
           strokeWidth={stroke}
           fill="none"
         />
@@ -90,7 +94,10 @@ function MiniDonut({
         ) : null}
       </Svg>
       <View style={styles.donutCenter} pointerEvents="none">
-        <Text style={styles.donutCenterText} numberOfLines={1}>
+        <Text
+          style={[styles.donutCenterText, { color: labelColor }]}
+          numberOfLines={1}
+        >
           {centerLabel}
         </Text>
       </View>
@@ -98,7 +105,10 @@ function MiniDonut({
   );
 }
 
-function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
+function buildRoleBalance(
+  roleKpi: WorkerRoleHomeKpi,
+  colors: ReturnType<typeof useHomeColors>,
+): {
   title: string;
   status: string;
   caption: string;
@@ -107,6 +117,13 @@ function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
   centerLabel: string;
   toneColor: string;
 } {
+  const toneColor =
+    roleKpi.tone === "ok"
+      ? colors.positive
+      : roleKpi.tone === "pending"
+        ? colors.warning
+        : colors.accent;
+
   const payments = roleKpi.chart?.payments ?? [];
   if (payments.length > 0 || roleKpi.chart?.valueFormat === "mxn") {
     const total = Math.max(
@@ -129,12 +146,7 @@ function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
       centerLabel: roleKpi.percentLabel.includes("$")
         ? roleKpi.percentLabel.replace(/\s/g, "")
         : `${pct}%`,
-      toneColor:
-        roleKpi.tone === "ok"
-          ? HOME_COLORS.positive
-          : roleKpi.tone === "pending"
-            ? HOME_COLORS.warning
-            : HOME_COLORS.accent,
+      toneColor,
     };
   }
 
@@ -166,12 +178,7 @@ function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
       done: pct,
       open: Math.max(0, 100 - pct),
       centerLabel: `${pct}%`,
-      toneColor:
-        roleKpi.tone === "ok"
-          ? HOME_COLORS.positive
-          : roleKpi.tone === "pending"
-            ? HOME_COLORS.warning
-            : HOME_COLORS.accent,
+      toneColor,
     };
   }
 
@@ -184,29 +191,37 @@ function buildRoleBalance(roleKpi: WorkerRoleHomeKpi): {
     done,
     open,
     centerLabel: `${pct}%`,
-    toneColor: pct >= 70 ? HOME_COLORS.positive : HOME_COLORS.accent,
+    toneColor: pct >= 70 ? colors.positive : colors.accent,
   };
 }
 
 function CommissionBody({ commission }: { commission: WorkerCommissionKpi }) {
+  const homeColors = useHomeColors();
   const pct = Math.round(Math.max(0, Math.min(1, commission.progress)) * 100);
   const met = Boolean(commission.goal?.met);
-  const fillColor = met ? HOME_COLORS.positive : HOME_COLORS.accent;
+  const fillColor = met ? homeColors.positive : homeColors.accent;
 
   return (
     <View style={styles.roleBody}>
       <View
-        style={[styles.iconSlot, { backgroundColor: HOME_COLORS.accentSoft }]}
+        style={[styles.iconSlot, { backgroundColor: homeColors.accentSoft }]}
       >
-        <Coin size={18} color={HOME_COLORS.accent} variant="Bold" />
+        <Coin size={18} color={homeColors.accent} variant="Bold" />
       </View>
-      <Text style={[styles.title, styles.titleAfterIcon]} numberOfLines={1}>
+      <Text
+        style={[
+          styles.title,
+          styles.titleAfterIcon,
+          { color: homeColors.muted },
+        ]}
+        numberOfLines={1}
+      >
         Comisiones
       </Text>
       <Text style={[styles.status, { color: fillColor }]} numberOfLines={1}>
         {commission.percentLabel}
       </Text>
-      <View style={styles.track}>
+      <View style={[styles.track, { backgroundColor: homeColors.track }]}>
         <View
           style={[
             styles.fill,
@@ -217,7 +232,7 @@ function CommissionBody({ commission }: { commission: WorkerCommissionKpi }) {
           ]}
         />
       </View>
-      <Text style={styles.footer} numberOfLines={1}>
+      <Text style={[styles.footer, { color: homeColors.muted }]} numberOfLines={1}>
         {commission.goal
           ? `${formatMoney(commission.goal.current)} / ${formatMoney(commission.goal.target)}`
           : `Generado ${formatMoney(commission.earnedTotal)}`}
@@ -227,11 +242,15 @@ function CommissionBody({ commission }: { commission: WorkerCommissionKpi }) {
 }
 
 function RoleBalanceBody({ roleKpi }: { roleKpi: WorkerRoleHomeKpi }) {
-  const balance = useMemo(() => buildRoleBalance(roleKpi), [roleKpi]);
+  const homeColors = useHomeColors();
+  const balance = useMemo(
+    () => buildRoleBalance(roleKpi, homeColors),
+    [roleKpi, homeColors],
+  );
 
   return (
     <View style={styles.roleBody}>
-      <Text style={styles.title} numberOfLines={1}>
+      <Text style={[styles.title, { color: homeColors.muted }]} numberOfLines={1}>
         {balance.title}
       </Text>
       <View style={styles.chartWrap}>
@@ -239,12 +258,14 @@ function RoleBalanceBody({ roleKpi }: { roleKpi: WorkerRoleHomeKpi }) {
           done={balance.done}
           open={balance.open}
           centerLabel={balance.centerLabel}
+          trackColor={homeColors.track}
+          labelColor={homeColors.ink}
         />
       </View>
       <Text style={[styles.status, { color: balance.toneColor }]} numberOfLines={1}>
         {balance.status}
       </Text>
-      <Text style={styles.caption} numberOfLines={2}>
+      <Text style={[styles.caption, { color: homeColors.muted }]} numberOfLines={2}>
         {balance.caption}
       </Text>
     </View>
@@ -258,15 +279,19 @@ export function HomeSideSlotCard({
   onPressCommission,
   onPressRole,
 }: Props) {
+  const homeColors = useHomeColors();
   const showCommission = Boolean(commission?.programActive);
   const showRole = !showCommission && Boolean(roleKpi);
+  const cardStyle = [styles.card, { backgroundColor: homeColors.surface }];
 
   if (loading) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.title}>Cargando</Text>
-        <Text style={[styles.status, { color: HOME_COLORS.muted }]}>—</Text>
-        <Text style={styles.caption}>Consultando tu resumen</Text>
+      <View style={cardStyle}>
+        <Text style={[styles.title, { color: homeColors.muted }]}>Cargando</Text>
+        <Text style={[styles.status, { color: homeColors.muted }]}>—</Text>
+        <Text style={[styles.caption, { color: homeColors.muted }]}>
+          Consultando tu resumen
+        </Text>
       </View>
     );
   }
@@ -276,7 +301,7 @@ export function HomeSideSlotCard({
       <SoftPressable
         onPress={onPressCommission}
         scaleTo={0.98}
-        style={styles.card}
+        style={cardStyle}
         accessibilityLabel={`${commission.title}. ${commission.caption}. ${commission.percentLabel}`}
       >
         <CommissionBody commission={commission} />
@@ -291,7 +316,7 @@ export function HomeSideSlotCard({
         disabled={!onPressRole}
         feedback={Boolean(onPressRole)}
         scaleTo={0.98}
-        style={styles.card}
+        style={cardStyle}
         accessibilityLabel={`Avance de ${roleKpi.title}. ${roleKpi.caption}`}
       >
         <RoleBalanceBody roleKpi={roleKpi} />
@@ -300,12 +325,14 @@ export function HomeSideSlotCard({
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Resumen</Text>
-      <Text style={[styles.status, { color: HOME_COLORS.muted }]}>
+    <View style={cardStyle}>
+      <Text style={[styles.title, { color: homeColors.muted }]}>Resumen</Text>
+      <Text style={[styles.status, { color: homeColors.muted }]}>
         Sin métricas
       </Text>
-      <Text style={styles.caption}>Cuando haya datos, aparecen aquí</Text>
+      <Text style={[styles.caption, { color: homeColors.muted }]}>
+        Cuando haya datos, aparecen aquí
+      </Text>
     </View>
   );
 }
@@ -317,7 +344,6 @@ const styles = StyleSheet.create({
     minHeight: 148,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: HOME_COLORS.surface,
     borderRadius: HOME_RADIUS.section,
     alignItems: "center",
     justifyContent: "center",
@@ -336,7 +362,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 12.5,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
     textAlign: "center",
   },
   titleAfterIcon: {
@@ -354,7 +379,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "500",
     lineHeight: 15,
-    color: HOME_COLORS.muted,
     textAlign: "center",
   },
   track: {
@@ -362,7 +386,6 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     height: 6,
     borderRadius: 999,
-    backgroundColor: "#F1F5F9",
     overflow: "hidden",
   },
   fill: {
@@ -373,7 +396,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 11,
     fontWeight: "700",
-    color: HOME_COLORS.muted,
     textAlign: "center",
   },
   chartWrap: {
@@ -397,7 +419,6 @@ const styles = StyleSheet.create({
   donutCenterText: {
     fontSize: 13,
     fontWeight: "800",
-    color: HOME_COLORS.ink,
     fontVariant: ["tabular-nums"],
     textAlign: "center",
   },

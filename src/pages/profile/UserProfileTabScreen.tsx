@@ -38,6 +38,7 @@ import { TapImagePreview } from "../../components/TapImagePreview";
 import type { AppDispatch } from "../../redux/store/store";
 import { refreshAuthSession } from "../../services/refreshAuthSession";
 import { SCREEN_GUTTER } from "../../theme/layout";
+import { useAppAppearance } from "../../theme/appearance";
 import { resolveWorkerRoleLabel } from "../../utils/workerRoleLabelEs";
 import {
   buildUserDisplayNameFull,
@@ -45,14 +46,6 @@ import {
 } from "../../utils/userDisplayName";
 
 const AVATAR_SIZE = 96;
-
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  accent: "#EA7600",
-};
 
 type IconProps = {
   size?: number;
@@ -67,6 +60,7 @@ type MenuAction =
   | "MisVacaciones"
   | "MisExpediente"
   | "MisComisiones"
+  | "Apariencia"
   | "NotificationsStack"
   | "Inventory"
   | "InventoryAudit"
@@ -111,7 +105,7 @@ const MENU_SECTIONS: MenuSectionData[] = [
     id: "preferencias",
     title: "Preferencias",
     items: [
-      { id: "apariencia", label: "Apariencia", icon: Setting4, action: "none" },
+      { id: "apariencia", label: "Apariencia", icon: Setting4, action: "Apariencia" },
       { id: "registros", label: "Mis registros", icon: Calendar1, action: "MisRegistros" },
       { id: "notify", label: "Notificaciones", icon: Notification, action: "NotificationsStack" },
     ],
@@ -130,20 +124,31 @@ const MENU_SECTIONS: MenuSectionData[] = [
 function MenuRow({
   item,
   isLast,
+  ink,
+  muted,
+  divider,
   onPress,
 }: {
   item: MenuItem;
   isLast: boolean;
+  ink: string;
+  muted: string;
+  divider: string;
   onPress: () => void;
 }) {
   const Icon = item.icon;
   return (
     <SoftPressable onPress={onPress} scaleTo={0.99} accessibilityLabel={item.label}>
       <View style={styles.menuRow}>
-        <Icon size={22} color={COLORS.ink} variant="Linear" />
-        <View style={[styles.menuMain, !isLast && styles.menuRowBorder]}>
-          <Text style={styles.menuLabel}>{item.label}</Text>
-          <ArrowRight2 size={16} color={COLORS.muted} variant="Linear" />
+        <Icon size={22} color={ink} variant="Linear" />
+        <View
+          style={[
+            styles.menuMain,
+            !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: divider },
+          ]}
+        >
+          <Text style={[styles.menuLabel, { color: ink }]}>{item.label}</Text>
+          <ArrowRight2 size={16} color={muted} variant="Linear" />
         </View>
       </View>
     </SoftPressable>
@@ -159,6 +164,12 @@ export default function UserProfileTabScreen() {
   const { user, seller, userAvatar } = useSelector(
     (state: RootState) => state.auth,
   );
+  const { colors } = useAppAppearance();
+  const ink = colors.ink;
+  const muted = colors.mutedInk;
+  const surface = colors.surface;
+  const accent = colors.accent;
+  const divider = colors.border;
 
   const handleLogout = async () => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -250,7 +261,7 @@ export default function UserProfileTabScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.ink}
+            tintColor={ink}
           />
         }
       >
@@ -267,36 +278,36 @@ export default function UserProfileTabScreen() {
               scaleTo={0.99}
               accessibilityLabel="Nombre de usuario"
             >
-              <Text style={styles.name} numberOfLines={2}>
+              <Text style={[styles.name, { color: ink }]} numberOfLines={2}>
                 {name}
               </Text>
             </SoftPressable>
             {email ? (
-              <Text style={styles.email} numberOfLines={1}>
+              <Text style={[styles.email, { color: muted }]} numberOfLines={1}>
                 {email}
               </Text>
             ) : null}
 
             <View style={styles.statsRow}>
               <View style={styles.stat}>
-                <Text style={styles.statValue} numberOfLines={1}>
+                <Text style={[styles.statValue, { color: ink }]} numberOfLines={1}>
                   {workerCode}
                 </Text>
-                <Text style={styles.statLabel}>Código</Text>
+                <Text style={[styles.statLabel, { color: muted }]}>Código</Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: divider }]} />
               <View style={styles.stat}>
-                <Text style={styles.statValue} numberOfLines={1}>
+                <Text style={[styles.statValue, { color: ink }]} numberOfLines={1}>
                   {roleLabel}
                 </Text>
-                <Text style={styles.statLabel}>Puesto</Text>
+                <Text style={[styles.statLabel, { color: muted }]}>Puesto</Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: divider }]} />
               <View style={styles.stat}>
-                <Text style={styles.statValue} numberOfLines={1}>
+                <Text style={[styles.statValue, { color: ink }]} numberOfLines={1}>
                   {warehouseName}
                 </Text>
-                <Text style={styles.statLabel}>Almacén</Text>
+                <Text style={[styles.statLabel, { color: muted }]}>Almacén</Text>
               </View>
             </View>
           </View>
@@ -310,13 +321,21 @@ export default function UserProfileTabScreen() {
                 <SoftPressable
                   onPress={() => go(item.action)}
                   scaleTo={0.97}
-                  style={styles.shortcutCard}
+                  style={[styles.shortcutCard, { backgroundColor: surface }]}
                   accessibilityLabel={item.label}
                 >
-                  <View style={styles.shortcutIcon}>
-                    <Icon size={20} color={COLORS.accent} variant="Linear" />
+                  <View
+                    style={[
+                      styles.shortcutIcon,
+                      { backgroundColor: colors.accentSoft },
+                    ]}
+                  >
+                    <Icon size={20} color={accent} variant="Linear" />
                   </View>
-                  <Text style={styles.shortcutLabel} numberOfLines={1}>
+                  <Text
+                    style={[styles.shortcutLabel, { color: ink }]}
+                    numberOfLines={1}
+                  >
                     {item.label}
                   </Text>
                 </SoftPressable>
@@ -331,13 +350,18 @@ export default function UserProfileTabScreen() {
             delay={160 + sectionIndex * 70}
             style={styles.sectionBlock}
           >
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionCard}>
+            <Text style={[styles.sectionTitle, { color: muted }]}>
+              {section.title}
+            </Text>
+            <View style={[styles.sectionCard, { backgroundColor: surface }]}>
               {section.items.map((item, index) => (
                 <MenuRow
                   key={item.id}
                   item={item}
                   isLast={index === section.items.length - 1}
+                  ink={ink}
+                  muted={muted}
+                  divider={divider}
                   onPress={() => go(item.action)}
                 />
               ))}
@@ -350,10 +374,12 @@ export default function UserProfileTabScreen() {
             onPress={() => void handleLogout()}
             scaleTo={0.99}
             accessibilityLabel="Cerrar sesión"
-            style={styles.logoutCard}
+            style={[styles.logoutCard, { backgroundColor: surface }]}
           >
-            <Logout size={22} color={COLORS.accent} variant="Linear" />
-            <Text style={styles.logoutText}>Cerrar sesión</Text>
+            <Logout size={22} color={accent} variant="Linear" />
+            <Text style={[styles.logoutText, { color: accent }]}>
+              Cerrar sesión
+            </Text>
           </SoftPressable>
         </SoftReveal>
       </ScrollView>
@@ -390,7 +416,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     letterSpacing: -0.4,
-    color: COLORS.ink,
     textAlign: "center",
     paddingHorizontal: 16,
   },
@@ -398,7 +423,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     fontWeight: "500",
-    color: COLORS.muted,
     textAlign: "center",
   },
   statsRow: {
@@ -415,19 +439,16 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: COLORS.ink,
     textAlign: "center",
   },
   statLabel: {
     marginTop: 4,
     fontSize: 12,
     fontWeight: "500",
-    color: COLORS.muted,
   },
   statDivider: {
     width: StyleSheet.hairlineWidth,
     height: 28,
-    backgroundColor: COLORS.divider,
   },
   shortcutGrid: {
     width: "100%",
@@ -444,7 +465,6 @@ const styles = StyleSheet.create({
     minHeight: 92,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.surface,
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 4,
@@ -454,14 +474,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: "rgba(234, 118, 0, 0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
   shortcutLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: COLORS.ink,
     textAlign: "center",
   },
   sectionBlock: {
@@ -473,10 +491,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.muted,
   },
   sectionCard: {
-    backgroundColor: COLORS.surface,
     borderRadius: 16,
     overflow: "hidden",
   },
@@ -495,15 +511,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  menuRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.divider,
-  },
   menuLabel: {
     flex: 1,
     fontSize: 16,
     fontWeight: "400",
-    color: COLORS.ink,
   },
   logoutCard: {
     marginTop: 22,
@@ -513,12 +524,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    backgroundColor: COLORS.surface,
     borderRadius: 16,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: "400",
-    color: COLORS.accent,
   },
 });

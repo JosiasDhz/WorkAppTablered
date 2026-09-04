@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Easing,
@@ -8,8 +8,8 @@ import {
   View,
 } from "react-native";
 import { SoftOrangeGlowBackdrop } from "../../components/SoftOrangeGlowBackdrop";
-import { SOFT } from "../../theme/softUi";
-import { HOME_COLORS } from "./homeTheme";
+import { useAppAppearance } from "../../theme/appearance";
+import { useHomeColors, type HomeColors } from "./homeTheme";
 
 type Props = {
   headline: string;
@@ -17,6 +17,12 @@ type Props = {
 };
 
 export function HomeWelcomeSplash({ headline, onFinished }: Props) {
+  const { colors } = useAppAppearance();
+  const home = useHomeColors();
+  const styles = useMemo(
+    () => createStyles(home, colors.layout),
+    [colors.layout, home],
+  );
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(18)).current;
   const brandOpacity = useRef(new Animated.Value(0)).current;
@@ -100,37 +106,39 @@ export function HomeWelcomeSplash({ headline, onFinished }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: SOFT.layout,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  copy: {
-    paddingHorizontal: 28,
-    alignItems: "center",
-  },
-  brand: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 1.6,
-    textTransform: "uppercase",
-    color: HOME_COLORS.accent,
-    marginBottom: 14,
-  },
-  hello: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: HOME_COLORS.muted,
-    textAlign: "center",
-  },
-  name: {
-    marginTop: 4,
-    fontSize: 40,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: HOME_COLORS.heading,
-    textAlign: "center",
-  },
-});
+function createStyles(home: HomeColors, layout: string) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: layout,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    copy: {
+      paddingHorizontal: 28,
+      alignItems: "center",
+    },
+    brand: {
+      fontSize: 13,
+      fontWeight: "700",
+      letterSpacing: 1.6,
+      textTransform: "uppercase",
+      color: home.accent,
+      marginBottom: 14,
+    },
+    hello: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: home.muted,
+      textAlign: "center",
+    },
+    name: {
+      marginTop: 4,
+      fontSize: 40,
+      fontWeight: "800",
+      letterSpacing: -0.8,
+      color: home.heading,
+      textAlign: "center",
+    },
+  });
+}

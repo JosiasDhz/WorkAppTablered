@@ -15,7 +15,7 @@ import { AttendanceLateNoticeButton } from "./attendance/AttendanceLateNoticeBut
 import { AttendanceNoticeFormModal } from "./attendance/AttendanceNoticeFormModal";
 import { AttendanceQrCard } from "./attendance/AttendanceQrCard";
 import { AttendanceTodayChecks } from "./attendance/AttendanceTodayChecks";
-import { ATTENDANCE_COLORS } from "./attendance/attendanceTheme";
+import { useAttendanceColors } from "./attendance/attendanceTheme";
 import {
   isExpiringSoon,
   useExpiryUrgencyHaptics,
@@ -37,6 +37,7 @@ export default function QrScreen() {
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
   const isFocused = useIsFocused();
   const appIsActive = useAppIsActive();
+  const colors = useAttendanceColors();
   const screenIsLive = isFocused && appIsActive;
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,10 +50,12 @@ export default function QrScreen() {
     context,
     contextLoading,
     contextError,
+    qrError,
     selectedCheckTypeCode,
     setSelectedCheckTypeCode,
     checkTypeOptions,
     refreshContext,
+    retryQr,
     checkSuccess,
   } = useWorkerAttendanceQr({ active: screenIsLive });
 
@@ -117,17 +120,23 @@ export default function QrScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={ATTENDANCE_COLORS.ink}
+            tintColor={colors.ink}
           />
         }
       >
         <SoftReveal active={isFocused} delay={40} style={styles.qrBlock}>
           {contextError ? (
-            <Text style={styles.contextError}>{contextError}</Text>
+            <Text style={[styles.contextError, { color: colors.urgent }]}>
+              {contextError}
+            </Text>
           ) : null}
           <AttendanceQrCard
             payload={payload}
             loading={contextLoading}
+            error={qrError ?? contextError}
+            onRetry={() => {
+              void retryQr();
+            }}
             secondsLeft={secondsLeft}
             deadlineMs={deadlineMs}
             windowMs={windowMs}
@@ -192,7 +201,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 12,
     fontWeight: "600",
-    color: ATTENDANCE_COLORS.urgent,
     textAlign: "center",
   },
   noticeBlock: {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,25 +15,12 @@ import { Add, ArrowRight2, Calendar1 } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import {
   listMyIncapacityRequests,
   type IncapacityRequestDto,
 } from "../../services/workforceIncapacityRequestService";
 import { formatWorkforceYmdRange } from "../../utils/formatWorkforceYmd";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  accent: "#EA7600",
-  pendingBg: "#FFF4EB",
-  pendingText: "#EA7600",
-  approvedBg: "#ECFDF3",
-  approvedText: "#16A34A",
-  rejectedBg: "#FEF2F2",
-  rejectedText: "#DC2626",
-};
 
 function statusLabel(status: IncapacityRequestDto["status"]) {
   if (status === "APPROVED") return "Aprobado";
@@ -41,18 +28,23 @@ function statusLabel(status: IncapacityRequestDto["status"]) {
   return "Pendiente";
 }
 
-function statusStyle(status: IncapacityRequestDto["status"]) {
+function statusStyle(
+  status: IncapacityRequestDto["status"],
+  COLORS: FormColors,
+) {
   if (status === "APPROVED") {
-    return { bg: COLORS.approvedBg, text: COLORS.approvedText };
+    return { bg: COLORS.emeraldSoft, text: COLORS.emerald };
   }
   if (status === "REJECTED") {
-    return { bg: COLORS.rejectedBg, text: COLORS.rejectedText };
+    return { bg: COLORS.roseSoft, text: COLORS.roseText };
   }
-  return { bg: COLORS.pendingBg, text: COLORS.pendingText };
+  return { bg: COLORS.accentSoft, text: COLORS.accent };
 }
 
 export default function MisIncapacidadesScreen() {
   const navigation = useNavigation<any>();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -128,7 +120,7 @@ export default function MisIncapacidadesScreen() {
           </View>
         ) : (
           items.map((item) => {
-            const badge = statusStyle(item.status);
+            const badge = statusStyle(item.status, COLORS);
             return (
               <Pressable
                 key={item.id}
@@ -167,90 +159,92 @@ export default function MisIncapacidadesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { flex: 1 },
-  empty: {
-    alignItems: "center",
-    marginTop: 48,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  emptyText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: COLORS.muted,
-    textAlign: "center",
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardPressed: { opacity: 0.92 },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  cardDate: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  cardDesc: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 6,
-  },
-  cardMeta: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginBottom: 8,
-  },
-  cardLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  cardLinkText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: COLORS.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginBottom: 16,
-  },
-  actionBtnPressed: { opacity: 0.92 },
-  actionBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    safe: { flex: 1 },
+    scroll: { flex: 1 },
+    empty: {
+      alignItems: "center",
+      marginTop: 48,
+      paddingHorizontal: 24,
+    },
+    emptyTitle: {
+      marginTop: 12,
+      fontSize: 18,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    emptyText: {
+      marginTop: 8,
+      fontSize: 14,
+      color: COLORS.muted,
+      textAlign: "center",
+    },
+    card: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      padding: 16,
+      marginBottom: 12,
+    },
+    cardPressed: { opacity: 0.92 },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
+    },
+    cardDate: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    cardDesc: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: COLORS.ink,
+      marginBottom: 6,
+    },
+    cardMeta: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginBottom: 8,
+    },
+    cardLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    cardLinkText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: COLORS.accent,
+    },
+    actionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: COLORS.accent,
+      borderRadius: 14,
+      paddingVertical: 14,
+      marginBottom: 16,
+    },
+    actionBtnPressed: { opacity: 0.92 },
+    actionBtnText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+  });
+}

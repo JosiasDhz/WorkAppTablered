@@ -27,6 +27,7 @@ import {
   TableRedColors,
   type DriverRouteSummaryStripKind,
 } from "../../../theme/tableRedColors";
+import { useDriverUi } from "../driverRoute/driverUi";
 
 type Props = {
   item: DriverAssignedRouteRecord;
@@ -99,6 +100,7 @@ function SummaryStrip(props: {
 }
 
 export function DriverRouteAssignedCard({ item, onPress }: Props) {
+  const ui = useDriverUi();
   const model = useMemo(() => buildDriverRouteListCardModel(item), [item]);
   const tone = getDriverRouteCardTone(model.toneKey);
   const vehicleLabel = model.vehiclesLine ?? "Sin vehículo asignado";
@@ -114,7 +116,14 @@ export function DriverRouteAssignedCard({ item, onPress }: Props) {
     <TouchableOpacity
       activeOpacity={0.92}
       onPress={onPress}
-      style={[styles.card, { borderColor: tone.border }]}
+      style={[
+        styles.card,
+        {
+          borderColor: tone.border,
+          backgroundColor: ui.surface,
+          shadowColor: ui.shadow,
+        },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`Ver detalle de ruta ${item.folio}`}
     >
@@ -264,10 +273,8 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 14,
     borderRadius: 18,
-    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     overflow: "hidden",
-    shadowColor: "#1a1a1a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,

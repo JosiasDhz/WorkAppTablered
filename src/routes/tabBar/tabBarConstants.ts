@@ -5,9 +5,13 @@ export const TAB_BAR_PRIMARY_DEEP = "#C86800";
 export const TAB_BAR_ACCENT = "#F7B917";
 export const TAB_BAR_CAFE = "#696158";
 export const TAB_BAR_CAFE_ANDROID = "#524646";
+export const TAB_BAR_CAFE_DARK = "#1F1C1A";
+export const TAB_BAR_CAFE_DARK_ANDROID = "#171412";
 export const TAB_BAR_FAB = TAB_BAR_PRIMARY;
 export const TAB_BAR_SURFACE =
   Platform.OS === "android" ? TAB_BAR_CAFE_ANDROID : TAB_BAR_CAFE;
+export const TAB_BAR_SURFACE_DARK =
+  Platform.OS === "android" ? TAB_BAR_CAFE_DARK_ANDROID : TAB_BAR_CAFE_DARK;
 export const TAB_BAR_FOCUSED = "#FFFFFF";
 export const TAB_BAR_UNFOCUSED = "rgba(255,255,255,0.45)";
 export const TAB_BAR_SIDE_ICON = "#FFFFFF";
@@ -36,6 +40,10 @@ export const TAB_BAR_LAYOUT = {
   profileCircle: 62,
   pillProfileGap: 10,
 } as const;
+
+export function tabBarSurfaceForScheme(scheme: "light" | "dark"): string {
+  return scheme === "dark" ? TAB_BAR_SURFACE_DARK : TAB_BAR_SURFACE;
+}
 
 export const tabBarShadow = Platform.select({
   ios: {

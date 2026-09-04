@@ -24,7 +24,8 @@ import {
   type MyInventoryAuditFamily,
 } from "../../services/inventoryAuditService";
 import { formatInventoryAuditCalendarDateMX } from "../../utils/auditCalendarDates";
-import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
+import { createThemedStyles } from "../../theme/themedStyles";
+import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
 
 const PAGE_SIZE = 10;
 const FLIP_STAGGER_MS = 55;
@@ -72,25 +73,25 @@ function auditTitle(audit: MyInventoryAudit) {
   return "Auditoría de inventario";
 }
 
-function tabMeta(tab: AuditTab) {
+function tabMeta(tab: AuditTab, ui: AuditUi) {
   if (tab === "pending") {
     return {
       label: "Pendientes",
-      color: AUDIT_UI.amber,
-      soft: AUDIT_UI.amberSoft,
+      color: ui.amber,
+      soft: ui.amberSoft,
     };
   }
   if (tab === "in_progress") {
     return {
       label: "En curso",
-      color: AUDIT_UI.accent,
-      soft: AUDIT_UI.accentSoft,
+      color: ui.accent,
+      soft: ui.accentSoft,
     };
   }
   return {
     label: "Finalizadas",
-    color: AUDIT_UI.green,
-    soft: AUDIT_UI.greenSoft,
+    color: ui.green,
+    soft: ui.greenSoft,
   };
 }
 
@@ -103,12 +104,14 @@ function AuditTabBar({
   counts: Record<AuditTab, number>;
   onChange: (tab: AuditTab) => void;
 }) {
+  const ui = useAuditUi();
+  const styles = useAuditStyles();
   const tabs: AuditTab[] = ["pending", "in_progress", "finalized"];
 
   return (
     <View style={styles.tabBar}>
       {tabs.map((tab) => {
-        const meta = tabMeta(tab);
+        const meta = tabMeta(tab, ui);
         const selected = activeTab === tab;
         const count = counts[tab];
         return (
@@ -153,6 +156,7 @@ function AuditTabBar({
 }
 
 function ProgressBar({ progress, color }: { progress: number; color: string }) {
+  const styles = useAuditStyles();
   const width = `${Math.max(0, Math.min(100, progress))}%` as `${number}%`;
   return (
     <View style={styles.progressTrack}>
@@ -170,7 +174,9 @@ function AuditListCard({
   tab: AuditTab;
   onPress: () => void;
 }) {
-  const meta = tabMeta(tab);
+  const ui = useAuditUi();
+  const styles = useAuditStyles();
+  const meta = tabMeta(tab, ui);
   const families = audit.families ?? [];
   const familiesTotal = families.length;
   const familiesDone = families.filter((f) => f.status === "completed").length;
@@ -204,12 +210,12 @@ function AuditListCard({
             </Text>
           ) : null}
           {tab === "finalized" ? (
-            <Text style={[styles.cardMeta, { color: AUDIT_UI.green }]}>
+            <Text style={[styles.cardMeta, { color: ui.green }]}>
               Finalizada el {finalizedDateText(audit)}
             </Text>
           ) : (
             <View style={styles.dateRow}>
-              <Calendar size={13} color={AUDIT_UI.muted} variant="Linear" />
+              <Calendar size={13} color={ui.muted} variant="Linear" />
               <Text style={styles.cardMeta} numberOfLines={1}>
                 {formatInventoryAuditCalendarDateMX(audit.scheduledStartDate)} →{" "}
                 {formatInventoryAuditCalendarDateMX(audit.scheduledEndDate)}
@@ -230,13 +236,14 @@ function AuditListCard({
             </View>
           ) : null}
         </View>
-        <ArrowRight2 size={16} color={AUDIT_UI.muted} variant="Linear" />
+        <ArrowRight2 size={16} color={ui.muted} variant="Linear" />
       </View>
     </SoftPressable>
   );
 }
 
 function ListSkeleton() {
+  const styles = useAuditStyles();
   const animated = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -271,7 +278,9 @@ function ListSkeleton() {
 }
 
 function EmptyTabState({ tab }: { tab: AuditTab }) {
-  const meta = tabMeta(tab);
+  const ui = useAuditUi();
+  const styles = useAuditStyles();
+  const meta = tabMeta(tab, ui);
   return (
     <View style={styles.empty}>
       <View style={[styles.emptyWell, { backgroundColor: meta.soft }]}>
@@ -292,6 +301,8 @@ function EmptyTabState({ tab }: { tab: AuditTab }) {
 export default function InventoryAudit() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const ui = useAuditUi();
+  const styles = useAuditStyles();
   const [items, setItems] = useState<MyInventoryAudit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -474,7 +485,7 @@ export default function InventoryAudit() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={AUDIT_UI.accent}
+              tintColor={ui.accent}
             />
           }
           onEndReached={onEndReached}
@@ -483,7 +494,7 @@ export default function InventoryAudit() {
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoading}>
-                <ActivityIndicator color={AUDIT_UI.accent} />
+                <ActivityIndicator color={ui.accent} />
               </View>
             ) : null
           }
@@ -494,183 +505,187 @@ export default function InventoryAudit() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "transparent" },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  listPad: { paddingHorizontal: SCREEN_GUTTER, flex: 1 },
-  listContent: {
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingBottom: 36,
-    flexGrow: 1,
-  },
-  tabBar: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
-    marginTop: 4,
-  },
-  tab: {
-    flex: 1,
-    minHeight: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    backgroundColor: AUDIT_UI.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AUDIT_UI.divider,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: AUDIT_UI.muted,
-  },
-  tabCount: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: AUDIT_UI.field,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-  },
-  tabCountText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: AUDIT_UI.muted,
-  },
-  tabCountTextActive: {
-    color: "#FFFFFF",
-  },
-  cardWrap: {
-    marginBottom: 10,
-  },
-  card: {
-    ...auditSoftCardStyle(),
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    minHeight: 72,
-  },
-  iconWell: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 16,
-    fontWeight: "600",
-    color: AUDIT_UI.ink,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  cardMeta: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 3,
-  },
-  progressBlock: {
-    marginTop: 10,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 5,
-  },
-  progressLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: AUDIT_UI.muted,
-  },
-  progressValue: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: AUDIT_UI.ink,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: AUDIT_UI.field,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
-  errorBanner: {
-    backgroundColor: AUDIT_UI.roseSoft,
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-  },
-  errorText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: AUDIT_UI.rose,
-  },
-  empty: {
-    alignItems: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 28,
-    gap: 8,
-  },
-  emptyWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-    textAlign: "center",
-  },
-  emptySub: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  footerLoading: { paddingVertical: 20 },
-  skeletonCard: {
-    height: 88,
-    borderRadius: 16,
-    backgroundColor: AUDIT_UI.field,
-  },
-});
+function buildAuditListStyles(ui: AuditUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: "transparent" },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    listPad: { paddingHorizontal: SCREEN_GUTTER, flex: 1 },
+    listContent: {
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingBottom: 36,
+      flexGrow: 1,
+    },
+    tabBar: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 14,
+      marginTop: 4,
+    },
+    tab: {
+      flex: 1,
+      minHeight: 40,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      backgroundColor: ui.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: ui.divider,
+    },
+    tabLabel: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+    tabCount: {
+      minWidth: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: ui.field,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 6,
+    },
+    tabCountText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: ui.muted,
+    },
+    tabCountTextActive: {
+      color: ui.onTone,
+    },
+    cardWrap: {
+      marginBottom: 10,
+    },
+    card: {
+      ...auditSoftCardStyle(ui),
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      minHeight: 72,
+    },
+    iconWell: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 16,
+      fontWeight: "600",
+      color: ui.ink,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    cardMeta: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    dateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      marginTop: 3,
+    },
+    progressBlock: {
+      marginTop: 10,
+    },
+    progressHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 5,
+    },
+    progressLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    progressValue: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    progressTrack: {
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: ui.field,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: 999,
+    },
+    errorBanner: {
+      backgroundColor: ui.roseSoft,
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 10,
+    },
+    errorText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.rose,
+    },
+    empty: {
+      alignItems: "center",
+      paddingVertical: 48,
+      paddingHorizontal: 28,
+      gap: 8,
+    },
+    emptyWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 4,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.ink,
+      textAlign: "center",
+    },
+    emptySub: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    footerLoading: { paddingVertical: 20 },
+    skeletonCard: {
+      height: 88,
+      borderRadius: 16,
+      backgroundColor: ui.field,
+    },
+  });
+}
+
+const useAuditStyles = createThemedStyles(useAuditUi, buildAuditListStyles);

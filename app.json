@@ -1,21 +1,22 @@
 {
   "expo": {
-    "name": "Table Red Oaxaca Wallet",
+    "name": "Mi TableRed",
     "owner": "josiveloper",
     "slug": "tableredoaxaca",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-logo-arauco.png",
+      "image": "./assets/splash-table.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4E423A"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.josiveloper.tableredoaxaca",
       "infoPlist": {
+        "CFBundleDisplayName": "Mi TableRed",
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "googlemaps",
@@ -28,7 +29,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#000000"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -46,20 +47,20 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Table Red to use your location."
+          "locationAlwaysAndWhenInUsePermission": "Permite a Mi TableRed usar tu ubicación."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "The application accesses your photos to allow you to upload your personal file."
+          "photosPermission": "Mi TableRed accede a tus fotos para subir evidencias y documentos."
         }
       ],
       "@react-native-community/datetimepicker",
       [
         "expo-camera",
         {
-          "cameraPermission": "La app necesita acceso a la cámara para escanear códigos de barras del inventario."
+          "cameraPermission": "Mi TableRed necesita la cámara para escanear códigos de barras del inventario."
         }
       ],
       [

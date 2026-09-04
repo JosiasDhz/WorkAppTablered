@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { CloseCircle, Warning2 } from "iconsax-react-native";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 type DriverRouteReturnToReadyModalProps = {
   visible: boolean;
@@ -27,6 +28,8 @@ export function DriverRouteReturnToReadyModal({
   onClose,
   onConfirm,
 }: DriverRouteReturnToReadyModalProps) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const [reason, setReason] = useState("");
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export function DriverRouteReturnToReadyModal({
           <View style={styles.head}>
             <View style={styles.headText}>
               <View style={styles.titleRow}>
-                <Warning2 size={22} color="#C2410C" variant="Bold" />
+                <Warning2 size={22} color={ui.accentInk} variant="Bold" />
                 <Text style={styles.title}>No pude entregar</Text>
               </View>
               <Text style={styles.subtitle}>
@@ -64,7 +67,7 @@ export function DriverRouteReturnToReadyModal({
               hitSlop={10}
               accessibilityLabel="Cerrar"
             >
-              <CloseCircle size={26} color="#64748B" variant="Bold" />
+              <CloseCircle size={26} color={ui.muted} variant="Bold" />
             </Pressable>
           </View>
 
@@ -73,7 +76,7 @@ export function DriverRouteReturnToReadyModal({
             value={reason}
             onChangeText={setReason}
             placeholder="Ej. cliente no estaba / reprogramar para mañana"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={ui.faint}
             editable={!busy}
             multiline
             maxLength={500}
@@ -109,121 +112,123 @@ export function DriverRouteReturnToReadyModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 28,
-  },
-  head: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 16,
-  },
-  headText: {
-    flex: 1,
-    gap: 6,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 20,
-  },
-  addr: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#334155",
-    lineHeight: 18,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 8,
-  },
-  input: {
-    minHeight: 96,
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0F172A",
-    textAlignVertical: "top",
-  },
-  hint: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#94A3B8",
-  },
-  error: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#C2410C",
-    lineHeight: 18,
-  },
-  actions: {
-    marginTop: 18,
-    flexDirection: "row",
-    gap: 10,
-  },
-  secondaryBtn: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  secondaryTxt: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#475569",
-  },
-  primaryBtn: {
-    flex: 1.2,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#C2410C",
-    minHeight: 48,
-  },
-  primaryDisabled: {
-    opacity: 0.5,
-  },
-  primaryTxt: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: ui.overlay,
+      justifyContent: "flex-end",
+    },
+    sheet: {
+      backgroundColor: ui.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 28,
+    },
+    head: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      marginBottom: 16,
+    },
+    headText: {
+      flex: 1,
+      gap: 6,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    subtitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 20,
+    },
+    addr: {
+      marginTop: 4,
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.ink,
+      lineHeight: 18,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginBottom: 8,
+    },
+    input: {
+      minHeight: 96,
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      backgroundColor: ui.field,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      fontSize: 15,
+      fontWeight: "600",
+      color: ui.ink,
+      textAlignVertical: "top",
+    },
+    hint: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.faint,
+    },
+    error: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.accentInk,
+      lineHeight: 18,
+    },
+    actions: {
+      marginTop: 18,
+      flexDirection: "row",
+      gap: 10,
+    },
+    secondaryBtn: {
+      flex: 1,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: ui.border,
+      paddingVertical: 14,
+      alignItems: "center",
+      backgroundColor: ui.surface,
+    },
+    secondaryTxt: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: ui.muted,
+    },
+    primaryBtn: {
+      flex: 1.2,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: ui.accent,
+      minHeight: 48,
+    },
+    primaryDisabled: {
+      opacity: 0.5,
+    },
+    primaryTxt: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: "#FFFFFF",
+    },
+  });
+}

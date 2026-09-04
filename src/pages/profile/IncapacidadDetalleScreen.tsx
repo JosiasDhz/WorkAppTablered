@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -18,6 +18,7 @@ import { WebView } from "react-native-webview";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { TapImagePreview } from "../../components/TapImagePreview";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import {
   getMyIncapacityRequest,
   type IncapacityRequestDto,
@@ -25,34 +26,23 @@ import {
 } from "../../services/workforceIncapacityRequestService";
 import { formatWorkforceYmdRange } from "../../utils/formatWorkforceYmd";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  accent: "#EA7600",
-  pendingBg: "#FFF4EB",
-  pendingText: "#EA7600",
-  approvedBg: "#ECFDF3",
-  approvedText: "#16A34A",
-  rejectedBg: "#FEF2F2",
-  rejectedText: "#DC2626",
-};
-
 function statusLabel(status: IncapacityRequestDto["status"]) {
   if (status === "APPROVED") return "Aprobado";
   if (status === "REJECTED") return "Rechazado";
   return "Pendiente";
 }
 
-function statusStyle(status: IncapacityRequestDto["status"]) {
+function statusStyle(
+  status: IncapacityRequestDto["status"],
+  COLORS: FormColors,
+) {
   if (status === "APPROVED") {
-    return { bg: COLORS.approvedBg, text: COLORS.approvedText };
+    return { bg: COLORS.emeraldSoft, text: COLORS.emerald };
   }
   if (status === "REJECTED") {
-    return { bg: COLORS.rejectedBg, text: COLORS.rejectedText };
+    return { bg: COLORS.roseSoft, text: COLORS.roseText };
   }
-  return { bg: COLORS.pendingBg, text: COLORS.pendingText };
+  return { bg: COLORS.accentSoft, text: COLORS.accent };
 }
 
 function formatDateTime(iso: string | null | undefined) {
@@ -79,6 +69,8 @@ function evidenceImageUri(file: IncapacityRequestFileDto["file"]) {
 export default function IncapacidadDetalleScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const requestId = route.params?.requestId as string | undefined;
@@ -108,7 +100,7 @@ export default function IncapacidadDetalleScreen() {
     void load();
   }, [load]);
 
-  const badge = item ? statusStyle(item.status) : null;
+  const badge = item ? statusStyle(item.status, COLORS) : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
@@ -278,200 +270,202 @@ export default function IncapacidadDetalleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { flex: 1 },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 15,
-    color: COLORS.muted,
-    textAlign: "center",
-  },
-  heroCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    marginBottom: 16,
-  },
-  heroRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  heroIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "#FFF4EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroText: { flex: 1 },
-  heroDate: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  heroSub: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  pendingNote: {
-    marginTop: 12,
-    fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.pendingText,
-  },
-  section: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 10,
-  },
-  bodyText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: COLORS.muted,
-  },
-  infoValue: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.text,
-    textAlign: "right",
-  },
-  reviewBox: {
-    marginTop: 12,
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-  },
-  reviewLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.muted,
-    marginBottom: 4,
-  },
-  reviewText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: COLORS.text,
-  },
-  muted: {
-    fontSize: 13,
-    color: COLORS.muted,
-    marginTop: 6,
-  },
-  evidenceGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  imageCard: {
-    width: "47%",
-    aspectRatio: 1,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  thumb: {
-    width: "100%",
-    height: "100%",
-  },
-  pdfCard: {
-    width: "47%",
-    minHeight: 140,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: "#FFFBF5",
-    padding: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  pdfName: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.text,
-    textAlign: "center",
-  },
-  pdfAction: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-  unavailableCard: {
-    width: "47%",
-    aspectRatio: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pdfModal: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-  },
-  pdfBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  pdfBarTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginRight: 12,
-  },
-  pdfClose: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.accent,
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    safe: { flex: 1 },
+    scroll: { flex: 1 },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    errorText: {
+      fontSize: 15,
+      color: COLORS.muted,
+      textAlign: "center",
+    },
+    heroCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      padding: 16,
+      marginBottom: 16,
+    },
+    heroRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    heroIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    heroText: { flex: 1 },
+    heroDate: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    heroSub: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginTop: 2,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    pendingNote: {
+      marginTop: 12,
+      fontSize: 13,
+      lineHeight: 18,
+      color: COLORS.accent,
+    },
+    section: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      padding: 16,
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+      marginBottom: 10,
+    },
+    bodyText: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: COLORS.ink,
+      fontWeight: "600",
+    },
+    infoRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 12,
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.divider,
+    },
+    infoLabel: {
+      fontSize: 13,
+      color: COLORS.muted,
+    },
+    infoValue: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.ink,
+      textAlign: "right",
+    },
+    reviewBox: {
+      marginTop: 12,
+      borderRadius: 12,
+      backgroundColor: COLORS.field,
+      padding: 12,
+    },
+    reviewLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.muted,
+      marginBottom: 4,
+    },
+    reviewText: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: COLORS.ink,
+    },
+    muted: {
+      fontSize: 13,
+      color: COLORS.muted,
+      marginTop: 6,
+    },
+    evidenceGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+    imageCard: {
+      width: "47%",
+      aspectRatio: 1,
+      borderRadius: 12,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+    },
+    thumb: {
+      width: "100%",
+      height: "100%",
+    },
+    pdfCard: {
+      width: "47%",
+      minHeight: 140,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      backgroundColor: COLORS.field,
+      padding: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    pdfName: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.ink,
+      textAlign: "center",
+    },
+    pdfAction: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: COLORS.accent,
+    },
+    unavailableCard: {
+      width: "47%",
+      aspectRatio: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    pdfModal: {
+      flex: 1,
+      backgroundColor: COLORS.surface,
+    },
+    pdfBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.divider,
+    },
+    pdfBarTitle: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+      marginRight: 12,
+    },
+    pdfClose: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: COLORS.accent,
+    },
+  });
+}

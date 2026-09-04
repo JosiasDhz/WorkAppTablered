@@ -7,7 +7,8 @@ import {
   ShieldTick,
 } from "iconsax-react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
-import { LOGIN_COLORS, LOGIN_COPY } from "./constants";
+import { createThemedStyles } from "../../../theme/themedStyles";
+import { LOGIN_COPY, useLoginColors, type LoginColors } from "./constants";
 
 type IconProps = {
   size?: number;
@@ -33,6 +34,8 @@ type Props = {
 };
 
 export function LoginQuickActions({ onPressItem }: Props) {
+  const colors = useLoginColors();
+  const styles = useQuickActionStyles();
   return (
     <View style={styles.row}>
       {ITEMS.map((item) => {
@@ -46,7 +49,7 @@ export function LoginQuickActions({ onPressItem }: Props) {
             accessibilityLabel={item.label}
           >
             <View style={styles.orb}>
-              <Icon size={20} color={LOGIN_COLORS.orange} variant="Bold" />
+              <Icon size={20} color={colors.orange} variant="Bold" />
             </View>
             <Text style={styles.label} numberOfLines={1}>
               {item.label}
@@ -58,30 +61,37 @@ export function LoginQuickActions({ onPressItem }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  item: {
-    flex: 1,
-    alignItems: "center",
-    width: "auto",
-  },
-  orb: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: LOGIN_COLORS.surface,
-  },
-  label: {
-    marginTop: 8,
-    fontSize: 11,
-    fontWeight: "600",
-    color: LOGIN_COLORS.warmGrey,
-    textAlign: "center",
-  },
-});
+function buildQuickActionStyles(colors: LoginColors) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    item: {
+      flex: 1,
+      alignItems: "center",
+      width: "auto",
+    },
+    orb: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+    },
+    label: {
+      marginTop: 8,
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.warmGrey,
+      textAlign: "center",
+    },
+  });
+}
+
+const useQuickActionStyles = createThemedStyles(
+  useLoginColors,
+  buildQuickActionStyles,
+);

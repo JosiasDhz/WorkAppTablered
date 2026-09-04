@@ -20,6 +20,8 @@ import * as ImagePicker from "expo-image-picker";
 import { ArrowDown2, AttachSquare, Calendar1, DocumentText, Trash } from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
+import { useAppAppearance } from "../../theme/appearance";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import {
   createIncapacityRequest,
   listIncapacityReasons,
@@ -28,14 +30,6 @@ import {
 } from "../../services/workforceIncapacityRequestService";
 import { prepareEvidenceImageForUpload } from "../../utils/prepareEvidenceImageForUpload";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  accent: "#EA7600",
-};
 
 const MAX_EVIDENCE = 5;
 
@@ -71,6 +65,9 @@ function inclusiveDays(startYmd: string, endYmd: string) {
 
 export default function NuevaIncapacidadScreen() {
   const navigation = useNavigation<any>();
+  const COLORS = useFormColors();
+  const { scheme } = useAppAppearance();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const [reasons, setReasons] = useState<IncapacityReasonDto[]>([]);
@@ -359,7 +356,7 @@ export default function NuevaIncapacidadScreen() {
               style={styles.removeBtn}
               onPress={() => removeEvidence(item.id)}
             >
-              <Trash size={18} color="#DC2626" variant="Linear" />
+              <Trash size={18} color={COLORS.roseText} variant="Linear" />
             </Pressable>
           </View>
         ))}
@@ -442,7 +439,7 @@ export default function NuevaIncapacidadScreen() {
               onChange={(_, selected) => {
                 if (selected) setDatePickerDraft(selected);
               }}
-              themeVariant="light"
+              themeVariant={scheme}
             />
             <Pressable style={styles.pickerConfirm} onPress={confirmDatePicker}>
               <Text style={styles.pickerConfirmText}>Listo</Text>
@@ -454,185 +451,187 @@ export default function NuevaIncapacidadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { flex: 1 },
-  label: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  fieldCaption: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.muted,
-    marginBottom: 6,
-  },
-  hint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  selectBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  selectValue: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  selectPlaceholder: {
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.muted,
-  },
-  dateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  dateText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  pickerOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-  },
-  pickerCard: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 16,
-    paddingHorizontal: 16,
-  },
-  pickerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.text,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  reasonList: {
-    maxHeight: 320,
-  },
-  reasonOption: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  reasonOptionSelected: {
-    borderColor: COLORS.accent,
-    backgroundColor: "#FFF8F0",
-  },
-  reasonOptionName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  reasonOptionMeta: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 4,
-  },
-  pickerConfirm: {
-    marginTop: 8,
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  pickerConfirmText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  attachRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
-  },
-  attachBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  attachBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.accent,
-  },
-  evidenceCard: {
-    marginBottom: 10,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  thumb: {
-    width: "100%",
-    height: 160,
-    backgroundColor: "#E5E7EB",
-  },
-  pdfPreview: {
-    padding: 20,
-    alignItems: "center",
-    gap: 8,
-  },
-  pdfName: {
-    fontSize: 13,
-    color: COLORS.text,
-    textAlign: "center",
-  },
-  removeBtn: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 6,
-  },
-  submitBtn: {
-    marginTop: 24,
-    backgroundColor: COLORS.accent,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  submitDisabled: { opacity: 0.7 },
-  submitText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    safe: { flex: 1 },
+    scroll: { flex: 1 },
+    label: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: COLORS.ink,
+      marginBottom: 8,
+    },
+    fieldCaption: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.muted,
+      marginBottom: 6,
+    },
+    hint: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginBottom: 10,
+      marginTop: 4,
+    },
+    selectBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+    },
+    selectValue: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    selectPlaceholder: {
+      flex: 1,
+      fontSize: 16,
+      color: COLORS.muted,
+    },
+    dateBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    dateText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    pickerOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(15, 23, 42, 0.45)",
+    },
+    pickerCard: {
+      backgroundColor: COLORS.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 16,
+      paddingHorizontal: 16,
+    },
+    pickerTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: COLORS.ink,
+      textAlign: "center",
+      marginBottom: 8,
+    },
+    reasonList: {
+      maxHeight: 320,
+    },
+    reasonOption: {
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+    },
+    reasonOptionSelected: {
+      borderColor: COLORS.accent,
+      backgroundColor: COLORS.accentSoft,
+    },
+    reasonOptionName: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    reasonOptionMeta: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginTop: 4,
+    },
+    pickerConfirm: {
+      marginTop: 8,
+      backgroundColor: COLORS.accent,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    pickerConfirmText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    attachRow: {
+      flexDirection: "row",
+      gap: 10,
+      marginBottom: 12,
+    },
+    attachBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      borderRadius: 12,
+      paddingVertical: 12,
+    },
+    attachBtnText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: COLORS.accent,
+    },
+    evidenceCard: {
+      marginBottom: 10,
+      borderRadius: 12,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      backgroundColor: COLORS.surface,
+    },
+    thumb: {
+      width: "100%",
+      height: 160,
+      backgroundColor: COLORS.field,
+    },
+    pdfPreview: {
+      padding: 20,
+      alignItems: "center",
+      gap: 8,
+    },
+    pdfName: {
+      fontSize: 13,
+      color: COLORS.ink,
+      textAlign: "center",
+    },
+    removeBtn: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      backgroundColor: COLORS.surface,
+      borderRadius: 20,
+      padding: 6,
+    },
+    submitBtn: {
+      marginTop: 24,
+      backgroundColor: COLORS.accent,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    submitDisabled: { opacity: 0.7 },
+    submitText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+  });
+}

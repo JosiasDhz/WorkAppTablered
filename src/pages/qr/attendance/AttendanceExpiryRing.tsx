@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import { ATTENDANCE_COLORS } from "./attendanceTheme";
+import { useAttendanceColors } from "./attendanceTheme";
 
 const RING_SIZE = 46;
 const RING_STROKE = 4;
@@ -23,6 +23,7 @@ export function AttendanceExpiryRing({
   windowMs,
   urgent = false,
 }: AttendanceExpiryRingProps) {
+  const colors = useAttendanceColors();
   const progress = useRef(new Animated.Value(1)).current;
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -85,7 +86,7 @@ export function AttendanceExpiryRing({
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RING_RADIUS}
-          stroke={ATTENDANCE_COLORS.divider}
+          stroke={colors.divider}
           strokeWidth={RING_STROKE}
           fill="none"
         />
@@ -93,7 +94,7 @@ export function AttendanceExpiryRing({
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RING_RADIUS}
-          stroke={urgent ? ATTENDANCE_COLORS.urgent : ATTENDANCE_COLORS.accent}
+          stroke={urgent ? colors.urgent : colors.accent}
           strokeWidth={RING_STROKE}
           strokeLinecap="round"
           strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
@@ -104,7 +105,12 @@ export function AttendanceExpiryRing({
           rotation={-90}
         />
       </Svg>
-      <Text style={[styles.value, urgent && styles.valueUrgent]}>
+      <Text
+        style={[
+          styles.value,
+          { color: urgent ? colors.urgent : colors.accent },
+        ]}
+      >
         {secondsLeft}
       </Text>
     </Animated.View>
@@ -121,10 +127,6 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 15,
     fontWeight: "800",
-    color: ATTENDANCE_COLORS.accent,
     fontVariant: ["tabular-nums"],
-  },
-  valueUrgent: {
-    color: ATTENDANCE_COLORS.urgent,
   },
 });

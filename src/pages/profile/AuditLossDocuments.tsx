@@ -20,7 +20,8 @@ import {
   type MyLossDocumentItem,
 } from "../../services/inventoryAuditService";
 import { formatInventoryAuditCalendarDateMX, parseInventoryAuditCalendarDate } from "../../utils/auditCalendarDates";
-import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
+import { createThemedStyles } from "../../theme/themedStyles";
+import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -50,18 +51,20 @@ function statusLabel(status: string) {
   return "En proceso";
 }
 
-function statusTone(status: string) {
+function statusTone(status: string, ui: AuditUi) {
   if (status === "finalized") {
-    return { color: AUDIT_UI.green, soft: AUDIT_UI.greenSoft };
+    return { color: ui.green, soft: ui.greenSoft };
   }
   if (status === "pending_responsibility" || status === "pending_review") {
-    return { color: AUDIT_UI.amber, soft: AUDIT_UI.amberSoft };
+    return { color: ui.amber, soft: ui.amberSoft };
   }
-  return { color: AUDIT_UI.accent, soft: AUDIT_UI.accentSoft };
+  return { color: ui.accent, soft: ui.accentSoft };
 }
 
 export default function AuditLossDocuments() {
   const navigation = useNavigation<any>();
+  const ui = useAuditUi();
+  const styles = useAuditDocsStyles();
   const [items, setItems] = useState<MyLossDocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,21 +143,21 @@ export default function AuditLossDocuments() {
       />
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       ) : (
         <FlatList
           data={groups}
           keyExtractor={(it) => it.auditId}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AUDIT_UI.accent} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ui.accent} />
           }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <View style={[styles.emptyWell, { backgroundColor: AUDIT_UI.accentSoft }]}>
-                <DocumentText1 size={28} color={AUDIT_UI.accent} variant="Linear" />
+              <View style={[styles.emptyWell, { backgroundColor: ui.accentSoft }]}>
+                <DocumentText1 size={28} color={ui.accent} variant="Linear" />
               </View>
               <Text style={styles.emptyTitle}>Sin registros</Text>
               <Text style={styles.emptyText}>
@@ -169,7 +172,7 @@ export default function AuditLossDocuments() {
                 sum + (it.generateContract ? 1 : 0) + (it.generatePaymentForm ? 1 : 0),
               0
             );
-            const tone = statusTone(group.status);
+            const tone = statusTone(group.status, ui);
 
             return (
               <View style={styles.groupCard}>
@@ -228,7 +231,7 @@ export default function AuditLossDocuments() {
                           </Text>
                           <View style={styles.cardRow}>
                             <Text style={styles.cardLink}>Ver actas</Text>
-                            <ArrowRight2 size={16} color={AUDIT_UI.muted} variant="Linear" />
+                            <ArrowRight2 size={16} color={ui.muted} variant="Linear" />
                           </View>
                         </View>
                       </SoftPressable>
@@ -244,125 +247,129 @@ export default function AuditLossDocuments() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "transparent" },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: {
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingTop: 4,
-    paddingBottom: 36,
-    flexGrow: 1,
-  },
-  empty: {
-    alignItems: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 28,
-    gap: 8,
-  },
-  emptyWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  groupCard: {
-    ...auditSoftCardStyle(),
-    marginBottom: 12,
-    padding: 14,
-  },
-  groupHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  groupCopy: { flex: 1, minWidth: 0 },
-  groupTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  groupMeta: {
-    marginTop: 3,
-    fontSize: 12,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  groupBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  groupBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  groupStatsText: {
-    marginTop: 10,
-    fontSize: 12,
-    fontWeight: "600",
-    color: AUDIT_UI.muted,
-  },
-  groupBody: {
-    marginTop: 10,
-    gap: 8,
-  },
-  familyCardWrap: {
-    marginBottom: 0,
-  },
-  familyCard: {
-    backgroundColor: AUDIT_UI.field,
-    borderRadius: 14,
-    padding: 12,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: AUDIT_UI.ink,
-  },
-  cardAmount: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: "800",
-    color: AUDIT_UI.rose,
-  },
-  cardHint: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  cardRow: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  cardLink: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: AUDIT_UI.accent,
-  },
-});
+function buildAuditDocsStyles(ui: AuditUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: "transparent" },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+    listContent: {
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingTop: 4,
+      paddingBottom: 36,
+      flexGrow: 1,
+    },
+    empty: {
+      alignItems: "center",
+      paddingVertical: 48,
+      paddingHorizontal: 28,
+      gap: 8,
+    },
+    emptyWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 4,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.ink,
+      textAlign: "center",
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    groupCard: {
+      ...auditSoftCardStyle(ui),
+      marginBottom: 12,
+      padding: 14,
+    },
+    groupHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    groupCopy: { flex: 1, minWidth: 0 },
+    groupTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    groupMeta: {
+      marginTop: 3,
+      fontSize: 12,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    groupBadge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    groupBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    groupStatsText: {
+      marginTop: 10,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    groupBody: {
+      marginTop: 10,
+      gap: 8,
+    },
+    familyCardWrap: {
+      marginBottom: 0,
+    },
+    familyCard: {
+      backgroundColor: ui.field,
+      borderRadius: 14,
+      padding: 12,
+    },
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: ui.ink,
+    },
+    cardAmount: {
+      marginTop: 8,
+      fontSize: 18,
+      fontWeight: "800",
+      color: ui.rose,
+    },
+    cardHint: {
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    cardRow: {
+      marginTop: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    cardLink: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.accent,
+    },
+  });
+}
+
+const useAuditDocsStyles = createThemedStyles(useAuditUi, buildAuditDocsStyles);

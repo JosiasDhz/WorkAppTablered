@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
-import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
+import { HOME_RADIUS, useHomeColors } from "../homeTheme";
 import type { WorkerRoleHomeKpi } from "../../../services/workerKpisService";
 import { HomeKpiProgressRing } from "./HomeKpiProgressRing";
 import { HomeRoleKpiChart, ROLE_KPI_TITLE_GREEN } from "./HomeRoleKpiCharts";
@@ -12,6 +12,7 @@ export type HomeRoleKpiProps = {
 };
 
 export function HomeRoleKpi({ kpi, onPress }: HomeRoleKpiProps) {
+  const homeColors = useHomeColors();
   const badge = kpi.chart?.badge;
   const hideCaption =
     Boolean(badge) ||
@@ -23,7 +24,7 @@ export function HomeRoleKpi({ kpi, onPress }: HomeRoleKpiProps) {
       disabled={!onPress}
       feedback={Boolean(onPress)}
       scaleTo={0.98}
-      style={styles.card}
+      style={[styles.card, { backgroundColor: homeColors.surface }]}
       accessibilityLabel={`${kpi.title} ${kpi.status}. ${kpi.caption}`}
     >
       <View style={styles.copy}>
@@ -39,14 +40,15 @@ export function HomeRoleKpi({ kpi, onPress }: HomeRoleKpiProps) {
             </View>
           ) : null}
         </View>
-        <Text style={styles.status} numberOfLines={1}>
+        <Text style={[styles.status, { color: homeColors.ink }]} numberOfLines={1}>
           {kpi.status}
         </Text>
         {hideCaption ? null : (
           <Text
             style={[
               styles.caption,
-              kpi.tone === "pending" ? styles.captionPending : null,
+              { color: homeColors.muted },
+              kpi.tone === "pending" ? { color: homeColors.warning } : null,
             ]}
             numberOfLines={2}
           >
@@ -79,7 +81,6 @@ const styles = StyleSheet.create({
     minHeight: 132,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: HOME_COLORS.surface,
     borderRadius: HOME_RADIUS.section,
     gap: 10,
   },
@@ -113,7 +114,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "800",
     letterSpacing: -0.7,
-    color: HOME_COLORS.ink,
     fontVariant: ["tabular-nums"],
   },
   caption: {
@@ -121,11 +121,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     lineHeight: 18,
-    color: HOME_COLORS.muted,
-  },
-  captionPending: {
-    color: HOME_COLORS.warning,
-    fontWeight: "600",
   },
   chartBlock: {
     width: "100%",

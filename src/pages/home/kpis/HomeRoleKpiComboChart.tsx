@@ -9,7 +9,7 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import type { WorkerRoleHomeChart } from "../../../services/workerKpisService";
-import { HOME_COLORS } from "../homeTheme";
+import { useHomeColors } from "../homeTheme";
 
 const VIEW_W = 1000;
 const VIEW_H = 220;
@@ -55,6 +55,7 @@ export function HomeRoleKpiComboChart({
 }: {
   chart: WorkerRoleHomeChart;
 }) {
+  const homeColors = useHomeColors();
   const [width, setWidth] = useState(0);
   const labels = chart.items;
   const lines = chart.lines ?? [];
@@ -105,7 +106,9 @@ export function HomeRoleKpiComboChart({
 
   if (!hasChart) {
     return (
-      <Text style={styles.empty}>Sin cobranza en el periodo</Text>
+      <Text style={[styles.empty, { color: homeColors.muted }]}>
+        Sin cobranza en el periodo
+      </Text>
     );
   }
 
@@ -124,7 +127,7 @@ export function HomeRoleKpiComboChart({
     >
       <View style={styles.plotRow}>
         <View style={styles.yAxis}>
-          <Text style={styles.yUnit}>MXN</Text>
+          <Text style={[styles.yUnit, { color: homeColors.muted }]}>MXN</Text>
           {plot.yTicks.map((tick, index, ticks) => {
             const isFirst = index === 0;
             const isLast = index === ticks.length - 1;
@@ -134,6 +137,7 @@ export function HomeRoleKpiComboChart({
                 style={[
                   styles.yTick,
                   {
+                    color: homeColors.muted,
                     top: `${(tick.y / VIEW_H) * 100}%`,
                     transform: [
                       {
@@ -185,7 +189,7 @@ export function HomeRoleKpiComboChart({
                   x2={VIEW_W - PAD_X}
                   y1={tick.y}
                   y2={tick.y}
-                  stroke="rgba(60, 60, 67, 0.16)"
+                  stroke={homeColors.track}
                   strokeWidth={1.2}
                   strokeDasharray="10 8"
                 />
@@ -212,7 +216,7 @@ export function HomeRoleKpiComboChart({
                       cy={point.y}
                       r={5}
                       fill={line.color}
-                      stroke="#FFFFFF"
+                      stroke={homeColors.surface}
                       strokeWidth={1.4}
                     />
                   )),
@@ -230,6 +234,7 @@ export function HomeRoleKpiComboChart({
               key={`${item.label}-${index}`}
               style={[
                 styles.xTick,
+                { color: homeColors.muted },
                 isFirst ? styles.xTickFirst : null,
                 isLast ? styles.xTickLast : null,
               ]}
@@ -240,11 +245,11 @@ export function HomeRoleKpiComboChart({
         })}
       </View>
       {mixTotal > 0 ? (
-        <View style={styles.mixTrack}>
+        <View style={[styles.mixTrack, { backgroundColor: homeColors.track }]}>
           {payments.map((item, index) => {
             const share = item.percent;
             if (share <= 0) return null;
-            const color = lines[index]?.color ?? HOME_COLORS.accent;
+            const color = lines[index]?.color ?? homeColors.accent;
             return (
               <View
                 key={item.code}
@@ -264,10 +269,19 @@ export function HomeRoleKpiComboChart({
       ) : null}
       <View style={styles.legend}>
         {lines.map((line) => (
-          <View key={line.label} style={styles.legendChip}>
+          <View
+            key={line.label}
+            style={[
+              styles.legendChip,
+              {
+                backgroundColor: homeColors.accentSoft,
+                borderColor: homeColors.track,
+              },
+            ]}
+          >
             <View style={[styles.legendDot, { backgroundColor: line.color }]} />
             <Text
-              style={styles.legendLabel}
+              style={[styles.legendLabel, { color: homeColors.ink }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.72}
@@ -292,7 +306,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
   },
   plotRow: {
     flexDirection: "row",
@@ -312,14 +325,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.4,
     textTransform: "uppercase",
-    color: "#A8A29E",
   },
   yTick: {
     position: "absolute",
     right: 0,
     fontSize: 10,
     fontWeight: "700",
-    color: "#57534E",
     fontVariant: ["tabular-nums"],
   },
   svgHost: {
@@ -336,7 +347,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     fontWeight: "700",
-    color: "#78716C",
     textAlign: "center",
   },
   xTickFirst: {
@@ -350,7 +360,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: "hidden",
     flexDirection: "row",
-    backgroundColor: "#E7E5E4",
   },
   mixSeg: {
     minWidth: 0,
@@ -383,8 +392,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(28, 25, 23, 0.22)",
-    backgroundColor: "#FFF7ED",
   },
   legendDot: {
     width: 8,
@@ -397,6 +404,5 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 10,
     fontWeight: "700",
-    color: "#1C1917",
   },
 });

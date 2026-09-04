@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Path } from "react-native-svg";
-import { HOME_COLORS } from "../homeTheme";
+import { useHomeColors, type HomeColors } from "../homeTheme";
 import type {
   WorkerRoleHomeChart,
   WorkerRoleHomePaymentSlice,
@@ -21,6 +21,13 @@ function colorWash(index: number): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, 0.14)`;
+}
+
+
+function useChartTheme() {
+  const homeColors = useHomeColors();
+  const styles = useMemo(() => createStyles(homeColors), [homeColors]);
+  return { homeColors, styles };
 }
 
 function maxValue(items: { value: number }[]): number {
@@ -44,6 +51,7 @@ function formatPercent(value: number) {
 }
 
 function BarsChart({ items }: { items: WorkerRoleHomeChart["items"] }) {
+  const { homeColors, styles } = useChartTheme();
   const peak = maxValue(items);
   return (
     <View style={styles.stack}>
@@ -82,6 +90,7 @@ function ColumnsChart({
   items: WorkerRoleHomeChart["items"];
   money?: boolean;
 }) {
+  const { homeColors, styles } = useChartTheme();
   const peak = maxValue(items);
   const plotH = 112;
 
@@ -107,7 +116,7 @@ function ColumnsChart({
                   styles.columnFill,
                   {
                     height: fillH,
-                    backgroundColor: item.value > 0 ? colorAt(index) : HOME_COLORS.track,
+                    backgroundColor: item.value > 0 ? colorAt(index) : homeColors.track,
                   },
                 ]}
               />
@@ -129,6 +138,7 @@ function DonutChart({
   items: WorkerRoleHomeChart["items"];
   centerLabel?: string;
 }) {
+  const { homeColors, styles } = useChartTheme();
   const size = 108;
   const stroke = 14;
   const r = (size - stroke) / 2 - 2;
@@ -144,7 +154,7 @@ function DonutChart({
             cx={size / 2}
             cy={size / 2}
             r={r}
-            stroke={HOME_COLORS.track}
+            stroke={homeColors.track}
             strokeWidth={stroke}
             fill="none"
           />
@@ -194,6 +204,7 @@ function DonutChart({
 }
 
 function AreaChart({ items }: { items: WorkerRoleHomeChart["items"] }) {
+  const { homeColors, styles } = useChartTheme();
   const [width, setWidth] = useState(0);
   const plotH = 96;
   const padX = 8;
@@ -237,7 +248,7 @@ function AreaChart({ items }: { items: WorkerRoleHomeChart["items"] }) {
               y1={baselineY}
               x2={padX + innerW}
               y2={baselineY}
-              stroke={HOME_COLORS.track}
+              stroke={homeColors.track}
               strokeWidth={1}
             />
             {areaD ? <Path d={areaD} fill={fill} /> : null}
@@ -298,6 +309,7 @@ function PaymentColumnsChart({
 }: {
   payments: WorkerRoleHomePaymentSlice[];
 }) {
+  const { homeColors, styles } = useChartTheme();
   const visible = payments
     .filter((item) => !HIDDEN_PAYMENT_CODES.has(item.code.trim().toUpperCase()))
     .sort((a, b) => paymentRank(a.code) - paymentRank(b.code));
@@ -344,7 +356,7 @@ function PaymentColumnsChart({
                   {
                     height: fillH,
                     backgroundColor:
-                      item.value > 0 ? colorAt(index) : HOME_COLORS.track,
+                      item.value > 0 ? colorAt(index) : homeColors.track,
                   },
                 ]}
               />
@@ -360,12 +372,13 @@ function PaymentColumnsChart({
 }
 
 function SegmentsChart({ items }: { items: WorkerRoleHomeChart["items"] }) {
+  const { homeColors, styles } = useChartTheme();
   const total = items.reduce((sum, item) => sum + Math.max(0, item.value), 0);
   return (
     <View style={styles.stack}>
       <View style={styles.segmentTrack}>
         {total <= 0 ? (
-          <View style={[styles.segmentPart, { flex: 1, backgroundColor: HOME_COLORS.track }]} />
+          <View style={[styles.segmentPart, { flex: 1, backgroundColor: homeColors.track }]} />
         ) : (
           items.map((item, index) =>
             item.value > 0 ? (
@@ -396,6 +409,7 @@ function SegmentsChart({ items }: { items: WorkerRoleHomeChart["items"] }) {
 }
 
 function GridChart({ items }: { items: WorkerRoleHomeChart["items"] }) {
+  const { homeColors, styles } = useChartTheme();
   return (
     <View style={styles.grid}>
       {items.map((item, index) => (
@@ -440,7 +454,8 @@ export function HomeRoleKpiChart({ chart }: { chart: WorkerRoleHomeChart }) {
   return <BarsChart items={chart.items} />;
 }
 
-const styles = StyleSheet.create({
+function createStyles(c: HomeColors) {
+  return StyleSheet.create({
   stack: {
     width: "100%",
     gap: 8,
@@ -458,18 +473,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
+    color: c.muted,
   },
   barValue: {
     fontSize: 12,
     fontWeight: "700",
-    color: HOME_COLORS.ink,
+    color: c.ink,
     fontVariant: ["tabular-nums"],
   },
   barTrack: {
     height: 8,
     borderRadius: 999,
-    backgroundColor: HOME_COLORS.track,
+    backgroundColor: c.track,
     overflow: "hidden",
   },
   barFill: {
@@ -502,23 +517,23 @@ const styles = StyleSheet.create({
   columnValue: {
     fontSize: 13,
     fontWeight: "800",
-    color: HOME_COLORS.ink,
+    color: c.ink,
     fontVariant: ["tabular-nums"],
   },
   columnValueMuted: {
-    color: HOME_COLORS.muted,
+    color: c.muted,
   },
   columnLabel: {
     minHeight: 28,
     fontSize: 11,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
+    color: c.muted,
     textAlign: "center",
   },
   columnPercent: {
     fontSize: 11,
     fontWeight: "700",
-    color: HOME_COLORS.ink,
+    color: c.ink,
     fontVariant: ["tabular-nums"],
   },
   payColumns: {
@@ -537,7 +552,7 @@ const styles = StyleSheet.create({
   payColumnValue: {
     fontSize: 11,
     fontWeight: "800",
-    color: HOME_COLORS.ink,
+    color: c.ink,
     fontVariant: ["tabular-nums"],
   },
   donutWrap: {
@@ -553,7 +568,7 @@ const styles = StyleSheet.create({
   donutCenterText: {
     fontSize: 20,
     fontWeight: "800",
-    color: HOME_COLORS.ink,
+    color: c.ink,
     fontVariant: ["tabular-nums"],
   },
   legend: {
@@ -574,12 +589,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
+    color: c.muted,
   },
   legendValue: {
     fontSize: 12,
     fontWeight: "700",
-    color: HOME_COLORS.ink,
+    color: c.ink,
     fontVariant: ["tabular-nums"],
   },
   areaBox: {
@@ -594,7 +609,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 10,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
+    color: c.muted,
     textAlign: "center",
     fontVariant: ["tabular-nums"],
   },
@@ -603,7 +618,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: "hidden",
     flexDirection: "row",
-    backgroundColor: HOME_COLORS.track,
+    backgroundColor: c.track,
   },
   segmentPart: {
     height: "100%",
@@ -620,7 +635,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
+    color: c.muted,
   },
   grid: {
     flexDirection: "row",
@@ -646,8 +661,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
+    color: c.muted,
   },
 });
+}
 
 export const ROLE_KPI_TITLE_GREEN = TITLE_GREEN;

@@ -17,6 +17,7 @@ import { WebView } from "react-native-webview";
 import type { TripMapModel } from "./tripMapModelFromAssignment";
 import { buildDriverRouteCelebrationMapHtml } from "./driverRouteCelebrationMapHtml";
 import { DriverRouteConfettiLayer } from "./DriverRouteConfettiLayer";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -46,7 +47,21 @@ export function DriverRouteCompletionCelebration({
   commissionPendingPaymentMxn = 0,
   onFinish,
 }: DriverRouteCompletionCelebrationProps) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const { height: winH } = useWindowDimensions();
+  const gradientColors = useMemo(
+    () =>
+      (ui.isDark
+        ? ["transparent", "transparent", "rgba(20, 18, 16, 0.55)", "rgba(20, 18, 16, 0.94)"]
+        : ["transparent", "transparent", "rgba(255,255,255,0.55)", "rgba(255,255,255,0.92)"]) as [
+        string,
+        string,
+        string,
+        string,
+      ],
+    [ui.isDark],
+  );
   const [canFinish, setCanFinish] = useState(false);
   const backdrop = useRef(new Animated.Value(0)).current;
   const cardY = useRef(new Animated.Value(48)).current;
@@ -198,7 +213,7 @@ export function DriverRouteCompletionCelebration({
       />
 
       <LinearGradient
-        colors={["transparent", "transparent", "rgba(255,255,255,0.55)", "rgba(255,255,255,0.92)"]}
+        colors={gradientColors}
         locations={[0, 0.38, 0.58, 0.75]}
         style={styles.gradient}
         pointerEvents="none"
@@ -245,7 +260,7 @@ export function DriverRouteCompletionCelebration({
 
           {commissionEarnedMxn > 0 ? (
             <Animated.View style={[styles.commissionBanner, { opacity: metaOpacity }]}>
-              <Coin size={18} color="#059669" variant="Bold" />
+              <Coin size={18} color={ui.green} variant="Bold" />
               <View style={styles.cashBannerCopy}>
                 <Text style={styles.commissionBannerAmount}>
                   {formatCashMxn(commissionEarnedMxn)}
@@ -259,7 +274,7 @@ export function DriverRouteCompletionCelebration({
 
           {commissionPendingPaymentMxn > 0 ? (
             <Animated.View style={[styles.commissionPendingBanner, { opacity: metaOpacity }]}>
-              <Coin size={18} color="#D97706" variant="Bold" />
+              <Coin size={18} color={ui.amber} variant="Bold" />
               <View style={styles.cashBannerCopy}>
                 <Text style={styles.commissionPendingAmount}>
                   {formatCashMxn(commissionPendingPaymentMxn)}
@@ -273,7 +288,7 @@ export function DriverRouteCompletionCelebration({
 
           {cashPendingMxn > 0 ? (
             <Animated.View style={[styles.cashBanner, { opacity: metaOpacity }]}>
-              <MoneyRecive size={18} color="#D97706" variant="Bold" />
+              <MoneyRecive size={18} color={ui.amber} variant="Bold" />
               <View style={styles.cashBannerCopy}>
                 <Text style={styles.cashBannerAmount}>
                   {formatCashMxn(cashPendingMxn)}
@@ -287,7 +302,7 @@ export function DriverRouteCompletionCelebration({
 
           <Animated.View style={[styles.metaRow, { opacity: metaOpacity }]}>
             <View style={styles.metaChip}>
-              <Truck size={16} color="#10B981" variant="Bold" />
+              <Truck size={16} color={ui.green} variant="Bold" />
               <Text style={styles.metaChipText}>{folio}</Text>
             </View>
             <View style={styles.metaChip}>
@@ -317,197 +332,199 @@ export function DriverRouteCompletionCelebration({
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#e2e8f0",
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "transparent",
-  },
-  gradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  card: {
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 20,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0F172A",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 20,
-      },
-      android: { elevation: 10 },
-    }),
-  },
-  badgeWrap: {
-    width: 92,
-    height: 92,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  badgeHalo: {
-    position: "absolute",
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: "#34D399",
-  },
-  badge: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#10B981",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: "#0F172A",
-    letterSpacing: -0.6,
-    textAlign: "center",
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 8,
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 10,
-    marginTop: 18,
-    marginBottom: 20,
-  },
-  metaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#F0FDF4",
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-  },
-  metaChipAccent: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#059669",
-  },
-  metaChipText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#334155",
-  },
-  finishBtn: {
-    width: "100%",
-    borderRadius: 16,
-    backgroundColor: "#10B981",
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  finishBtnWaiting: {
-    backgroundColor: "#64748B",
-  },
-  finishBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.2,
-  },
-  cashBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-  },
-  commissionBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-  },
-  cashBannerCopy: {
-    flex: 1,
-  },
-  cashBannerAmount: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#D97706",
-  },
-  cashBannerHint: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#92400E",
-  },
-  commissionBannerAmount: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#059669",
-  },
-  commissionBannerHint: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#065F46",
-  },
-  commissionPendingBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-    marginTop: 10,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-  },
-  commissionPendingAmount: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#D97706",
-  },
-  commissionPendingHint: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#92400E",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: ui.layout,
+    },
+    map: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "transparent",
+    },
+    gradient: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    content: {
+      flex: 1,
+      justifyContent: "flex-end",
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+    card: {
+      borderRadius: 28,
+      paddingHorizontal: 24,
+      paddingTop: 24,
+      paddingBottom: 20,
+      backgroundColor: ui.surface,
+      alignItems: "center",
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 20,
+        },
+        android: { elevation: 10 },
+      }),
+    },
+    badgeWrap: {
+      width: 92,
+      height: 92,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    badgeHalo: {
+      position: "absolute",
+      width: 92,
+      height: 92,
+      borderRadius: 46,
+      backgroundColor: ui.green,
+    },
+    badge: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: ui.green,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 3,
+      borderColor: ui.surface,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: "900",
+      color: ui.ink,
+      letterSpacing: -0.6,
+      textAlign: "center",
+    },
+    subtitle: {
+      marginTop: 8,
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 20,
+      paddingHorizontal: 8,
+    },
+    metaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: 10,
+      marginTop: 18,
+      marginBottom: 20,
+    },
+    metaChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: ui.greenSoft,
+      borderWidth: 1,
+      borderColor: ui.greenBorder,
+    },
+    metaChipAccent: {
+      fontSize: 15,
+      fontWeight: "900",
+      color: ui.green,
+    },
+    metaChipText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    finishBtn: {
+      width: "100%",
+      borderRadius: 16,
+      backgroundColor: ui.green,
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    finishBtnWaiting: {
+      backgroundColor: ui.muted,
+    },
+    finishBtnText: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: "#FFFFFF",
+      letterSpacing: 0.2,
+    },
+    cashBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      width: "100%",
+      marginTop: 14,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: ui.amberSoft,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+    },
+    commissionBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      width: "100%",
+      marginTop: 14,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: ui.greenSoft,
+      borderWidth: 1,
+      borderColor: ui.greenBorder,
+    },
+    cashBannerCopy: {
+      flex: 1,
+    },
+    cashBannerAmount: {
+      fontSize: 18,
+      fontWeight: "900",
+      color: ui.amber,
+    },
+    cashBannerHint: {
+      marginTop: 2,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.amber,
+    },
+    commissionBannerAmount: {
+      fontSize: 18,
+      fontWeight: "900",
+      color: ui.green,
+    },
+    commissionBannerHint: {
+      marginTop: 2,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.green,
+    },
+    commissionPendingBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      width: "100%",
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: ui.amberSoft,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+    },
+    commissionPendingAmount: {
+      fontSize: 18,
+      fontWeight: "900",
+      color: ui.amber,
+    },
+    commissionPendingHint: {
+      marginTop: 2,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.amber,
+    },
+  });
+}

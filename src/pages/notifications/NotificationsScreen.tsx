@@ -16,7 +16,7 @@ import {
   NOTIFICATION_FLIP_STAGGER_MS,
 } from "./NotificationGroupSection";
 import { NotificationsEmptyState } from "./NotificationsEmptyState";
-import { NOTIFICATION_COLORS } from "./notificationsTheme";
+import { useNotificationColors } from "./notificationsTheme";
 
 function describeUnread(unreadCount: number): string {
   if (unreadCount === 0) return "Estás al día con tus avisos";
@@ -30,6 +30,7 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
+  const colors = useNotificationColors();
   const { groups, unreadCount, refreshing, markRead, markAllRead, refresh } =
     useInAppNotifications();
   const [listRevealActive, setListRevealActive] = useState(false);
@@ -92,12 +93,12 @@ export default function NotificationsScreen() {
             <SoftPressable
               onPress={markAllRead}
               scaleTo={0.94}
-              style={styles.markAllBtn}
+              style={[styles.markAllBtn, { backgroundColor: colors.accentSoft }]}
               accessibilityLabel="Marcar todos los avisos como leídos"
             >
               <TickCircle
                 size={20}
-                color={NOTIFICATION_COLORS.accent}
+                color={colors.accent}
                 variant="Linear"
               />
             </SoftPressable>
@@ -117,7 +118,7 @@ export default function NotificationsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={NOTIFICATION_COLORS.ink}
+            tintColor={colors.ink}
           />
         }
       >
@@ -140,7 +141,7 @@ export default function NotificationsScreen() {
             ))}
             <PageFlipReveal delay={footerDelay} active={listRevealActive}>
               <View style={styles.footer}>
-                <Text style={styles.footerText}>
+                <Text style={[styles.footerText, { color: colors.muted }]}>
                   Desliza hacia abajo para actualizar tus avisos.
                 </Text>
               </View>
@@ -165,7 +166,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: NOTIFICATION_COLORS.accentSoft,
   },
   scrollContent: {
     flexGrow: 1,
@@ -188,7 +188,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     fontWeight: "500",
-    color: NOTIFICATION_COLORS.muted,
     textAlign: "center",
   },
 });

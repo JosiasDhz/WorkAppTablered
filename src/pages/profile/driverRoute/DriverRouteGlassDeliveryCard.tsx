@@ -1,21 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { ArrowDown2, ArrowRight2, Box1, TickCircle } from "iconsax-react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
 import type { DriverRouteAssignmentDemoDestination } from "../driverDemo/driverRouteAssignmentDemo.types";
 import { isDriverRouteTransferLine } from "../../../domain/driverRouteConfirmLines";
 import { isDriverRouteStopDelivered } from "./deliveryStopProgress";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  accent: "#EA7600",
-};
-
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 function formatAddress(rec: DriverRouteAssignmentDemoDestination["records"][0]): string {
   return [
@@ -47,6 +37,8 @@ export function DriverRouteGlassDeliveryCard(props: {
   productsCollapsed: boolean;
   onToggleProducts: () => void;
 }) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const {
     destination,
     displayNum,
@@ -119,11 +111,11 @@ export function DriverRouteGlassDeliveryCard(props: {
         <View
           style={[
             styles.iconWell,
-            { backgroundColor: showDelivered ? DONE_SOFT : ACCENT_SOFT },
+            { backgroundColor: showDelivered ? ui.greenSoft : ui.accentSoft },
           ]}
         >
           {showDelivered ? (
-            <TickCircle size={20} color={DONE} variant="Linear" />
+            <TickCircle size={20} color={ui.green} variant="Linear" />
           ) : (
             <Text style={styles.stopNum}>{displayNum}</Text>
           )}
@@ -138,14 +130,14 @@ export function DriverRouteGlassDeliveryCard(props: {
                 style={[
                   styles.badge,
                   {
-                    backgroundColor: showDelivered ? DONE_SOFT : ACCENT_SOFT,
+                    backgroundColor: showDelivered ? ui.greenSoft : ui.accentSoft,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.badgeText,
-                    { color: showDelivered ? DONE : COLORS.accent },
+                    { color: showDelivered ? ui.green : ui.accent },
                   ]}
                 >
                   {statusLabel}
@@ -183,14 +175,14 @@ export function DriverRouteGlassDeliveryCard(props: {
         }
       >
         <View style={styles.productsToggle}>
-          <Box1 size={16} color={COLORS.accent} variant="Linear" />
+          <Box1 size={16} color={ui.accent} variant="Linear" />
           <Text style={styles.productsToggleTxt}>
             {productsCollapsed ? "Ver productos" : "Ocultar productos"}
           </Text>
           {productsCollapsed ? (
-            <ArrowRight2 size={16} color={COLORS.muted} variant="Linear" />
+            <ArrowRight2 size={16} color={ui.muted} variant="Linear" />
           ) : (
-            <ArrowDown2 size={16} color={COLORS.muted} variant="Linear" />
+            <ArrowDown2 size={16} color={ui.muted} variant="Linear" />
           )}
         </View>
       </SoftPressable>
@@ -211,117 +203,119 @@ export function DriverRouteGlassDeliveryCard(props: {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  iconWell: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stopNum: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-  copy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  title: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  meta: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  desc: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: COLORS.muted,
-  },
-  metrics: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 6,
-    paddingLeft: 50,
-  },
-  metricTxt: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  metricDot: {
-    fontSize: 13,
-    color: COLORS.muted,
-  },
-  productsToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 40,
-    paddingLeft: 50,
-  },
-  productsToggleTxt: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.accent,
-  },
-  productsList: {
-    gap: 8,
-    paddingLeft: 50,
-  },
-  productRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  productName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.ink,
-    lineHeight: 20,
-  },
-  productQty: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.muted,
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: ui.surface,
+      borderRadius: 16,
+      padding: 14,
+      gap: 10,
+    },
+    topRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+    },
+    iconWell: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stopNum: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.accent,
+    },
+    copy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    title: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 16,
+      fontWeight: "600",
+      color: ui.ink,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    meta: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    desc: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: ui.muted,
+    },
+    metrics: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 6,
+      paddingLeft: 50,
+    },
+    metricTxt: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    metricDot: {
+      fontSize: 13,
+      color: ui.muted,
+    },
+    productsToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      minHeight: 40,
+      paddingLeft: 50,
+    },
+    productsToggleTxt: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.accent,
+    },
+    productsList: {
+      gap: 8,
+      paddingLeft: 50,
+    },
+    productRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    productName: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
+      color: ui.ink,
+      lineHeight: 20,
+    },
+    productQty: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+  });
+}

@@ -24,6 +24,7 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getMyVacationBalance,
@@ -34,19 +35,8 @@ import {
 } from "../../services/workforceVacationsService";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  accent: "#EA7600",
-};
+type Styles = ReturnType<typeof createStyles>;
 
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
-const ROSE = "#BE123C";
-const ROSE_SOFT = "#FFF1F2";
 const FLIP_STAGGER_MS = 70;
 const MAX_FLIP_DELAY_MS = 700;
 const PENDING_STATUSES = new Set([
@@ -59,20 +49,31 @@ function clampFlipDelay(delay: number) {
   return Math.min(delay, MAX_FLIP_DELAY_MS);
 }
 
-function statusTone(status: VacationRequestDto["status"]) {
-  if (status === "APPROVED") return { bg: DONE_SOFT, text: DONE };
-  if (status === "REJECTED") return { bg: ROSE_SOFT, text: ROSE };
-  return { bg: ACCENT_SOFT, text: COLORS.accent };
+function statusTone(
+  status: VacationRequestDto["status"],
+  COLORS: FormColors,
+) {
+  if (status === "APPROVED") {
+    return { bg: COLORS.emeraldSoft, text: COLORS.emerald };
+  }
+  if (status === "REJECTED") {
+    return { bg: COLORS.roseSoft, text: COLORS.roseText };
+  }
+  return { bg: COLORS.accentSoft, text: COLORS.accent };
 }
 
 function VacacionCard({
   item,
   onPress,
+  styles,
+  COLORS,
 }: {
   item: VacationRequestDto;
   onPress: () => void;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
-  const tone = statusTone(item.status);
+  const tone = statusTone(item.status, COLORS);
   const days = Math.max(1, item.requestedDays ?? 1);
   return (
     <SoftPressable
@@ -110,7 +111,15 @@ function VacacionCard({
   );
 }
 
-function BalanceCard({ balance }: { balance: VacationBalanceDto | null }) {
+function BalanceCard({
+  balance,
+  styles,
+  COLORS,
+}: {
+  balance: VacationBalanceDto | null;
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   if (!balance) return null;
   return (
     <View style={styles.balanceCard}>
@@ -164,6 +173,8 @@ function BalanceCard({ balance }: { balance: VacationBalanceDto | null }) {
 export default function MisVacacionesScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -264,7 +275,7 @@ export default function MisVacacionesScreen() {
             }
           >
             <PageFlipReveal delay={0} active={isFocused}>
-              <BalanceCard balance={balance} />
+              <BalanceCard balance={balance} styles={styles} COLORS={COLORS} />
             </PageFlipReveal>
 
             {items.length === 0 ? (
@@ -302,6 +313,8 @@ export default function MisVacacionesScreen() {
                                 requestId: item.id,
                               })
                             }
+                            styles={styles}
+                            COLORS={COLORS}
                           />
                         </PageFlipReveal>
                       ))}
@@ -341,6 +354,8 @@ export default function MisVacacionesScreen() {
                                 requestId: item.id,
                               })
                             }
+                            styles={styles}
+                            COLORS={COLORS}
                           />
                         </PageFlipReveal>
                       ))}
@@ -356,159 +371,161 @@ export default function MisVacacionesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F2F2F7" },
-  safe: { flex: 1 },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scroll: { flex: 1 },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  balanceCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 8,
-  },
-  balanceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  balanceTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  balanceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  balanceStat: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: "#F3F1EC",
-    borderRadius: 12,
-    paddingVertical: 10,
-  },
-  balanceValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  balanceLabel: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  balanceHint: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-    lineHeight: 18,
-  },
-  sectionBlock: { width: "100%", marginTop: 16 },
-  sectionBlockFollow: { width: "100%", marginTop: 22 },
-  sectionTitle: {
-    marginLeft: 4,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  list: { gap: 12 },
-  card: {
-    minHeight: 78,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: { flex: 1, minWidth: 0 },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: { fontSize: 11, fontWeight: "700" },
-  cardMeta: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  cardDesc: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: COLORS.muted,
-  },
-  empty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    paddingTop: 40,
-    gap: 8,
-  },
-  emptyWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.ink,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: COLORS.layout },
+    safe: { flex: 1 },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    addBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    scroll: { flex: 1 },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    balanceCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 8,
+    },
+    balanceHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 12,
+    },
+    balanceTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    balanceRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    balanceStat: {
+      flex: 1,
+      alignItems: "center",
+      backgroundColor: COLORS.field,
+      borderRadius: 12,
+      paddingVertical: 10,
+    },
+    balanceValue: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    balanceLabel: {
+      marginTop: 2,
+      fontSize: 11,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    balanceHint: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+      lineHeight: 18,
+    },
+    sectionBlock: { width: "100%", marginTop: 16 },
+    sectionBlockFollow: { width: "100%", marginTop: 22 },
+    sectionTitle: {
+      marginLeft: 4,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    list: { gap: 12 },
+    card: {
+      minHeight: 78,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardCopy: { flex: 1, minWidth: 0 },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 16,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: { fontSize: 11, fontWeight: "700" },
+    cardMeta: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+    },
+    cardDesc: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: COLORS.muted,
+    },
+    empty: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 32,
+      paddingTop: 40,
+      gap: 8,
+    },
+    emptyWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: COLORS.ink,
+      textAlign: "center",
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+  });
+}

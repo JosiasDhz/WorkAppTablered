@@ -3,7 +3,7 @@ import { Image, StyleSheet, View } from "react-native";
 import { Profile } from "iconsax-react-native";
 import { useSelector } from "react-redux";
 import type { RootState } from "../redux/store/store";
-import { SOFT } from "../theme/softUi";
+import { useAppAppearance } from "../theme/appearance";
 
 export type HeaderAvatarProps = {
   size?: number;
@@ -11,6 +11,7 @@ export type HeaderAvatarProps = {
 
 export function HeaderAvatar({ size = 40 }: HeaderAvatarProps) {
   const userAvatar = useSelector((state: RootState) => state.auth.userAvatar);
+  const { colors, scheme } = useAppAppearance();
   const [failed, setFailed] = useState(false);
   const uri = userAvatar ? String(userAvatar).trim() : "";
   const showsPhoto = uri.length > 0 && !failed;
@@ -20,10 +21,22 @@ export function HeaderAvatar({ size = 40 }: HeaderAvatarProps) {
     <View
       style={[
         styles.shadow,
-        { width: size, height: size, borderRadius: radius },
+        {
+          width: size,
+          height: size,
+          borderRadius: radius,
+          backgroundColor: colors.field,
+          shadowColor: scheme === "dark" ? "#000000" : "#1C1917",
+          shadowOpacity: scheme === "dark" ? 0.35 : 0.07,
+        },
       ]}
     >
-      <View style={[styles.clip, { borderRadius: radius }]}>
+      <View
+        style={[
+          styles.clip,
+          { borderRadius: radius, backgroundColor: colors.field },
+        ]}
+      >
         {showsPhoto ? (
           <Image
             source={{ uri }}
@@ -35,7 +48,7 @@ export function HeaderAvatar({ size = 40 }: HeaderAvatarProps) {
         ) : (
           <Profile
             size={Math.round(size * 0.52)}
-            color={SOFT.mutedInk}
+            color={colors.mutedInk}
             variant="Bold"
           />
         )}
@@ -46,10 +59,7 @@ export function HeaderAvatar({ size = 40 }: HeaderAvatarProps) {
 
 const styles = StyleSheet.create({
   shadow: {
-    backgroundColor: SOFT.field,
-    shadowColor: "#1C1917",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -59,7 +69,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: SOFT.field,
   },
   image: {
     width: "100%",

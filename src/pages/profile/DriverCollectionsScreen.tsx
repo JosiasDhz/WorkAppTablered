@@ -25,6 +25,9 @@ import {
   type DriverCollectionRecord,
   type DriverCollectionsResponse,
 } from "../../services/driverRoutesService";
+import { useDriverUi, type DriverUi } from "./driverRoute/driverUi";
+
+type Styles = ReturnType<typeof createStyles>;
 
 const PAGE_SIZE = 15;
 
@@ -58,55 +61,71 @@ function formatDateShort(iso: string | null): string {
   }
 }
 
-const STATUS_STYLE: Record<
-  DriverCollectionRecord["collectionStatus"],
-  { bg: string; text: string; label: string; icon: React.ReactNode }
-> = {
-  POR_COBRAR: {
-    bg: "#FFFBEB",
-    text: "#D97706",
-    label: "Por cobrar",
-    icon: <Clock size={12} color="#D97706" variant="Bold" />,
-  },
-  COBRADO: {
-    bg: "#EFF6FF",
-    text: "#2563EB",
-    label: "Cobrado",
-    icon: <Wallet size={12} color="#2563EB" variant="Bold" />,
-  },
-  ENTREGADO_CAJA: {
-    bg: "#ECFDF5",
-    text: "#059669",
-    label: "En caja",
-    icon: <TickCircle size={12} color="#059669" variant="Bold" />,
-  },
+type StatusStyle = {
+  bg: string;
+  border: string;
+  text: string;
+  label: string;
+  icon: React.ReactNode;
 };
+
+function statusStyles(
+  ui: DriverUi,
+): Record<DriverCollectionRecord["collectionStatus"], StatusStyle> {
+  return {
+    POR_COBRAR: {
+      bg: ui.amberSoft,
+      border: ui.amberBorder,
+      text: ui.amber,
+      label: "Por cobrar",
+      icon: <Clock size={12} color={ui.amber} variant="Bold" />,
+    },
+    COBRADO: {
+      bg: ui.blueSoft,
+      border: ui.blueBorder,
+      text: ui.blue,
+      label: "Cobrado",
+      icon: <Wallet size={12} color={ui.blue} variant="Bold" />,
+    },
+    ENTREGADO_CAJA: {
+      bg: ui.greenSoft,
+      border: ui.greenBorder,
+      text: ui.green,
+      label: "En caja",
+      icon: <TickCircle size={12} color={ui.green} variant="Bold" />,
+    },
+  };
+}
 
 function SummaryStrip({
   summary,
+  ui,
+  s,
 }: {
   summary: DriverCollectionsResponse["summary"];
+  ui: DriverUi;
+  s: Styles;
 }) {
   return (
     <View style={s.summaryRow}>
-      <View style={[s.summaryCard, { borderColor: "#FDE68A" }]}>
-        <Text style={[s.summaryAmount, { color: "#D97706" }]}>
+      <View style={[s.summaryCard, { borderColor: ui.amberBorder }]}>
+        <Text style={[s.summaryAmount, { color: ui.amber }]}>
           {formatMoney(summary.totalPorCobrarMxn)}
         </Text>
         <Text style={s.summaryLabel}>
           Por cobrar · {summary.countPorCobrar}
         </Text>
       </View>
-      <View style={[s.summaryCard, { borderColor: "#BFDBFE" }]}>
-        <Text style={[s.summaryAmount, { color: "#2563EB" }]}>
+      <View style={[s.summaryCard, { borderColor: ui.blueBorder }]}>
+        <Text style={[s.summaryAmount, { color: ui.blue }]}>
           {formatMoney(summary.totalCobradoMxn)}
         </Text>
         <Text style={s.summaryLabel}>
           Cobrado · {summary.countCobrado}
         </Text>
       </View>
-      <View style={[s.summaryCard, { borderColor: "#A7F3D0" }]}>
-        <Text style={[s.summaryAmount, { color: "#059669" }]}>
+      <View style={[s.summaryCard, { borderColor: ui.greenBorder }]}>
+        <Text style={[s.summaryAmount, { color: ui.green }]}>
           {formatMoney(summary.totalEntregadoCajaMxn)}
         </Text>
         <Text style={s.summaryLabel}>
@@ -117,26 +136,22 @@ function SummaryStrip({
   );
 }
 
-function CollectionCard({ item }: { item: DriverCollectionRecord }) {
-  const cfg = STATUS_STYLE[item.collectionStatus];
+function CollectionCard({
+  item,
+  ui,
+  s,
+}: {
+  item: DriverCollectionRecord;
+  ui: DriverUi;
+  s: Styles;
+}) {
+  const cfg = statusStyles(ui)[item.collectionStatus];
   const isPending = item.collectionStatus === "POR_COBRAR";
   return (
-    <View
-      style={[
-        s.card,
-        {
-          borderColor:
-            item.collectionStatus === "ENTREGADO_CAJA"
-              ? "#A7F3D0"
-              : item.collectionStatus === "COBRADO"
-                ? "#BFDBFE"
-                : "#FDE68A",
-        },
-      ]}
-    >
+    <View style={[s.card, { borderColor: cfg.border }]}>
       <View style={s.cardHeader}>
         <View style={s.routeBadge}>
-          <Receipt1 size={14} color="#64748B" variant="Bold" />
+          <Receipt1 size={14} color={ui.muted} variant="Bold" />
           <Text style={s.routeLabel}>{item.routeFolio}</Text>
         </View>
         <View style={[s.statusBadge, { backgroundColor: cfg.bg }]}>
@@ -151,7 +166,7 @@ function CollectionCard({ item }: { item: DriverCollectionRecord }) {
 
       {item.addressLine ? (
         <View style={s.addressRow}>
-          <Location size={13} color="#94A3B8" variant="Bold" />
+          <Location size={13} color={ui.faint} variant="Bold" />
           <Text style={s.addressText} numberOfLines={1}>
             {item.addressLine}
           </Text>
@@ -176,7 +191,7 @@ function CollectionCard({ item }: { item: DriverCollectionRecord }) {
         {!isPending && item.changeMxn > 0 ? (
           <View style={s.moneyItem}>
             <Text style={s.moneyLabel}>Cambio</Text>
-            <Text style={[s.moneyValue, { color: "#059669" }]}>
+            <Text style={[s.moneyValue, { color: ui.green }]}>
               {formatMoney(item.changeMxn)}
             </Text>
           </View>
@@ -192,6 +207,8 @@ function CollectionCard({ item }: { item: DriverCollectionRecord }) {
 
 export default function DriverCollectionsScreen() {
   const navigation = useNavigation();
+  const ui = useDriverUi();
+  const s = useMemo(() => createStyles(ui), [ui]);
   const [items, setItems] = useState<DriverCollectionRecord[]>([]);
   const [summary, setSummary] = useState<DriverCollectionsResponse["summary"]>({
     totalPorCobrarMxn: 0,
@@ -286,9 +303,9 @@ export default function DriverCollectionsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: DriverCollectionRecord }) => (
-      <CollectionCard item={item} />
+      <CollectionCard item={item} ui={ui} s={s} />
     ),
-    [],
+    [s, ui],
   );
 
   const keyExtractor = useCallback(
@@ -298,9 +315,9 @@ export default function DriverCollectionsScreen() {
 
   const ListHeader = useMemo(
     () => (
-      <SummaryStrip summary={summary} />
+      <SummaryStrip summary={summary} ui={ui} s={s} />
     ),
-    [summary],
+    [s, summary, ui],
   );
 
   return (
@@ -313,10 +330,10 @@ export default function DriverCollectionsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Volver"
         >
-          <ArrowLeft2 size={22} color="#0F172A" variant="Bold" />
+          <ArrowLeft2 size={22} color={ui.ink} variant="Bold" />
         </Pressable>
         <View style={s.headerIcon}>
-          <MoneyRecive size={20} color="#EA7600" variant="Bold" />
+          <MoneyRecive size={20} color={ui.accent} variant="Bold" />
         </View>
         <View style={s.headerCopy}>
           <Text style={s.headerKicker}>COBROS</Text>
@@ -344,7 +361,7 @@ export default function DriverCollectionsScreen() {
 
       {loading ? (
         <View style={s.centered}>
-          <ActivityIndicator size="large" color="#EA7600" />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       ) : (
         <FlatList
@@ -359,13 +376,13 @@ export default function DriverCollectionsScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#EA7600"
-              colors={["#EA7600"]}
+              tintColor={ui.accent}
+              colors={[ui.accent]}
             />
           }
           ListEmptyComponent={
             <View style={s.emptyWrap}>
-              <MoneyRecive size={48} color="#CBD5E1" variant="Bold" />
+              <MoneyRecive size={48} color={ui.faint} variant="Bold" />
               <Text style={s.emptyTitle}>Sin cobros</Text>
               <Text style={s.emptySubtitle}>
                 {tab === "POR_COBRAR"
@@ -381,7 +398,7 @@ export default function DriverCollectionsScreen() {
           ListFooterComponent={
             loadingMore ? (
               <View style={s.footerLoader}>
-                <ActivityIndicator size="small" color="#EA7600" />
+                <ActivityIndicator size="small" color={ui.accent} />
               </View>
             ) : null
           }
@@ -391,158 +408,160 @@ export default function DriverCollectionsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFF7ED",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCopy: { flex: 1 },
-  headerKicker: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#EA7600",
-    letterSpacing: 0.6,
-  },
-  headerTitle: { fontSize: 17, fontWeight: "800", color: "#0F172A" },
-  tabBar: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 6,
-  },
-  tabItem: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-  },
-  tabItemActive: { backgroundColor: "#EA7600" },
-  tabText: { fontSize: 11, fontWeight: "700", color: "#64748B" },
-  tabTextActive: { color: "#FFFFFF" },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  listContent: { padding: 16, paddingBottom: 40, gap: 10 },
-  summaryRow: { flexDirection: "row", gap: 8, marginBottom: 6 },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-  },
-  summaryAmount: { fontSize: 15, fontWeight: "900" },
-  summaryLabel: {
-    marginTop: 2,
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  routeBadge: { flexDirection: "row", alignItems: "center", gap: 6 },
-  routeLabel: { fontSize: 13, fontWeight: "800", color: "#334155" },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  statusText: { fontSize: 11, fontWeight: "800" },
-  saleFolio: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#64748B",
-    marginBottom: 6,
-  },
-  addressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 10,
-  },
-  addressText: { flex: 1, fontSize: 12, fontWeight: "600", color: "#64748B" },
-  moneyGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 4,
-  },
-  moneyItem: {
-    minWidth: "40%",
-    flex: 1,
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: "#F8FAFC",
-  },
-  moneyLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  moneyValue: {
-    marginTop: 2,
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  dateText: {
-    marginTop: 8,
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#94A3B8",
-    textAlign: "right",
-  },
-  emptyWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-    gap: 8,
-  },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: "#334155" },
-  emptySubtitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#94A3B8",
-    textAlign: "center",
-    maxWidth: 260,
-  },
-  footerLoader: { paddingVertical: 16, alignItems: "center" },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: ui.layout },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: ui.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: ui.border,
+    },
+    backBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: ui.field,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerCopy: { flex: 1 },
+    headerKicker: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: ui.accent,
+      letterSpacing: 0.6,
+    },
+    headerTitle: { fontSize: 17, fontWeight: "800", color: ui.ink },
+    tabBar: {
+      flexDirection: "row",
+      backgroundColor: ui.surface,
+      paddingHorizontal: 16,
+      paddingBottom: 8,
+      gap: 6,
+    },
+    tabItem: {
+      flex: 1,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: ui.field,
+      alignItems: "center",
+    },
+    tabItemActive: { backgroundColor: ui.accent },
+    tabText: { fontSize: 11, fontWeight: "700", color: ui.muted },
+    tabTextActive: { color: "#FFFFFF" },
+    centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+    listContent: { padding: 16, paddingBottom: 40, gap: 10 },
+    summaryRow: { flexDirection: "row", gap: 8, marginBottom: 6 },
+    summaryCard: {
+      flex: 1,
+      backgroundColor: ui.surface,
+      borderRadius: 12,
+      padding: 10,
+      borderWidth: 1,
+    },
+    summaryAmount: { fontSize: 15, fontWeight: "900" },
+    summaryLabel: {
+      marginTop: 2,
+      fontSize: 10,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+    card: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
+    },
+    routeBadge: { flexDirection: "row", alignItems: "center", gap: 6 },
+    routeLabel: { fontSize: 13, fontWeight: "800", color: ui.ink },
+    statusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 20,
+    },
+    statusText: { fontSize: 11, fontWeight: "800" },
+    saleFolio: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.muted,
+      marginBottom: 6,
+    },
+    addressRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 10,
+    },
+    addressText: { flex: 1, fontSize: 12, fontWeight: "600", color: ui.muted },
+    moneyGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 4,
+    },
+    moneyItem: {
+      minWidth: "40%",
+      flex: 1,
+      padding: 8,
+      borderRadius: 10,
+      backgroundColor: ui.surfaceAlt,
+    },
+    moneyLabel: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
+    },
+    moneyValue: {
+      marginTop: 2,
+      fontSize: 16,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    dateText: {
+      marginTop: 8,
+      fontSize: 11,
+      fontWeight: "600",
+      color: ui.faint,
+      textAlign: "right",
+    },
+    emptyWrap: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 60,
+      gap: 8,
+    },
+    emptyTitle: { fontSize: 16, fontWeight: "800", color: ui.ink },
+    emptySubtitle: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.faint,
+      textAlign: "center",
+      maxWidth: 260,
+    },
+    footerLoader: { paddingVertical: 16, alignItems: "center" },
+  });
+}

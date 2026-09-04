@@ -1,7 +1,7 @@
 import React, { type ReactNode } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
-import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
+import { HOME_RADIUS, useHomeColors } from "../homeTheme";
 
 export type HomeKpiTone = "ok" | "pending" | "neutral";
 
@@ -17,21 +17,6 @@ export type HomeKpiCardProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const TONE_STYLES = {
-  ok: {
-    wash: HOME_COLORS.positiveSoft,
-    ink: HOME_COLORS.positive,
-  },
-  pending: {
-    wash: HOME_COLORS.warningSoft,
-    ink: HOME_COLORS.warning,
-  },
-  neutral: {
-    wash: HOME_COLORS.accentSoft,
-    ink: HOME_COLORS.accent,
-  },
-} as const;
-
 export function HomeKpiCard({
   title,
   status,
@@ -43,7 +28,13 @@ export function HomeKpiCard({
   onPress,
   style,
 }: HomeKpiCardProps) {
-  const palette = TONE_STYLES[tone];
+  const homeColors = useHomeColors();
+  const palette =
+    tone === "ok"
+      ? { wash: homeColors.positiveSoft, ink: homeColors.positive }
+      : tone === "pending"
+        ? { wash: homeColors.warningSoft, ink: homeColors.warning }
+        : { wash: homeColors.accentSoft, ink: homeColors.accent };
   const centered = Boolean(graphic) || Boolean(icon);
 
   return (
@@ -52,7 +43,12 @@ export function HomeKpiCard({
       disabled={!onPress}
       feedback={Boolean(onPress)}
       scaleTo={0.98}
-      style={[styles.card, graphic ? styles.cardChart : null, style]}
+      style={[
+        styles.card,
+        { backgroundColor: homeColors.surface },
+        graphic ? styles.cardChart : null,
+        style,
+      ]}
       accessibilityLabel={accessibilityLabel}
     >
       {graphic ? (
@@ -70,7 +66,11 @@ export function HomeKpiCard({
       ) : null}
       {title ? (
         <Text
-          style={[styles.title, centered ? styles.centered : null]}
+          style={[
+            styles.title,
+            { color: homeColors.muted },
+            centered ? styles.centered : null,
+          ]}
           numberOfLines={1}
         >
           {title}
@@ -88,7 +88,11 @@ export function HomeKpiCard({
         {status}
       </Text>
       <Text
-        style={[styles.caption, centered ? styles.centered : null]}
+        style={[
+          styles.caption,
+          { color: homeColors.muted },
+          centered ? styles.centered : null,
+        ]}
         numberOfLines={2}
       >
         {caption}
@@ -102,7 +106,6 @@ const styles = StyleSheet.create({
     minHeight: 148,
     paddingHorizontal: 14,
     paddingVertical: 16,
-    backgroundColor: HOME_COLORS.surface,
     borderRadius: HOME_RADIUS.section,
   },
   cardChart: {
@@ -125,7 +128,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 12.5,
     fontWeight: "600",
-    color: HOME_COLORS.muted,
   },
   status: {
     marginTop: 4,
@@ -141,7 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     lineHeight: 16,
-    color: HOME_COLORS.muted,
   },
   centered: {
     textAlign: "center",

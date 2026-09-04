@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +21,7 @@ import { WebView } from "react-native-webview";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { TapImagePreview } from "../../components/TapImagePreview";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { apiBaseUrl } from "../../api/http-common";
 import {
   addMyDocumentFile,
@@ -34,14 +35,6 @@ import {
   pickPdfDocuments,
   waitAfterImagePickerOnIos,
 } from "../../utils/pickPdfDocument";
-
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  accent: "#EA7600",
-};
 
 type PendingFile = {
   id: string;
@@ -119,6 +112,8 @@ function toErrorMessage(err: unknown) {
 export default function MisExpedienteDocumentoScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
 
@@ -409,7 +404,7 @@ export default function MisExpedienteDocumentoScreen() {
                       disabled={submitting}
                       onPress={() => removePending(item.id)}
                     >
-                      <Trash size={16} color="#DC2626" variant="Linear" />
+                      <Trash size={16} color={COLORS.roseText} variant="Linear" />
                       <Text style={styles.deleteBtnText}>Quitar</Text>
                     </Pressable>
                   </View>
@@ -546,200 +541,202 @@ export default function MisExpedienteDocumentoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { flex: 1 },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  requiredHint: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.accent,
-    marginBottom: 12,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  sectionHint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginBottom: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.muted,
-    textAlign: "center",
-  },
-  fileGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  fileCard: {
-    width: "47%",
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: "hidden",
-  },
-  previewBox: {
-    aspectRatio: 5 / 4,
-    width: "100%",
-    backgroundColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  thumb: {
-    width: "100%",
-    height: "100%",
-  },
-  pdfName: {
-    marginTop: 8,
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.text,
-    textAlign: "center",
-    paddingHorizontal: 8,
-  },
-  pdfAction: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-  unavailable: {
-    fontSize: 12,
-    color: COLORS.muted,
-    textAlign: "center",
-    paddingHorizontal: 8,
-  },
-  deleteBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingVertical: 10,
-  },
-  deleteBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#DC2626",
-  },
-  dropZone: {
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#FDBA74",
-    borderRadius: 16,
-    backgroundColor: "#FFF7ED",
-    paddingVertical: 28,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 20,
-  },
-  dropZoneDisabled: { opacity: 0.65 },
-  dropTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  dropSub: {
-    fontSize: 12,
-    color: COLORS.muted,
-    textAlign: "center",
-  },
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-  },
-  sheetCard: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-  },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  sheetOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  sheetOptionText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  sheetCancel: {
-    marginTop: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  sheetCancelText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  submitBtn: {
-    marginTop: 14,
-    backgroundColor: COLORS.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  submitBtnDisabled: { opacity: 0.65 },
-  submitBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  pdfModal: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-  },
-  pdfBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  pdfBarTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginRight: 12,
-  },
-  pdfClose: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    safe: { flex: 1 },
+    scroll: { flex: 1 },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    requiredHint: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: COLORS.accent,
+      marginBottom: 12,
+    },
+    section: {
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: COLORS.ink,
+      marginBottom: 4,
+    },
+    sectionHint: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginBottom: 10,
+    },
+    emptyText: {
+      fontSize: 14,
+      color: COLORS.muted,
+      textAlign: "center",
+    },
+    fileGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+    },
+    fileCard: {
+      width: "47%",
+      backgroundColor: COLORS.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      overflow: "hidden",
+    },
+    previewBox: {
+      aspectRatio: 5 / 4,
+      width: "100%",
+      backgroundColor: COLORS.field,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
+    thumb: {
+      width: "100%",
+      height: "100%",
+    },
+    pdfName: {
+      marginTop: 8,
+      fontSize: 11,
+      fontWeight: "600",
+      color: COLORS.ink,
+      textAlign: "center",
+      paddingHorizontal: 8,
+    },
+    pdfAction: {
+      marginTop: 4,
+      fontSize: 11,
+      fontWeight: "700",
+      color: COLORS.accent,
+    },
+    unavailable: {
+      fontSize: 12,
+      color: COLORS.muted,
+      textAlign: "center",
+      paddingHorizontal: 8,
+    },
+    deleteBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.divider,
+      paddingVertical: 10,
+    },
+    deleteBtnText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: COLORS.roseText,
+    },
+    dropZone: {
+      borderWidth: 2,
+      borderStyle: "dashed",
+      borderColor: COLORS.accent,
+      borderRadius: 16,
+      backgroundColor: COLORS.accentSoft,
+      paddingVertical: 28,
+      paddingHorizontal: 20,
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 20,
+    },
+    dropZoneDisabled: { opacity: 0.65 },
+    dropTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    dropSub: {
+      fontSize: 12,
+      color: COLORS.muted,
+      textAlign: "center",
+    },
+    sheetOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(15, 23, 42, 0.45)",
+    },
+    sheetCard: {
+      backgroundColor: COLORS.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 20,
+      paddingHorizontal: 20,
+    },
+    sheetTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: COLORS.ink,
+      marginBottom: 16,
+      textAlign: "center",
+    },
+    sheetOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.divider,
+    },
+    sheetOptionText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    sheetCancel: {
+      marginTop: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    sheetCancelText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    submitBtn: {
+      marginTop: 14,
+      backgroundColor: COLORS.accent,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    submitBtnDisabled: { opacity: 0.65 },
+    submitBtnText: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#FFFFFF",
+    },
+    pdfModal: {
+      flex: 1,
+      backgroundColor: COLORS.surface,
+    },
+    pdfBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.divider,
+    },
+    pdfBarTitle: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.ink,
+      marginRight: 12,
+    },
+    pdfClose: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: COLORS.accent,
+    },
+  });
+}

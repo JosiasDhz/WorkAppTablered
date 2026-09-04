@@ -30,6 +30,7 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
+import { useDriverUi, type DriverUi } from "./driverRoute/driverUi";
 import {
   finalizeDeliveryRoute,
   getDriverRouteMyCommission,
@@ -99,7 +100,8 @@ function extractApiErrorMessage(e: unknown): string {
 }
 
 function NavTurnGlyph({ kind }: { kind: NavTurnKind }) {
-  const color = "#0F172A";
+  const ui = useDriverUi();
+  const color = ui.ink;
   const size = 28;
   switch (kind) {
     case "left":
@@ -135,6 +137,8 @@ const navTurnStyles = StyleSheet.create({
 });
 
 export default function DriverRouteNavFirstStopScreen() {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const sessionWorkerCode = useSessionWorkerCode();
@@ -306,7 +310,7 @@ export default function DriverRouteNavFirstStopScreen() {
     return {
       latitude: currentRec.latitude,
       longitude: currentRec.longitude,
-      color: current.pinColorHex || "#EA7600",
+      color: current.pinColorHex || ui.accent,
       visitOrder: current.visitOrder,
       label: addr || `Parada ${current.visitOrder}`,
     };
@@ -844,7 +848,7 @@ export default function DriverRouteNavFirstStopScreen() {
       <SafeAreaView style={styles.fallback} edges={["top", "left", "right"]}>
         <HeaderTitle title="Ruta" subtitle="Cargando entregas…" tone="light" />
         <View style={styles.fallbackCenter}>
-          <ActivityIndicator size="large" color="#EA7600" />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       </SafeAreaView>
     );
@@ -1140,7 +1144,7 @@ export default function DriverRouteNavFirstStopScreen() {
 
       {mapLoading ? (
         <View style={styles.mapLoading} pointerEvents="none">
-          <ActivityIndicator size="large" color="#EA7600" />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       ) : null}
 
@@ -1186,7 +1190,7 @@ export default function DriverRouteNavFirstStopScreen() {
             accessibilityRole="button"
             accessibilityLabel="Abrir ruta en Google Maps"
           >
-            <Routing2 size={22} color="#0F172A" variant="Bold" />
+            <Routing2 size={22} color={ui.ink} variant="Bold" />
           </Pressable>
           <Pressable
             style={({ pressed }) => [
@@ -1204,7 +1208,7 @@ export default function DriverRouteNavFirstStopScreen() {
           >
             <Gps
               size={22}
-              color={mapMode === "live" ? "#FFFFFF" : "#0F172A"}
+              color={mapMode === "live" ? "#FFFFFF" : ui.ink}
               variant="Bold"
             />
           </Pressable>
@@ -1258,321 +1262,326 @@ export default function DriverRouteNavFirstStopScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fallback: {
-    flex: 1,
-  },
-  fallbackCenter: {
-    flex: 1,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fallbackMsg: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  fallbackRetry: {
-    marginTop: 16,
-    backgroundColor: "#EA7600",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  fallbackRetryTxt: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 14,
-  },
-  deliveryFocusRoot: {
-    flex: 1,
-  },
-  deliveryFocusShell: {
-    flex: 1,
-  },
-  deliveryFocusBody: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  screenRoot: {
-    flex: 1,
-    position: "relative",
-    backgroundColor: "#0f172a",
-  },
-  mapLoading: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(241,245,249,0.55)",
-  },
-  overlayColumn: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 6,
-    pointerEvents: "box-none",
-  },
-  routeBanner: {
-    marginHorizontal: 14,
-    backgroundColor: "#0F172A",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    zIndex: 11,
-    borderWidth: 1,
-    borderColor: "#1E293B",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 12,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  routeBannerKicker: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#FB923C",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  routeBannerTitle: {
-    marginTop: 4,
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: -0.4,
-  },
-  routeBannerAddr: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#CBD5E1",
-    lineHeight: 19,
-  },
-  routeBannerMode: {
-    marginTop: 8,
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#93C5FD",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  liveNavCard: {
-    marginHorizontal: 14,
-    marginTop: 10,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: { elevation: 6 },
-    }),
-  },
-  liveNavTurn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  liveNavText: {
-    flex: 1,
-  },
-  liveNavPrimary: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
-    lineHeight: 20,
-  },
-  liveNavSecondary: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  flexSpacer: {
-    flex: 1,
-  },
-  mapFabColumn: {
-    position: "absolute",
-    right: 14,
-    zIndex: 12,
-    gap: 10,
-    alignItems: "center",
-  },
-  mapFab: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-      },
-      android: { elevation: 6 },
-    }),
-  },
-  mapFabActive: {
-    backgroundColor: "#EA7600",
-  },
-  mapFabPressed: {
-    opacity: 0.88,
-  },
-  bottomCard: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    zIndex: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-      },
-      android: { elevation: 16 },
-    }),
-  },
-  kicker: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#EA580C",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  addr: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#334155",
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  returnToReadyBtn: {
-    marginTop: 10,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    backgroundColor: "#FEF2F2",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  returnToReadyBtnTxt: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#C2410C",
-  },
-  sigPanel: {
-    marginTop: 2,
-  },
-  sigPanelHead: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 10,
-  },
-  sigPanelSub: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 18,
-  },
-  sigPanelActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-  },
-  sigLimpiarText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#EA580C",
-  },
-  sigCanvasWrap: {
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
-  },
-  sigGhostBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#CBD5E1",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  sigGhostBtnText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#475569",
-  },
-  sigPrimaryBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EA580C",
-  },
-  sigPrimaryBtnBusy: {
-    opacity: 0.7,
-  },
-  sigPrimaryBtnText: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#FFFFFF",
-  },
-  endFuelBtn: {
-    marginTop: 16,
-    marginBottom: 4,
-    flex: undefined,
-    width: "100%",
-  },
-  cashPendingBanner: {
-    backgroundColor: "#FFFBEB",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    marginBottom: 4,
-  },
-  cashPendingText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#92400E",
-    lineHeight: 18,
-  },
-  cashPendingAmount: {
-    fontWeight: "900",
-    color: "#D97706",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    fallback: {
+      flex: 1,
+      backgroundColor: ui.layout,
+    },
+    fallbackCenter: {
+      flex: 1,
+      padding: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    fallbackMsg: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    fallbackRetry: {
+      marginTop: 16,
+      backgroundColor: ui.accent,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 12,
+    },
+    fallbackRetryTxt: {
+      color: "#FFFFFF",
+      fontWeight: "800",
+      fontSize: 14,
+    },
+    deliveryFocusRoot: {
+      flex: 1,
+    },
+    deliveryFocusShell: {
+      flex: 1,
+    },
+    deliveryFocusBody: {
+      flex: 1,
+      paddingHorizontal: 16,
+    },
+    screenRoot: {
+      flex: 1,
+      position: "relative",
+      backgroundColor: "#0F172A",
+    },
+    mapLoading: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 5,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: ui.isDark
+        ? "rgba(20, 18, 16, 0.55)"
+        : "rgba(241, 245, 249, 0.55)",
+    },
+    overlayColumn: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 6,
+      pointerEvents: "box-none",
+    },
+    routeBanner: {
+      marginHorizontal: 14,
+      backgroundColor: "#0F172A",
+      borderRadius: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      zIndex: 11,
+      borderWidth: 1,
+      borderColor: "#1E293B",
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.28,
+          shadowRadius: 12,
+        },
+        android: { elevation: 8 },
+      }),
+    },
+    routeBannerKicker: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: "#FB923C",
+      letterSpacing: 0.5,
+      textTransform: "uppercase",
+    },
+    routeBannerTitle: {
+      marginTop: 4,
+      fontSize: 18,
+      fontWeight: "900",
+      color: "#FFFFFF",
+      letterSpacing: -0.4,
+    },
+    routeBannerAddr: {
+      marginTop: 6,
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#CBD5E1",
+      lineHeight: 19,
+    },
+    routeBannerMode: {
+      marginTop: 8,
+      fontSize: 11,
+      fontWeight: "800",
+      color: "#93C5FD",
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    liveNavCard: {
+      marginHorizontal: 14,
+      marginTop: 10,
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderColor: ui.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+        },
+        android: { elevation: 6 },
+      }),
+    },
+    liveNavTurn: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: ui.field,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    liveNavText: {
+      flex: 1,
+    },
+    liveNavPrimary: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: ui.ink,
+      lineHeight: 20,
+    },
+    liveNavSecondary: {
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+    flexSpacer: {
+      flex: 1,
+    },
+    mapFabColumn: {
+      position: "absolute",
+      right: 14,
+      zIndex: 12,
+      gap: 10,
+      alignItems: "center",
+    },
+    mapFab: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: ui.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 6,
+        },
+        android: { elevation: 6 },
+      }),
+    },
+    mapFabActive: {
+      backgroundColor: ui.accent,
+    },
+    mapFabPressed: {
+      opacity: 0.88,
+    },
+    bottomCard: {
+      backgroundColor: ui.surface,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      paddingHorizontal: 18,
+      paddingTop: 14,
+      zIndex: 10,
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: -6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 16,
+        },
+        android: { elevation: 16 },
+      }),
+    },
+    kicker: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: ui.accent,
+      letterSpacing: 0.5,
+      textTransform: "uppercase",
+      marginBottom: 4,
+    },
+    addr: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.ink,
+      lineHeight: 20,
+      marginBottom: 4,
+    },
+    returnToReadyBtn: {
+      marginTop: 10,
+      height: 44,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: ui.roseBorder,
+      backgroundColor: ui.roseSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    returnToReadyBtnTxt: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: ui.accentInk,
+    },
+    sigPanel: {
+      marginTop: 2,
+    },
+    sigPanelHead: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 12,
+      marginBottom: 10,
+    },
+    sigPanelSub: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    sigPanelActions: {
+      flexDirection: "row",
+      gap: 10,
+      marginTop: 10,
+    },
+    sigLimpiarText: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: ui.accent,
+    },
+    sigCanvasWrap: {
+      borderRadius: 12,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: ui.border,
+      backgroundColor: ui.surface,
+    },
+    sigGhostBtn: {
+      flex: 1,
+      height: 46,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: ui.border,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: ui.surface,
+    },
+    sigGhostBtnText: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: ui.muted,
+    },
+    sigPrimaryBtn: {
+      flex: 1,
+      height: 46,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: ui.accent,
+    },
+    sigPrimaryBtnBusy: {
+      opacity: 0.7,
+    },
+    sigPrimaryBtnText: {
+      fontSize: 14,
+      fontWeight: "900",
+      color: "#FFFFFF",
+    },
+    endFuelBtn: {
+      marginTop: 16,
+      marginBottom: 4,
+      flex: undefined,
+      width: "100%",
+    },
+    cashPendingBanner: {
+      backgroundColor: ui.amberSoft,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+      marginBottom: 4,
+    },
+    cashPendingText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.amber,
+      lineHeight: 18,
+    },
+    cashPendingAmount: {
+      fontWeight: "900",
+      color: ui.amber,
+    },
+  });
+}

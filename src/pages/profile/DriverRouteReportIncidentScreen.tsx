@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,6 +16,7 @@ import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import type { RootStackParamList } from "../../routes/RootStackParamList";
 import { DriverRouteWorkerCodeModal } from "./driverRoute/DriverRouteWorkerCodeModal";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
+import { useDriverUi, type DriverUi } from "./driverRoute/driverUi";
 import {
   createDriverIncident,
 } from "../../services/driverIncidentsService";
@@ -32,6 +33,8 @@ function extractApiErrorMessage(e: unknown): string {
 }
 
 export default function DriverRouteReportIncidentScreen() {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { params } =
@@ -104,6 +107,7 @@ export default function DriverRouteReportIncidentScreen() {
           value={productName}
           onChangeText={setProductName}
           placeholder="Nombre del producto"
+          placeholderTextColor={ui.faint}
           style={styles.input}
         />
         <Text style={styles.label}>Cantidad esperada</Text>
@@ -156,27 +160,29 @@ export default function DriverRouteReportIncidentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  pad: { padding: 16, gap: 8 },
-  label: { fontSize: 13, fontWeight: "700", color: "#475569", marginTop: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: "#0F172A",
-  },
-  error: { color: "#DC2626", fontSize: 13, marginTop: 8 },
-  btn: {
-    marginTop: 16,
-    backgroundColor: "#EA7600",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  btnTxt: { color: "#fff", fontSize: 16, fontWeight: "800" },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: ui.layout },
+    pad: { padding: 16, gap: 8 },
+    label: { fontSize: 13, fontWeight: "700", color: ui.muted, marginTop: 8 },
+    input: {
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      backgroundColor: ui.field,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 15,
+      color: ui.ink,
+    },
+    error: { color: ui.rose, fontSize: 13, marginTop: 8 },
+    btn: {
+      marginTop: 16,
+      backgroundColor: ui.accent,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    btnTxt: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+  });
+}

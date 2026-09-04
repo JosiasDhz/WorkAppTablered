@@ -6,7 +6,7 @@ import {
   describeEventType,
   formatEventTime,
 } from "./attendanceEventFormat";
-import { ATTENDANCE_COLORS, ATTENDANCE_RADIUS } from "./attendanceTheme";
+import { ATTENDANCE_RADIUS, useAttendanceColors } from "./attendanceTheme";
 
 export type AttendanceTodayChecksProps = {
   events: MyAttendanceEventDto[];
@@ -17,13 +17,17 @@ export function AttendanceTodayChecks({
   events,
   loading,
 }: AttendanceTodayChecksProps) {
+  const colors = useAttendanceColors();
+
   return (
     <React.Fragment>
-      <Text style={styles.sectionTitle}>Chequeos de hoy</Text>
-      <View style={styles.card}>
+      <Text style={[styles.sectionTitle, { color: colors.muted }]}>
+        Chequeos de hoy
+      </Text>
+      <View style={[styles.card, { backgroundColor: colors.surface }]}>
         {events.length === 0 ? (
           <View style={styles.emptyRow}>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
               {loading
                 ? "Cargando tus chequeos…"
                 : "Aún no tienes chequeos registrados hoy."}
@@ -35,18 +39,27 @@ export function AttendanceTodayChecks({
               key={event.id}
               style={[
                 styles.row,
-                index < events.length - 1 && styles.rowBorder,
+                index < events.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.divider,
+                },
               ]}
             >
               <View style={styles.rowMain}>
-                <Text style={styles.rowTitle} numberOfLines={1}>
+                <Text
+                  style={[styles.rowTitle, { color: colors.ink }]}
+                  numberOfLines={1}
+                >
                   {describeEventType(event)}
                 </Text>
-                <Text style={styles.rowPlace} numberOfLines={1}>
+                <Text
+                  style={[styles.rowPlace, { color: colors.muted }]}
+                  numberOfLines={1}
+                >
                   {describeEventPlace(event)}
                 </Text>
               </View>
-              <Text style={styles.rowTime}>
+              <Text style={[styles.rowTime, { color: colors.ink }]}>
                 {formatEventTime(event.registeredAt)}
               </Text>
             </View>
@@ -63,10 +76,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 13,
     fontWeight: "600",
-    color: ATTENDANCE_COLORS.muted,
   },
   card: {
-    backgroundColor: ATTENDANCE_COLORS.surface,
     borderRadius: ATTENDANCE_RADIUS.section,
     overflow: "hidden",
   },
@@ -77,7 +88,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     fontWeight: "500",
-    color: ATTENDANCE_COLORS.muted,
     textAlign: "center",
   },
   row: {
@@ -88,10 +98,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: ATTENDANCE_COLORS.divider,
-  },
   rowMain: {
     flex: 1,
     minWidth: 0,
@@ -99,18 +105,15 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: ATTENDANCE_COLORS.ink,
   },
   rowPlace: {
     marginTop: 2,
     fontSize: 12,
     fontWeight: "500",
-    color: ATTENDANCE_COLORS.muted,
   },
   rowTime: {
     fontSize: 14,
     fontWeight: "700",
-    color: ATTENDANCE_COLORS.ink,
     fontVariant: ["tabular-nums"],
   },
 });

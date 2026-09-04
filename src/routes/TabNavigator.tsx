@@ -34,7 +34,7 @@ import DriverRouteReportIncidentScreen from "../pages/profile/DriverRouteReportI
 import DriverRouteProductPickupScreen from "../pages/profile/DriverRouteProductPickupScreen";
 import DriverRouteNavFirstStopScreen from "../pages/profile/DriverRouteNavFirstStopScreen";
 import DriverCollectionsScreen from "../pages/profile/DriverCollectionsScreen";
-import { SOFT } from "../theme/softUi";
+import { useAppAppearance } from "../theme/appearance";
 import { navigationRef } from "../navigation/navigationRef";
 import { useOpenNotificationFromPush } from "../pages/notifications/useOpenNotificationFromPush";
 
@@ -74,17 +74,10 @@ const GlowDriverRouteReportIncident = withSoftOrangeGlow(
 const GlowDriverCollections = withSoftOrangeGlow(DriverCollectionsScreen);
 const GlowLogin = withSoftOrangeGlow(Login);
 
-const tabNavTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: SOFT.layout,
-  },
-};
-
 const TabNavigator = () => {
   const unreadBadge = useInAppUnreadBadge();
   const noticesBadge = unreadBadge > 0 ? unreadBadge : undefined;
+  const { colors } = useAppAppearance();
 
   if (Platform.OS === "ios") {
     return (
@@ -123,7 +116,7 @@ const TabNavigator = () => {
       <JsTabs.Navigator
         initialRouteName="ProfileStack"
         tabBar={(props) => <GlassTabBar {...props} />}
-        sceneContainerStyle={{ backgroundColor: SOFT.layout }}
+        sceneContainerStyle={{ backgroundColor: colors.layout }}
         screenOptions={{
           headerShown: false,
           tabBarShowLabel: false,
@@ -168,7 +161,24 @@ const AppNavigator = () => {
   const dispatch = useDispatch();
   const { token } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = React.useState(true);
+  const { colors, scheme } = useAppAppearance();
   useOpenNotificationFromPush(Boolean(token) && !loading);
+
+  const navTheme = React.useMemo(
+    () => ({
+      ...DefaultTheme,
+      dark: scheme === "dark",
+      colors: {
+        ...DefaultTheme.colors,
+        background: colors.layout,
+        card: colors.surface,
+        text: colors.ink,
+        border: colors.border,
+        primary: colors.accent,
+      },
+    }),
+    [colors, scheme],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -198,10 +208,10 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer ref={navigationRef} theme={tabNavTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
-          contentStyle: { flex: 1, backgroundColor: SOFT.layout },
+          contentStyle: { flex: 1, backgroundColor: colors.layout },
         }}
       >
         {token ? (

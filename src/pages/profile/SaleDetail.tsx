@@ -10,11 +10,13 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft2, Coin, DocumentText, MoneyRecive } from "iconsax-react-native";
+import { useAppAppearance } from "../../theme/appearance";
 
 const formatMXN = (value: number) =>
   value.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
 export default function SaleDetail() {
+  const { colors } = useAppAppearance();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { folio, points, sucursal, date } = route.params || {};
@@ -138,7 +140,7 @@ export default function SaleDetail() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.layout }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120, alignItems: "center" }}
@@ -160,9 +162,9 @@ export default function SaleDetail() {
               width: 40,
               height: 40,
               borderRadius: 12,
-              backgroundColor: "#FFFFFF",
+              backgroundColor: colors.surface,
               borderWidth: 1,
-              borderColor: "#E5E7EB",
+              borderColor: colors.border,
               alignItems: "center",
               justifyContent: "center",
               shadowColor: "#000",
@@ -172,14 +174,14 @@ export default function SaleDetail() {
               elevation: 2,
             }}
           >
-            <ArrowLeft2 size={20} color="#1D1D1B" />
+            <ArrowLeft2 size={20} color={colors.ink} />
           </TouchableOpacity>
 
           <Text
             style={{
               fontSize: 16,
               fontWeight: "900",
-              color: "#111827",
+              color: colors.ink,
             }}
             numberOfLines={1}
           >
@@ -193,10 +195,10 @@ export default function SaleDetail() {
         <View
           style={{
             width: width * 0.92,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: colors.surface,
             borderRadius: 24,
             borderWidth: 1,
-            borderColor: "#E5E7EB",
+            borderColor: colors.border,
             padding: 16,
             shadowColor: "#000",
             shadowOpacity: 0.1,
@@ -214,12 +216,12 @@ export default function SaleDetail() {
           >
             <View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <DocumentText size={18} color="#111827" />
-                <Text style={{ fontSize: 13, fontWeight: "800", color: "#6B7280" }}>
+                <DocumentText size={18} color={colors.ink} />
+                <Text style={{ fontSize: 13, fontWeight: "800", color: colors.mutedInk }}>
                   Folio
                 </Text>
               </View>
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#111827", marginTop: 2 }}>
+              <Text style={{ fontSize: 20, fontWeight: "900", color: colors.ink, marginTop: 2 }}>
                 {folio ?? "—"}
               </Text>
             </View>
@@ -244,17 +246,17 @@ export default function SaleDetail() {
             <View
               style={{
                 flex: 1,
-                backgroundColor: "#F9FAFB",
+                backgroundColor: colors.field,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: "#E5E7EB",
+                borderColor: colors.border,
                 padding: 12,
               }}
             >
-              <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>
+              <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>
                 Productos
               </Text>
-              <Text style={{ color: "#111827", fontSize: 22, fontWeight: "900", marginTop: 2 }}>
+              <Text style={{ color: colors.ink, fontSize: 22, fontWeight: "900", marginTop: 2 }}>
                 {products.length}
               </Text>
             </View>
@@ -262,17 +264,17 @@ export default function SaleDetail() {
             <View
               style={{
                 flex: 1,
-                backgroundColor: "#F9FAFB",
+                backgroundColor: colors.field,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: "#E5E7EB",
+                borderColor: colors.border,
                 padding: 12,
               }}
             >
-              <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>
+              <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>
                 Total
               </Text>
-              <Text style={{ color: "#111827", fontSize: 22, fontWeight: "900", marginTop: 2 }}>
+              <Text style={{ color: colors.ink, fontSize: 22, fontWeight: "900", marginTop: 2 }}>
                 {formatMXN(total)}
               </Text>
             </View>
@@ -305,10 +307,10 @@ export default function SaleDetail() {
                 <MoneyRecive size={16} color="#E51E2F" variant="Bold" />
               </View>
               <View>
-                <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>
+                <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>
                   Pagado con
                 </Text>
-                <Text style={{ color: "#111827", fontSize: 14, fontWeight: "900", marginTop: 2 }}>
+                <Text style={{ color: colors.ink, fontSize: 14, fontWeight: "900", marginTop: 2 }}>
                   {paidMethod}
                 </Text>
               </View>
@@ -325,10 +327,10 @@ export default function SaleDetail() {
             }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>
+              <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>
                 Sucursal
               </Text>
-              <Text style={{ color: "#111827", fontSize: 14, fontWeight: "900", marginTop: 2 }}>
+              <Text style={{ color: colors.ink, fontSize: 14, fontWeight: "900", marginTop: 2 }}>
                 {sucursal ?? "—"}
               </Text>
             </View>
@@ -336,10 +338,10 @@ export default function SaleDetail() {
             <View style={{ width: 10 }} />
 
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>
+              <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>
                 Fecha
               </Text>
-              <Text style={{ color: "#111827", fontSize: 14, fontWeight: "900", marginTop: 2 }}>
+              <Text style={{ color: colors.ink, fontSize: 14, fontWeight: "900", marginTop: 2 }}>
                 {date ?? "—"}
               </Text>
             </View>
@@ -351,13 +353,13 @@ export default function SaleDetail() {
               padding: 12,
               borderRadius: 16,
               borderWidth: 1,
-              borderColor: "#E5E7EB",
-              backgroundColor: "#FFFFFF",
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
             }}
           >
             <Text
               style={{
-                color: "#6B7280",
+                color: colors.mutedInk,
                 fontSize: 12,
                 fontWeight: "900",
                 marginBottom: 10,
@@ -391,21 +393,21 @@ export default function SaleDetail() {
                     width: 38,
                     height: 38,
                     borderRadius: 14,
-                    backgroundColor: "#F9FAFB",
+                    backgroundColor: colors.field,
                     borderWidth: 1,
-                    borderColor: "#E5E7EB",
+                    borderColor: colors.border,
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  <DocumentText size={16} color="#1D1D1B" />
+                  <DocumentText size={16} color={colors.ink} />
                 </View>
 
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
-                      color: "#111827",
+                      color: colors.ink,
                       fontSize: 13,
                       fontWeight: "900",
                     }}
@@ -415,7 +417,7 @@ export default function SaleDetail() {
                   </Text>
                   <Text
                     style={{
-                      color: "#6B7280",
+                      color: colors.mutedInk,
                       fontSize: 12,
                       fontWeight: "700",
                       marginTop: 2,
@@ -447,7 +449,7 @@ export default function SaleDetail() {
                       {saleChannel.label}
                     </Text>
                   </View>
-                  {/* <Text style={{ color: "#111827", fontSize: 13, fontWeight: "900" }}>
+                  {/* <Text style={{ color: colors.ink, fontSize: 13, fontWeight: "900" }}>
                     {formatMXN(p.qty * p.unit)}
                   </Text> */}
                 </View>
@@ -472,10 +474,10 @@ export default function SaleDetail() {
             <View
               style={{
                 width: width * 0.92,
-                backgroundColor: "#FFFFFF",
+                backgroundColor: colors.surface,
                 borderRadius: 24,
                 borderWidth: 1,
-                borderColor: "#E5E7EB",
+                borderColor: colors.border,
                 padding: 16,
               }}
             >
@@ -488,9 +490,9 @@ export default function SaleDetail() {
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>Producto</Text>
+                  <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>Producto</Text>
                   <Text
-                    style={{ color: "#111827", fontSize: 16, fontWeight: "900", marginTop: 2 }}
+                    style={{ color: colors.ink, fontSize: 16, fontWeight: "900", marginTop: 2 }}
                     numberOfLines={1}
                   >
                     {activeProduct?.name ?? ""}
@@ -506,13 +508,13 @@ export default function SaleDetail() {
                     borderRadius: 14,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: "#F3F4F6",
+                    backgroundColor: colors.field,
                     borderWidth: 1,
-                    borderColor: "#E5E7EB",
+                    borderColor: colors.border,
                     marginLeft: 10,
                   }}
                 >
-                  <Text style={{ color: "#111827", fontSize: 18, fontWeight: "900" }}>×</Text>
+                  <Text style={{ color: colors.ink, fontSize: 18, fontWeight: "900" }}>×</Text>
                 </TouchableOpacity>
               </View>
 
@@ -529,22 +531,22 @@ export default function SaleDetail() {
                 <Text style={{ color: activeProduct?.saleChannel?.badgeText ?? "#111827", fontSize: 13, fontWeight: "900" }}>
                   {activeProduct?.saleChannel?.label ?? ""}
                 </Text>
-                <Text style={{ color: "#111827", fontSize: 14, fontWeight: "800", marginTop: 2 }}>
+                <Text style={{ color: colors.ink, fontSize: 14, fontWeight: "800", marginTop: 2 }}>
                   {activeProduct?.saleChannel?.subtitle ?? ""}
                 </Text>
               </View>
 
               <View
                 style={{
-                  backgroundColor: "#F9FAFB",
+                  backgroundColor: colors.field,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: "#E5E7EB",
+                  borderColor: colors.border,
                   padding: 12,
                   marginBottom: 12,
                 }}
               >
-                <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "900", marginBottom: 8 }}>
+                <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "900", marginBottom: 8 }}>
                   Cómo se vendió 
                 </Text>
                 {(activeProduct?.saleChannel?.details ?? []).map((d: string, i: number) => (
@@ -566,7 +568,7 @@ export default function SaleDetail() {
                         marginTop: 5,
                       }}
                     />
-                    <Text style={{ color: "#111827", fontSize: 13, fontWeight: "700" }}>{d}</Text>
+                    <Text style={{ color: colors.ink, fontSize: 13, fontWeight: "700" }}>{d}</Text>
                   </View>
                 ))}
               </View>
@@ -581,14 +583,14 @@ export default function SaleDetail() {
                 }}
               >
                 <View>
-                  <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>Cantidad</Text>
-                  <Text style={{ color: "#111827", fontSize: 14, fontWeight: "900", marginTop: 2 }}>
+                  <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>Cantidad</Text>
+                  <Text style={{ color: colors.ink, fontSize: 14, fontWeight: "900", marginTop: 2 }}>
                     {activeProduct ? `${activeProduct.qty} pz` : "—"}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ color: "#6B7280", fontSize: 12, fontWeight: "800" }}>Total</Text>
-                  <Text style={{ color: "#111827", fontSize: 14, fontWeight: "900", marginTop: 2 }}>
+                  <Text style={{ color: colors.mutedInk, fontSize: 12, fontWeight: "800" }}>Total</Text>
+                  <Text style={{ color: colors.ink, fontSize: 14, fontWeight: "900", marginTop: 2 }}>
                     {activeProduct ? formatMXN(activeProduct.qty * activeProduct.unit) : "—"}
                   </Text>
                 </View>

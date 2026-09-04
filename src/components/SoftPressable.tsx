@@ -19,6 +19,7 @@ type SoftPressableProps = {
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   accessibilityRole?: "button";
+  accessibilityState?: { selected?: boolean; disabled?: boolean };
 };
 
 export function SoftPressable({
@@ -32,6 +33,7 @@ export function SoftPressable({
   style,
   accessibilityLabel,
   accessibilityRole = "button",
+  accessibilityState,
 }: SoftPressableProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -58,12 +60,12 @@ export function SoftPressable({
     onPress?.();
   };
 
-  const flat = StyleSheet.flatten(style);
+  const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
   const pressableStyle: ViewStyle = {
     flex: flat?.flex,
-    width: flat?.width ?? "100%",
+    width: flat?.width ?? (flat?.flex != null ? undefined : "100%"),
     minHeight: flat?.minHeight,
-    alignSelf: "stretch",
+    alignSelf: flat?.alignSelf ?? (flat?.flex != null ? "stretch" : undefined),
   };
 
   return (
@@ -76,6 +78,7 @@ export function SoftPressable({
       delayLongPress={delayLongPress}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={accessibilityState}
       style={pressableStyle}
     >
       <Animated.View style={[style, { transform: [{ scale }] }]}>
@@ -96,21 +99,20 @@ export function SoftReveal({
   style?: StyleProp<ViewStyle>;
   active?: boolean;
 }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(18)).current;
-  const scale = useRef(new Animated.Value(0.96)).current;
+  const opacity = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const translateY = useRef(new Animated.Value(active ? 0 : 18)).current;
+  const playedRef = useRef(active);
 
   useEffect(() => {
-    if (!active) {
-      opacity.setValue(0);
-      translateY.setValue(18);
-      scale.setValue(0.96);
+    if (!active) return;
+    if (playedRef.current) {
+      opacity.setValue(1);
+      translateY.setValue(0);
       return;
     }
 
     opacity.setValue(0);
     translateY.setValue(18);
-    scale.setValue(0.96);
 
     const show = Animated.parallel([
       Animated.timing(opacity, {
@@ -126,17 +128,12 @@ export function SoftReveal({
         speed: 14,
         bounciness: 8,
       }),
-      Animated.spring(scale, {
-        toValue: 1,
-        delay,
-        useNativeDriver: true,
-        speed: 16,
-        bounciness: 7,
-      }),
     ]);
-    show.start();
+    show.start(({ finished }) => {
+      if (finished) playedRef.current = true;
+    });
     return () => show.stop();
-  }, [active, delay, opacity, scale, translateY]);
+  }, [active, delay, opacity, translateY]);
 
   return (
     <Animated.View
@@ -144,7 +141,7 @@ export function SoftReveal({
         style,
         {
           opacity,
-          transform: [{ translateY }, { scale }],
+          transform: [{ translateY }],
         },
       ]}
     >

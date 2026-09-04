@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, Text } from "react-native";
 import { InfoCircle } from "iconsax-react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
-import { ATTENDANCE_COLORS, ATTENDANCE_RADIUS } from "./attendanceTheme";
+import { ATTENDANCE_RADIUS, useAttendanceColors } from "./attendanceTheme";
 
 export type AttendanceLateNoticeButtonProps = {
   onPress: () => void;
@@ -11,15 +11,19 @@ export type AttendanceLateNoticeButtonProps = {
 export function AttendanceLateNoticeButton({
   onPress,
 }: AttendanceLateNoticeButtonProps) {
+  const colors = useAttendanceColors();
+
   return (
     <SoftPressable
       onPress={onPress}
       scaleTo={0.99}
-      style={styles.card}
+      style={[styles.card, { backgroundColor: colors.surface }]}
       accessibilityLabel="Avisar incidencia de asistencia"
     >
-      <InfoCircle size={22} color={ATTENDANCE_COLORS.accent} variant="Linear" />
-      <Text style={styles.label}>No checaré o llegaré tarde</Text>
+      <InfoCircle size={22} color={colors.accent} variant="Linear" />
+      <Text style={[styles.label, { color: colors.accent }]}>
+        No checaré o llegaré tarde
+      </Text>
     </SoftPressable>
   );
 }
@@ -32,12 +36,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    backgroundColor: ATTENDANCE_COLORS.surface,
     borderRadius: ATTENDANCE_RADIUS.section,
   },
   label: {
     fontSize: 16,
     fontWeight: "400",
-    color: ATTENDANCE_COLORS.accent,
   },
 });

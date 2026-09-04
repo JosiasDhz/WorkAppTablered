@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { withSoftOrangeGlow } from "../../components/SoftOrangeGlowBackdrop";
 import UserProfileTabScreen from "../../pages/profile/UserProfileTabScreen";
+import AparienciaScreen from "../../pages/profile/AparienciaScreen";
 import MisRegistrosScreen from "../../pages/profile/MisRegistrosScreen";
 import MisPermisosScreen from "../../pages/profile/MisPermisosScreen";
 import NuevoPermisoScreen from "../../pages/profile/NuevoPermisoScreen";
@@ -16,6 +17,7 @@ import MisComisionesScreen from "../../pages/profile/MisComisionesScreen";
 
 const Stack = createNativeStackNavigator();
 const GlowUserProfile = withSoftOrangeGlow(UserProfileTabScreen);
+const GlowApariencia = withSoftOrangeGlow(AparienciaScreen);
 const GlowRegistros = withSoftOrangeGlow(MisRegistrosScreen);
 const GlowPermisos = withSoftOrangeGlow(MisPermisosScreen);
 const GlowNuevoPermiso = withSoftOrangeGlow(NuevoPermisoScreen);
@@ -33,6 +35,7 @@ export default function UserProfileNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="UserProfileMain" component={GlowUserProfile} />
+      <Stack.Screen name="Apariencia" component={GlowApariencia} />
       <Stack.Screen name="MisRegistros" component={GlowRegistros} />
       <Stack.Screen name="MisPermisos" component={GlowPermisos} />
       <Stack.Screen name="NuevoPermiso" component={GlowNuevoPermiso} />

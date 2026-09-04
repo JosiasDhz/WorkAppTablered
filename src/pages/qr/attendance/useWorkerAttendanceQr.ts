@@ -36,6 +36,8 @@ export type WorkerQrTimeSlice = {
   setSelectedCheckTypeCode: (code: string | null) => void;
   checkTypeOptions: WorkerCheckTypeDto[];
   refreshContext: () => Promise<void>;
+  retryQr: () => Promise<void>;
+  qrError: string | null;
   checkSuccess: WorkerQrCheckSuccess | null;
 };
 
@@ -68,6 +70,8 @@ export function useWorkerAttendanceQr({
   const [checkSuccess, setCheckSuccess] = useState<WorkerQrCheckSuccess | null>(
     null,
   );
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   const refreshAfterExpiryRef = useRef(false);
   const selectedRef = useRef<string | null>(null);
@@ -113,6 +117,8 @@ export function useWorkerAttendanceQr({
 
   const loadQr = useCallback(
     async (checkTypeCode?: string | null) => {
+      setQrLoading(true);
+      setQrError(null);
       try {
         const data = await fetchWorkerAttendanceQr(
           true,
@@ -120,16 +126,23 @@ export function useWorkerAttendanceQr({
         );
         if (data?.nonce && data?.expiresAt) {
           applyTicket(data.nonce, data.expiresAt);
+          setQrLoading(false);
           return true;
         }
+        setQrError("El servidor no devolvió un código válido.");
       } catch {
-        /* keep previous qr if refresh fails */
+        setQrError("No se pudo obtener el código. Revisa tu conexión.");
       }
       refreshAfterExpiryRef.current = false;
+      setQrLoading(false);
       return false;
     },
     [applyTicket],
   );
+
+  const retryQr = useCallback(async () => {
+    await loadQr(selectedRef.current);
+  }, [loadQr]);
 
   const clearSuccessTimer = useCallback(() => {
     if (successTimerRef.current) {
@@ -374,12 +387,14 @@ export function useWorkerAttendanceQr({
       windowMs,
       cycle,
       context,
-      contextLoading,
+      contextLoading: contextLoading || (qrLoading && !nonce && !checkSuccess),
       contextError,
+      qrError: nonce || checkSuccess ? null : qrError,
       selectedCheckTypeCode,
       setSelectedCheckTypeCode,
       checkTypeOptions,
       refreshContext,
+      retryQr,
       checkSuccess,
     }),
     [
@@ -391,9 +406,12 @@ export function useWorkerAttendanceQr({
       context,
       contextLoading,
       contextError,
+      qrError,
+      qrLoading,
       selectedCheckTypeCode,
       checkTypeOptions,
       refreshContext,
+      retryQr,
       checkSuccess,
     ],
   );

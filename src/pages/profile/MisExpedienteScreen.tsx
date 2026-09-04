@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -16,6 +16,7 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   getMyExpediente,
@@ -23,18 +24,7 @@ import {
   type SellerExpedienteDto,
 } from "../../services/workforceExpedienteService";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  accent: "#EA7600",
-  track: "rgba(78, 54, 41, 0.32)",
-};
-
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
+type Styles = ReturnType<typeof createStyles>;
 
 type NodeKind = "done" | "pending" | "optional";
 
@@ -88,11 +78,19 @@ function clampFlipDelay(delay: number) {
   return Math.min(delay, MAX_FLIP_DELAY_MS);
 }
 
-function TimelineNode({ kind }: { kind: NodeKind }) {
+function TimelineNode({
+  kind,
+  styles,
+  COLORS,
+}: {
+  kind: NodeKind;
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   if (kind === "done") {
     return (
       <View style={[styles.node, styles.nodeDone]}>
-        <TickCircle size={11} color="#FFFFFF" variant="Bold" />
+        <TickCircle size={11} color={COLORS.surface} variant="Bold" />
       </View>
     );
   }
@@ -102,7 +100,15 @@ function TimelineNode({ kind }: { kind: NodeKind }) {
   return <View style={[styles.node, styles.nodeOptional]} />;
 }
 
-function ExpedienteSummary({ data }: { data: SellerExpedienteDto }) {
+function ExpedienteSummary({
+  data,
+  styles,
+  COLORS,
+}: {
+  data: SellerExpedienteDto;
+  styles: Styles;
+  COLORS: FormColors;
+}) {
   const progress =
     data.requiredTotal > 0 ? data.requiredUploaded / data.requiredTotal : 1;
 
@@ -122,7 +128,7 @@ function ExpedienteSummary({ data }: { data: SellerExpedienteDto }) {
         <Text
           style={[
             styles.summaryStatus,
-            { color: data.isComplete ? DONE : COLORS.accent },
+            { color: data.isComplete ? COLORS.emerald : COLORS.accent },
           ]}
         >
           {data.isComplete ? "Completo" : "Pendiente"}
@@ -134,7 +140,7 @@ function ExpedienteSummary({ data }: { data: SellerExpedienteDto }) {
             styles.progressFill,
             {
               width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%`,
-              backgroundColor: data.isComplete ? DONE : COLORS.accent,
+              backgroundColor: data.isComplete ? COLORS.emerald : COLORS.accent,
             },
           ]}
         />
@@ -146,9 +152,13 @@ function ExpedienteSummary({ data }: { data: SellerExpedienteDto }) {
 function TimelineStep({
   doc,
   onPress,
+  styles,
+  COLORS,
 }: {
   doc: ExpedienteDocumentSummaryItemDto;
   onPress: () => void;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
   const kind = nodeKind(doc);
   const done = kind === "done";
@@ -158,7 +168,7 @@ function TimelineStep({
   return (
     <View style={styles.step}>
       <View style={styles.railCol}>
-        <TimelineNode kind={kind} />
+        <TimelineNode kind={kind} styles={styles} COLORS={COLORS} />
       </View>
       <View style={styles.eventWrap}>
         <SoftPressable
@@ -202,11 +212,15 @@ function DocumentTimeline({
   onOpen,
   revealDelay = 0,
   revealActive = true,
+  styles,
+  COLORS,
 }: {
   documents: ExpedienteDocumentSummaryItemDto[];
   onOpen: (doc: ExpedienteDocumentSummaryItemDto) => void;
   revealDelay?: number;
   revealActive?: boolean;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
   const [height, setHeight] = useState(0);
   const [span, setSpan] = useState({ top: 0, bottom: 0 });
@@ -225,7 +239,7 @@ function DocumentTimeline({
               y1={span.top}
               x2={RAIL_W / 2}
               y2={span.bottom}
-              stroke={COLORS.track}
+              stroke={COLORS.divider}
               strokeWidth={2}
               strokeDasharray="7 7"
               strokeLinecap="butt"
@@ -254,7 +268,12 @@ function DocumentTimeline({
             delay={clampFlipDelay(revealDelay + index * FLIP_STAGGER_MS)}
             active={revealActive}
           >
-            <TimelineStep doc={doc} onPress={() => onOpen(doc)} />
+            <TimelineStep
+              doc={doc}
+              onPress={() => onOpen(doc)}
+              styles={styles}
+              COLORS={COLORS}
+            />
           </PageFlipReveal>
         </View>
       ))}
@@ -265,6 +284,8 @@ function DocumentTimeline({
 export default function MisExpedienteScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -343,14 +364,14 @@ export default function MisExpedienteScreen() {
             }
           >
             <PageFlipReveal delay={0} active={isFocused}>
-              <ExpedienteSummary data={data} />
+              <ExpedienteSummary data={data} styles={styles} COLORS={COLORS} />
             </PageFlipReveal>
             <View style={styles.sectionBlock}>
               <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
                 <Text style={styles.sectionTitle}>Línea de documentos</Text>
                 <View style={styles.legend}>
                   <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: DONE }]} />
+                    <View style={[styles.legendDot, { backgroundColor: COLORS.emerald }]} />
                     <Text style={styles.legendText}>Subido</Text>
                   </View>
                   <View style={styles.legendItem}>
@@ -366,6 +387,8 @@ export default function MisExpedienteScreen() {
                 onOpen={openDocument}
                 revealDelay={FLIP_STAGGER_MS * 2}
                 revealActive={isFocused}
+                styles={styles}
+                COLORS={COLORS}
               />
             </View>
           </ScrollView>
@@ -375,195 +398,197 @@ export default function MisExpedienteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: SCREEN_GUTTER,
-  },
-  scroll: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-  },
-  summaryCard: {
-    width: "100%",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    gap: 12,
-  },
-  summaryTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  iconSlot: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  summaryCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "400",
-    color: COLORS.ink,
-  },
-  summarySub: {
-    marginTop: 2,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  summaryStatus: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: COLORS.divider,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
-  sectionBlock: {
-    width: "100%",
-    marginTop: 22,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  legend: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginLeft: 4,
-    marginBottom: 14,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  timeline: {
-    width: "100%",
-    position: "relative",
-  },
-  railOverlay: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width: RAIL_W,
-    bottom: 0,
-  },
-  step: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  railCol: {
-    width: RAIL_W,
-    alignItems: "center",
-    paddingTop: NODE_PAD,
-    zIndex: 1,
-  },
-  node: {
-    width: NODE_SIZE,
-    height: NODE_SIZE,
-    borderRadius: NODE_SIZE / 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nodeDone: {
-    backgroundColor: DONE,
-  },
-  nodePending: {
-    backgroundColor: COLORS.accent,
-  },
-  nodeOptional: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 2,
-    borderColor: COLORS.track,
-  },
-  eventWrap: {
-    flex: 1,
-    minWidth: 0,
-    paddingBottom: 12,
-  },
-  eventCard: {
-    minHeight: 78,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  eventCardDone: {
-    borderColor: DONE_SOFT,
-  },
-  eventCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  eventMeta: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  eventStamp: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.muted,
-  },
-  eventStampDone: {
-    color: DONE,
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+    },
+    safe: {
+      flex: 1,
+    },
+    header: {
+      paddingHorizontal: SCREEN_GUTTER,
+    },
+    scroll: {
+      flex: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    errorText: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: COLORS.muted,
+      textAlign: "center",
+    },
+    summaryCard: {
+      width: "100%",
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      gap: 12,
+    },
+    summaryTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+    },
+    iconSlot: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    summaryCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    summaryTitle: {
+      fontSize: 16,
+      fontWeight: "400",
+      color: COLORS.ink,
+    },
+    summarySub: {
+      marginTop: 2,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+    },
+    summaryStatus: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    progressTrack: {
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: COLORS.divider,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: 999,
+    },
+    sectionBlock: {
+      width: "100%",
+      marginTop: 22,
+    },
+    sectionTitle: {
+      marginLeft: 4,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    legend: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      marginLeft: 4,
+      marginBottom: 14,
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    timeline: {
+      width: "100%",
+      position: "relative",
+    },
+    railOverlay: {
+      position: "absolute",
+      left: 0,
+      top: 0,
+      width: RAIL_W,
+      bottom: 0,
+    },
+    step: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+    },
+    railCol: {
+      width: RAIL_W,
+      alignItems: "center",
+      paddingTop: NODE_PAD,
+      zIndex: 1,
+    },
+    node: {
+      width: NODE_SIZE,
+      height: NODE_SIZE,
+      borderRadius: NODE_SIZE / 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    nodeDone: {
+      backgroundColor: COLORS.emerald,
+    },
+    nodePending: {
+      backgroundColor: COLORS.accent,
+    },
+    nodeOptional: {
+      backgroundColor: COLORS.surface,
+      borderWidth: 2,
+      borderColor: COLORS.divider,
+    },
+    eventWrap: {
+      flex: 1,
+      minWidth: 0,
+      paddingBottom: 12,
+    },
+    eventCard: {
+      minHeight: 78,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    eventCardDone: {
+      borderColor: COLORS.emeraldSoft,
+    },
+    eventCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    eventTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    eventMeta: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+    },
+    eventStamp: {
+      marginTop: 6,
+      fontSize: 12,
+      fontWeight: "700",
+      color: COLORS.muted,
+    },
+    eventStampDone: {
+      color: COLORS.emerald,
+    },
+  });
+}

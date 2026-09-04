@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -15,6 +15,7 @@ import {
   pickDriverRouteVehiclePhotoFromLibrary,
   type DriverRouteVehiclePhoto,
 } from "./captureDriverRouteVehiclePhoto";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 export type DriverRouteVehicleCheckPhotosState = {
   odometer: DriverRouteVehiclePhoto | null;
@@ -65,6 +66,8 @@ export function DriverRouteVehicleCheckPhotos({
   onChange,
   phase,
 }: DriverRouteVehicleCheckPhotosProps) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const [capturing, setCapturing] = useState<PhotoSlotKey | null>(null);
   const [picking, setPicking] = useState<PhotoSlotKey | null>(null);
   const busyRef = useRef(false);
@@ -151,7 +154,7 @@ export function DriverRouteVehicleCheckPhotos({
           }
         >
           {loading ? (
-            <ActivityIndicator color="#EA7600" />
+            <ActivityIndicator color={ui.accent} />
           ) : photo ? (
             <TapImagePreview uri={photo.uri}>
               <View style={styles.previewWrap}>
@@ -160,7 +163,7 @@ export function DriverRouteVehicleCheckPhotos({
             </TapImagePreview>
           ) : (
             <View style={styles.placeholder}>
-              <Camera size={28} color="#64748B" variant="Linear" />
+              <Camera size={28} color={ui.muted} variant="Linear" />
               <Text style={styles.placeholderTxt}>Tomar foto</Text>
             </View>
           )}
@@ -203,7 +206,7 @@ export function DriverRouteVehicleCheckPhotos({
             "odometer",
             "Tacómetro",
             "Kilometraje final visible",
-            <Speedometer size={22} color="#EA7600" variant="Bold" />,
+            <Speedometer size={22} color={ui.accent} variant="Bold" />,
           )}
           <View style={styles.slot}>
             <Text style={styles.inputLbl}>Kilometraje final</Text>
@@ -211,7 +214,7 @@ export function DriverRouteVehicleCheckPhotos({
               value={photos.odometerReading}
               onChangeText={setOdometerReading}
               placeholder="Ej. 45230"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={ui.faint}
               keyboardType="number-pad"
               inputMode="numeric"
               maxLength={7}
@@ -230,7 +233,7 @@ export function DriverRouteVehicleCheckPhotos({
             "fuel",
             "Combustible",
             "Nivel de gasolina visible",
-            <GasStation size={22} color="#EA7600" variant="Bold" />,
+            <GasStation size={22} color={ui.accent} variant="Bold" />,
           )}
         </View>
       </View>
@@ -248,7 +251,7 @@ export function DriverRouteVehicleCheckPhotos({
           "odometer",
           "Tacómetro",
           "Kilometraje visible",
-          <Speedometer size={22} color="#EA7600" variant="Bold" />,
+          <Speedometer size={22} color={ui.accent} variant="Bold" />,
         )}
         <View style={styles.slot}>
           <Text style={styles.inputLbl}>Kilometraje</Text>
@@ -256,7 +259,7 @@ export function DriverRouteVehicleCheckPhotos({
             value={photos.odometerReading}
             onChangeText={setOdometerReading}
             placeholder="Ej. 45230"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={ui.faint}
             keyboardType="number-pad"
             inputMode="numeric"
             maxLength={7}
@@ -276,140 +279,142 @@ export function DriverRouteVehicleCheckPhotos({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  sectionHint: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 18,
-  },
-  grid: {
-    marginTop: 14,
-    gap: 12,
-  },
-  slot: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  slotHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 10,
-  },
-  slotTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  photoBtn: {
-    height: 160,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    backgroundColor: "#F8FAFC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoBtnDone: {
-    borderColor: "#22C55E",
-  },
-  previewWrap: {
-    width: "100%",
-    height: "100%",
-  },
-  preview: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  placeholder: {
-    alignItems: "center",
-    gap: 8,
-  },
-  placeholderTxt: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  slotHint: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#94A3B8",
-  },
-  inputLbl: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    backgroundColor: "#F8FAFC",
-  },
-  inputWarn: {
-    borderColor: "#F97316",
-    backgroundColor: "#FFF7ED",
-  },
-  inputWarnTxt: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#C2410C",
-  },
-  inputHelp: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#94A3B8",
-  },
-  retakeBtn: {
-    marginTop: 8,
-    alignSelf: "flex-start",
-  },
-  retakeTxt: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#EA7600",
-  },
-  devAttachBtn: {
-    marginTop: 8,
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#FEF3C7",
-    borderWidth: 1,
-    borderColor: "#F59E0B",
-  },
-  devAttachTxt: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#B45309",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    wrap: {
+      marginTop: 8,
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    sectionHint: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    grid: {
+      marginTop: 14,
+      gap: 12,
+    },
+    slot: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: ui.border,
+    },
+    slotHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 10,
+    },
+    slotTitle: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    photoBtn: {
+      height: 160,
+      borderRadius: 12,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: ui.border,
+      backgroundColor: ui.field,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    photoBtnDone: {
+      borderColor: ui.green,
+    },
+    previewWrap: {
+      width: "100%",
+      height: "100%",
+    },
+    preview: {
+      ...StyleSheet.absoluteFillObject,
+      width: "100%",
+      height: "100%",
+      resizeMode: "cover",
+    },
+    placeholder: {
+      alignItems: "center",
+      gap: 8,
+    },
+    placeholderTxt: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+    slotHint: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.faint,
+    },
+    inputLbl: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginBottom: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      fontSize: 20,
+      fontWeight: "800",
+      color: ui.ink,
+      backgroundColor: ui.field,
+    },
+    inputWarn: {
+      borderColor: ui.accent,
+      backgroundColor: ui.accentSoft,
+    },
+    inputWarnTxt: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.accentInk,
+    },
+    inputHelp: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.faint,
+    },
+    retakeBtn: {
+      marginTop: 8,
+      alignSelf: "flex-start",
+    },
+    retakeTxt: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: ui.accent,
+    },
+    devAttachBtn: {
+      marginTop: 8,
+      alignSelf: "flex-start",
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      backgroundColor: ui.amberSoft,
+      borderWidth: 1,
+      borderColor: ui.amber,
+    },
+    devAttachTxt: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: ui.amber,
+    },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -27,23 +27,108 @@ import {
   TrendUp,
   Warning2,
 } from "iconsax-react-native";
+import { useAppAppearance } from "../../theme/appearance";
+import type { SoftPalette } from "../../theme/softUi";
 
 const { width } = Dimensions.get("window");
 const FRAME_SIZE = width * 0.72;
 
-const COLORS = {
-  surface: "#FFFFFF",
-  text: "#0F172A",
-  muted: "#6B7280",
-  border: "#EEF1F4",
-  accent: "#EA7600",
-  error: "#DC2626",
-  errorBg: "#FEF2F2",
-  errorBorder: "#FECACA",
-  green: "#16A34A",
-  greenBg: "#F0FDF4",
-  greenBorder: "#BBF7D0",
+type InventoryColors = {
+  layout: string;
+  surface: string;
+  text: string;
+  muted: string;
+  border: string;
+  accent: string;
+  accentBg: string;
+  accentBorder: string;
+  chip: string;
+  track: string;
+  skeleton: string;
+  indigo: string;
+  purple: string;
+  purpleBg: string;
+  purpleBorder: string;
+  error: string;
+  errorBg: string;
+  errorBorder: string;
+  green: string;
+  greenBg: string;
+  greenBorder: string;
+  shadow: string;
 };
+
+function buildInventoryColors(
+  soft: SoftPalette,
+  scheme: "light" | "dark",
+): InventoryColors {
+  const dark = scheme === "dark";
+  return {
+    layout: soft.layout,
+    surface: soft.surface,
+    text: soft.ink,
+    muted: soft.mutedInk,
+    border: soft.border,
+    accent: soft.accent,
+    accentBg: dark ? "rgba(234, 118, 0, 0.18)" : "#FFF4EB",
+    accentBorder: dark ? "rgba(234, 118, 0, 0.42)" : "#F2D0B2",
+    chip: soft.field,
+    track: soft.field,
+    skeleton: soft.field,
+    indigo: dark ? "#818CF8" : "#6366F1",
+    purple: dark ? "#C4B5FD" : "#9333EA",
+    purpleBg: dark ? "rgba(147, 51, 234, 0.2)" : "#FAF5FF",
+    purpleBorder: dark ? "rgba(196, 181, 253, 0.32)" : "#E9D5FF",
+    error: dark ? "#FB7185" : "#DC2626",
+    errorBg: dark ? "rgba(225, 29, 72, 0.18)" : "#FEF2F2",
+    errorBorder: dark ? "rgba(251, 113, 133, 0.34)" : "#FECACA",
+    green: dark ? "#34D399" : "#16A34A",
+    greenBg: dark ? "rgba(16, 185, 129, 0.16)" : "#F0FDF4",
+    greenBorder: dark ? "rgba(52, 211, 153, 0.32)" : "#BBF7D0",
+    shadow: dark ? "#000000" : "#0F172A",
+  };
+}
+
+function useInventoryColors(): InventoryColors {
+  const { colors, scheme } = useAppAppearance();
+  return useMemo(() => buildInventoryColors(colors, scheme), [colors, scheme]);
+}
+
+type MovementConfig = {
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+  sign: string;
+};
+
+function movementConfig(
+  colors: InventoryColors,
+): Record<Movement["type"], MovementConfig> {
+  return {
+    venta: {
+      label: "Venta",
+      color: colors.error,
+      bg: colors.errorBg,
+      border: colors.errorBorder,
+      sign: "-",
+    },
+    entrada: {
+      label: "Entrada",
+      color: colors.green,
+      bg: colors.greenBg,
+      border: colors.greenBorder,
+      sign: "+",
+    },
+    ajuste: {
+      label: "Ajuste",
+      color: colors.purple,
+      bg: colors.purpleBg,
+      border: colors.purpleBorder,
+      sign: "±",
+    },
+  };
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Movement = {
@@ -169,15 +254,9 @@ const PRODUCTS: Record<string, Product> = {
 
 type Phase = "idle" | "scanning" | "loading" | "result" | "not_found";
 
-// ─── Movement type config ─────────────────────────────────────────────────────
-const MOVEMENT_CONFIG = {
-  venta:   { label: "Venta",   color: "#DC2626", bg: "#FEF2F2", border: "#FECACA",  sign: "-" },
-  entrada: { label: "Entrada", color: "#16A34A", bg: "#F0FDF4", border: "#BBF7D0",  sign: "+" },
-  ajuste:  { label: "Ajuste",  color: "#9333EA", bg: "#FAF5FF", border: "#E9D5FF",  sign: "±" },
-};
-
 // ─── Shared header ────────────────────────────────────────────────────────────
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
+  const COLORS = useInventoryColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
       <TouchableOpacity
@@ -200,11 +279,12 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
 
 // ─── Idle screen ──────────────────────────────────────────────────────────────
 function IdleView({ onScan }: { onScan: () => void }) {
+  const COLORS = useInventoryColors();
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
       <View style={{
         width: 120, height: 120, borderRadius: 32,
-        backgroundColor: "#FFF4EB", borderWidth: 1.5, borderColor: "#F2D0B2",
+        backgroundColor: COLORS.accentBg, borderWidth: 1.5, borderColor: COLORS.accentBorder,
         alignItems: "center", justifyContent: "center", marginBottom: 28,
       }}>
         <Barcode size={56} color={COLORS.accent} variant="Linear" />
@@ -281,6 +361,7 @@ function ScannerView({ onScanned, onCancel }: { onScanned: (d: string) => void; 
 }
 
 function ScanLine({ frameSize }: { frameSize: number }) {
+  const COLORS = useInventoryColors();
   const anim = useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.loop(
@@ -309,6 +390,7 @@ const corner = {
 
 // ─── Loading screen ───────────────────────────────────────────────────────────
 function LoadingView() {
+  const COLORS = useInventoryColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
@@ -317,7 +399,7 @@ function LoadingView() {
     <Animated.View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, opacity: fadeAnim }}>
       <View style={{
         width: 100, height: 100, borderRadius: 28,
-        backgroundColor: "#FFF4EB", borderWidth: 1.5, borderColor: "#F2D0B2",
+        backgroundColor: COLORS.accentBg, borderWidth: 1.5, borderColor: COLORS.accentBorder,
         alignItems: "center", justifyContent: "center", marginBottom: 28,
       }}>
         <ActivityIndicator size="large" color={COLORS.accent} />
@@ -336,6 +418,7 @@ function LoadingView() {
 }
 
 function SkeletonRow({ delay }: { delay: number }) {
+  const COLORS = useInventoryColors();
   const anim = useRef(new Animated.Value(0.35)).current;
   React.useEffect(() => {
     Animated.loop(
@@ -345,11 +428,12 @@ function SkeletonRow({ delay }: { delay: number }) {
       ])
     ).start();
   }, []);
-  return <Animated.View style={{ height: 52, borderRadius: 12, backgroundColor: "#E5E9EE", opacity: anim }} />;
+  return <Animated.View style={{ height: 52, borderRadius: 12, backgroundColor: COLORS.skeleton, opacity: anim }} />;
 }
 
 // ─── Result screen ────────────────────────────────────────────────────────────
 function ResultView({ product, onScanAgain }: { product: Product; onScanAgain: () => void }) {
+  const COLORS = useInventoryColors();
   const [activeTab, setActiveTab] = useState<"info" | "movimientos" | "estadisticas">("info");
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(18)).current;
@@ -376,7 +460,7 @@ function ResultView({ product, onScanAgain }: { product: Product; onScanAgain: (
           backgroundColor: COLORS.surface,
           borderWidth: 1, borderColor: COLORS.border,
           height: 200,
-          shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+          shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.06, shadowRadius: 10, elevation: 2,
         }}>
           <Image
@@ -400,14 +484,14 @@ function ResultView({ product, onScanAgain }: { product: Product; onScanAgain: (
           <Text style={{ fontSize: 15, fontWeight: "900", color: COLORS.text, lineHeight: 21, marginBottom: 4 }}>
             {product.name}
           </Text>
-          <View style={{ backgroundColor: "#F2F4F7", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-start" }}>
+          <View style={{ backgroundColor: COLORS.chip, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-start" }}>
             <Text style={{ fontSize: 12, fontWeight: "700", color: COLORS.muted }}>SKU: {product.sku}</Text>
           </View>
         </View>
 
         {/* [2] Tab bar — sticky */}
         <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4 }}>
-          <View style={{ flexDirection: "row", backgroundColor: "#EDEFF2", borderRadius: 12, padding: 4, gap: 2 }}>
+          <View style={{ flexDirection: "row", backgroundColor: COLORS.track, borderRadius: 12, padding: 4, gap: 2 }}>
             {([
               { key: "info",         label: "Información"  },
               { key: "movimientos",  label: "Movimientos"  },
@@ -420,7 +504,7 @@ function ResultView({ product, onScanAgain }: { product: Product; onScanAgain: (
                 style={{
                   flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: "center",
                   backgroundColor: activeTab === tab.key ? COLORS.surface : "transparent",
-                  shadowColor: activeTab === tab.key ? "#000" : "transparent",
+                  shadowColor: activeTab === tab.key ? COLORS.shadow : "transparent",
                   shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.07, shadowRadius: 4, elevation: activeTab === tab.key ? 2 : 0,
                 }}
@@ -446,6 +530,7 @@ function ResultView({ product, onScanAgain }: { product: Product; onScanAgain: (
 
 // ─── Info tab ─────────────────────────────────────────────────────────────────
 function InfoTab({ product, onScanAgain }: { product: Product; onScanAgain: () => void }) {
+  const COLORS = useInventoryColors();
   return (
     <View style={{ gap: 10 }}>
       {/* Quantity + Location row */}
@@ -486,7 +571,7 @@ function InfoTab({ product, onScanAgain }: { product: Product; onScanAgain: () =
       }}>
         <View style={{
           width: 40, height: 40, borderRadius: 12,
-          backgroundColor: "#FFF4EB", borderWidth: 1, borderColor: "#F2D0B2",
+          backgroundColor: COLORS.accentBg, borderWidth: 1, borderColor: COLORS.accentBorder,
           alignItems: "center", justifyContent: "center", marginRight: 12,
         }}>
           <Building size={20} color={COLORS.accent} variant="Bold" />
@@ -520,10 +605,12 @@ function InfoTab({ product, onScanAgain }: { product: Product; onScanAgain: () =
 
 // ─── Movimientos tab ──────────────────────────────────────────────────────────
 function MovimientosTab({ movements }: { movements: Movement[] }) {
+  const COLORS = useInventoryColors();
+  const configs = useMemo(() => movementConfig(COLORS), [COLORS]);
   return (
     <View style={{ gap: 10 }}>
       {movements.map((mov, idx) => {
-        const cfg = MOVEMENT_CONFIG[mov.type];
+        const cfg = configs[mov.type];
         const isOut = mov.type === "venta";
         const displayQty = mov.type === "ajuste"
           ? `${mov.qty > 0 ? "+" : ""}${mov.qty}`
@@ -587,6 +674,7 @@ function BarChart({ data, color, formatValue }: {
   color: string;
   formatValue: (v: number) => string;
 }) {
+  const COLORS = useInventoryColors();
   const anims = useRef(data.map(() => new Animated.Value(0))).current;
   const maxVal = Math.max(...data.map((d) => d.value));
 
@@ -626,6 +714,7 @@ function BarChart({ data, color, formatValue }: {
 }
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+  const COLORS = useInventoryColors();
   return (
     <View style={{
       flex: 1, borderRadius: 14, backgroundColor: COLORS.surface,
@@ -642,6 +731,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
 }
 
 function EstadisticasTab({ stats }: { stats: Stats }) {
+  const COLORS = useInventoryColors();
   const trendColor = stats.priceTrend === "up" ? COLORS.green : stats.priceTrend === "down" ? COLORS.error : COLORS.muted;
   const TrendIcon = stats.priceTrend === "up" ? ArrowUp2 : stats.priceTrend === "down" ? ArrowDown2 : TrendUp;
 
@@ -668,7 +758,7 @@ function EstadisticasTab({ stats }: { stats: Stats }) {
           </Text>
           <View style={{
             flexDirection: "row", alignItems: "center",
-            backgroundColor: stats.priceTrend === "up" ? COLORS.greenBg : stats.priceTrend === "down" ? COLORS.errorBg : "#F2F4F7",
+            backgroundColor: stats.priceTrend === "up" ? COLORS.greenBg : stats.priceTrend === "down" ? COLORS.errorBg : COLORS.chip,
             borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
             borderWidth: 1,
             borderColor: stats.priceTrend === "up" ? COLORS.greenBorder : stats.priceTrend === "down" ? COLORS.errorBorder : COLORS.border,
@@ -704,7 +794,7 @@ function EstadisticasTab({ stats }: { stats: Stats }) {
         borderWidth: 1, borderColor: COLORS.border, padding: 16,
       }}>
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-          <ShoppingCart size={16} color="#6366F1" variant="Bold" />
+          <ShoppingCart size={16} color={COLORS.indigo} variant="Bold" />
           <Text style={{ marginLeft: 6, fontSize: 13, fontWeight: "800", color: COLORS.text }}>
             Rotación de ventas
           </Text>
@@ -712,14 +802,14 @@ function EstadisticasTab({ stats }: { stats: Stats }) {
             Unidades / mes
           </Text>
         </View>
-        <BarChart data={salesChartData} color="#6366F1" formatValue={(v) => `${v}`} />
+        <BarChart data={salesChartData} color={COLORS.indigo} formatValue={(v) => `${v}`} />
       </View>
 
       {/* KPI cards row */}
       <View style={{ flexDirection: "row", gap: 10 }}>
         <StatCard label="PROM. MENSUAL" value={`${stats.avgMonthlySales}`} sub="unidades" accent={COLORS.accent} />
         <StatCard label="DÍAS DE STOCK" value={`${stats.stockDays}`} sub="días" />
-        <StatCard label="ROTACIÓN" value={`${stats.turnoverRate}x`} sub="anual" accent="#6366F1" />
+        <StatCard label="ROTACIÓN" value={`${stats.turnoverRate}x`} sub="anual" accent={COLORS.indigo} />
       </View>
 
       {/* Última compra */}
@@ -730,7 +820,7 @@ function EstadisticasTab({ stats }: { stats: Stats }) {
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
           <View style={{
             width: 36, height: 36, borderRadius: 10,
-            backgroundColor: "#FFF4EB", borderWidth: 1, borderColor: "#F2D0B2",
+            backgroundColor: COLORS.accentBg, borderWidth: 1, borderColor: COLORS.accentBorder,
             alignItems: "center", justifyContent: "center", marginRight: 10,
           }}>
             <ReceiptItem size={18} color={COLORS.accent} variant="Bold" />
@@ -761,6 +851,7 @@ function EstadisticasTab({ stats }: { stats: Stats }) {
 
 // ─── Not found screen ─────────────────────────────────────────────────────────
 function NotFoundView({ scannedCode, onScanAgain }: { scannedCode: string; onScanAgain: () => void }) {
+  const COLORS = useInventoryColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   React.useEffect(() => {
@@ -816,6 +907,7 @@ function NotFoundView({ scannedCode, onScanAgain }: { scannedCode: string; onSca
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Inventory() {
   const navigation = useNavigation();
+  const COLORS = useInventoryColors();
   const [phase, setPhase] = useState<Phase>("idle");
   const [foundProduct, setFoundProduct] = useState<Product | null>(null);
   const [lastScanned, setLastScanned] = useState("");
@@ -859,7 +951,7 @@ export default function Inventory() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: phase === "scanning" ? "#000" : undefined }}
+      style={{ flex: 1, backgroundColor: phase === "scanning" ? "#000" : COLORS.layout }}
       edges={["top", "left", "right"]}
     >
       {phase !== "scanning" && <Header onBack={handleBack} title={headerTitle} />}

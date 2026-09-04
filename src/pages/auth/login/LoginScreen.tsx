@@ -8,11 +8,14 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SoftReveal } from "../../../components/SoftPressable";
 import { SCREEN_GUTTER } from "../../../theme/layout";
+import { useAppAppearance } from "../../../theme/appearance";
+import { createThemedStyles } from "../../../theme/themedStyles";
 import {
-  LOGIN_COLORS,
   LOGIN_COPY,
   LOGIN_LAYOUT,
   getLoginGreeting,
+  useLoginColors,
+  type LoginColors,
 } from "./constants";
 import { useLoginForm } from "./useLoginForm";
 import { useLoginAnimations } from "./useLoginAnimations";
@@ -28,6 +31,8 @@ const LOGO_ASSET = require("../../../../assets/table-red-logo.png");
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const { scheme } = useAppAppearance();
+  const styles = useLoginScreenStyles();
   const reduceMotion = useReduceMotionPreference();
   const form = useLoginForm();
   const { loading, error, submit } = useLoginAuth();
@@ -41,7 +46,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <KeyboardAwareScrollView
           keyboardShouldPersistTaps="handled"
@@ -105,43 +110,50 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: LOGIN_COLORS.layout,
-  },
-  safe: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: SCREEN_GUTTER,
-    justifyContent: "center",
-  },
-  column: {
-    width: "100%",
-    maxWidth: LOGIN_LAYOUT.maxWidth,
-    alignSelf: "center",
-  },
-  mainBlock: {
-    marginTop: 28,
-  },
-  formCard: {
-    backgroundColor: LOGIN_COLORS.surface,
-    borderRadius: LOGIN_LAYOUT.cardRadius,
-    padding: 18,
-  },
-  submitWrap: {
-    marginTop: 18,
-  },
-  quickWrap: {
-    marginTop: 28,
-  },
-  footer: {
-    marginTop: 28,
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: "500",
-    color: LOGIN_COLORS.muted,
-  },
-});
+function buildLoginScreenStyles(colors: LoginColors) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: colors.layout,
+    },
+    safe: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: SCREEN_GUTTER,
+      justifyContent: "center",
+    },
+    column: {
+      width: "100%",
+      maxWidth: LOGIN_LAYOUT.maxWidth,
+      alignSelf: "center",
+    },
+    mainBlock: {
+      marginTop: 28,
+    },
+    formCard: {
+      backgroundColor: colors.surface,
+      borderRadius: LOGIN_LAYOUT.cardRadius,
+      padding: 18,
+    },
+    submitWrap: {
+      marginTop: 18,
+    },
+    quickWrap: {
+      marginTop: 28,
+    },
+    footer: {
+      marginTop: 28,
+      textAlign: "center",
+      fontSize: 12,
+      fontWeight: "500",
+      color: colors.muted,
+    },
+  });
+}
+
+const useLoginScreenStyles = createThemedStyles(
+  useLoginColors,
+  buildLoginScreenStyles,
+);

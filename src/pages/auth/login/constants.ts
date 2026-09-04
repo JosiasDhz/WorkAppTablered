@@ -1,15 +1,51 @@
-import { SOFT } from "../../../theme/softUi";
+import { useMemo } from "react";
+import { useAppAppearance } from "../../../theme/appearance";
+import { SOFT_LIGHT, type SoftPalette } from "../../../theme/softUi";
 
-export const LOGIN_COLORS = {
-  orange: SOFT.accent,
-  warmGrey: SOFT.mutedInk,
-  muted: SOFT.muted,
-  black: SOFT.ink,
-  surface: SOFT.surface,
-  field: SOFT.field,
-  layout: SOFT.layout,
-  accentSoft: SOFT.accentSoft,
-} as const;
+export type LoginColors = {
+  orange: string;
+  warmGrey: string;
+  muted: string;
+  black: string;
+  surface: string;
+  field: string;
+  fieldFocus: string;
+  layout: string;
+  accentSoft: string;
+  placeholder: string;
+  errorBg: string;
+  errorBorder: string;
+  errorText: string;
+};
+
+export function buildLoginColors(
+  soft: SoftPalette,
+  scheme: "light" | "dark",
+): LoginColors {
+  return {
+    orange: soft.accent,
+    warmGrey: soft.mutedInk,
+    muted: soft.muted,
+    black: soft.ink,
+    surface: soft.surface,
+    field: soft.field,
+    fieldFocus: soft.fieldFocus,
+    layout: soft.layout,
+    accentSoft: soft.accentSoft,
+    placeholder: soft.muted,
+    errorBg: soft.roseSoft,
+    errorBorder:
+      scheme === "dark" ? "rgba(251, 113, 133, 0.32)" : "rgba(225, 29, 72, 0.18)",
+    errorText: soft.roseText,
+  };
+}
+
+export function useLoginColors(): LoginColors {
+  const { colors, scheme } = useAppAppearance();
+  return useMemo(() => buildLoginColors(colors, scheme), [colors, scheme]);
+}
+
+export const LOGIN_COLORS = buildLoginColors(SOFT_LIGHT, "light");
 
 export const LOGIN_LAYOUT = {
   cardRadius: 16,

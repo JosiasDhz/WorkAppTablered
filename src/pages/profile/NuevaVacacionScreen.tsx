@@ -31,6 +31,8 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useAppAppearance } from "../../theme/appearance";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   createVacationRequest,
@@ -41,17 +43,7 @@ import {
 import { prepareEvidenceImageForUpload } from "../../utils/prepareEvidenceImageForUpload";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  field: "#F3F1EC",
-  fieldFocus: "#FFFFFF",
-  accent: "#EA7600",
-  accentSoft: "rgba(234, 118, 0, 0.14)",
-  warnBg: "#FFFBEB",
-  warnText: "#B45309",
-};
+type Styles = ReturnType<typeof createStyles>;
 
 const MAX_EVIDENCE = 5;
 
@@ -88,9 +80,11 @@ function calendarDaysUntilDate(target: Date) {
 function SectionCard({
   title,
   children,
+  styles,
 }: {
   title: string;
   children: React.ReactNode;
+  styles: Styles;
 }) {
   return (
     <View style={styles.section}>
@@ -103,6 +97,9 @@ function SectionCard({
 export default function NuevaVacacionScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const COLORS = useFormColors();
+  const { scheme } = useAppAppearance();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -335,7 +332,7 @@ export default function NuevaVacacionScreen() {
           }}
         >
           <PageFlipReveal delay={0} active={isFocused}>
-            <SectionCard title="Saldo">
+            <SectionCard title="Saldo" styles={styles}>
               {balance ? (
                 <Text style={styles.helperText}>
                   {balance.eligible
@@ -351,7 +348,7 @@ export default function NuevaVacacionScreen() {
           </PageFlipReveal>
 
           <PageFlipReveal delay={70} active={isFocused}>
-            <SectionCard title="Periodo">
+            <SectionCard title="Periodo" styles={styles}>
               <Text style={styles.fieldCaption}>Fecha de inicio</Text>
               <SoftPressable
                 onPress={() => {
@@ -420,7 +417,7 @@ export default function NuevaVacacionScreen() {
           </PageFlipReveal>
 
           <PageFlipReveal delay={140} active={isFocused}>
-            <SectionCard title="Motivo">
+            <SectionCard title="Motivo" styles={styles}>
               <View
                 style={[
                   styles.fieldShell,
@@ -435,7 +432,7 @@ export default function NuevaVacacionScreen() {
                   onBlur={() => setMotivoFocused(false)}
                   multiline
                   placeholder="Motivo de las vacaciones…"
-                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  placeholderTextColor={COLORS.muted}
                   style={styles.motivoInput}
                 />
               </View>
@@ -443,7 +440,7 @@ export default function NuevaVacacionScreen() {
           </PageFlipReveal>
 
           <PageFlipReveal delay={175} active={isFocused}>
-            <SectionCard title="Cobertura y pendientes">
+            <SectionCard title="Cobertura y pendientes" styles={styles}>
               <Text style={styles.fieldCaption}>Quién cubre tu lugar</Text>
               <View
                 style={[
@@ -458,7 +455,7 @@ export default function NuevaVacacionScreen() {
                   onFocus={() => setCoverageFocused(true)}
                   onBlur={() => setCoverageFocused(false)}
                   placeholder="Nombre de quien cubre tu puesto…"
-                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  placeholderTextColor={COLORS.muted}
                   style={styles.shortInput}
                 />
               </View>
@@ -479,7 +476,7 @@ export default function NuevaVacacionScreen() {
                   onBlur={() => setPendingFocused(false)}
                   multiline
                   placeholder="Qué dejas pendiente para no detener la operación…"
-                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  placeholderTextColor={COLORS.muted}
                   style={styles.motivoInput}
                 />
               </View>
@@ -487,7 +484,7 @@ export default function NuevaVacacionScreen() {
           </PageFlipReveal>
 
           <PageFlipReveal delay={210} active={isFocused}>
-            <SectionCard title="Evidencia">
+            <SectionCard title="Evidencia" styles={styles}>
               <View style={styles.evidenceActions}>
                 <SoftPressable onPress={addPhoto} scaleTo={0.97} style={styles.evidenceBtn}>
                   <Gallery size={18} color={COLORS.accent} variant="Linear" />
@@ -509,7 +506,7 @@ export default function NuevaVacacionScreen() {
                     {item.name}
                   </Text>
                   <Pressable onPress={() => setEvidence((prev) => prev.filter((e) => e.id !== item.id))}>
-                    <Trash size={18} color="#BE123C" variant="Linear" />
+                    <Trash size={18} color={COLORS.roseText} variant="Linear" />
                   </Pressable>
                 </View>
               ))}
@@ -559,6 +556,7 @@ export default function NuevaVacacionScreen() {
                     setDatePickerDraft(selected);
                   }
                 }}
+                themeVariant={scheme}
               />
               <View style={styles.modalActions}>
                 <Pressable onPress={() => setDatePickerOpen(false)}>
@@ -581,162 +579,164 @@ export default function NuevaVacacionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F2F2F7" },
-  safe: { flex: 1 },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  scroll: { flex: 1 },
-  section: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.muted,
-    marginBottom: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  fieldCaption: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.ink,
-    marginBottom: 8,
-  },
-  helperText: {
-    marginTop: 8,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-    lineHeight: 18,
-  },
-  softShell: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: COLORS.field,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  softIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: COLORS.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dateText: { fontSize: 15, fontWeight: "600", color: COLORS.ink },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  stepBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.field,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepValue: {
-    minWidth: 36,
-    textAlign: "center",
-    fontSize: 22,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  warnBox: {
-    marginTop: 12,
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "flex-start",
-    backgroundColor: COLORS.warnBg,
-    borderRadius: 12,
-    padding: 10,
-  },
-  warnText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.warnText,
-    lineHeight: 18,
-  },
-  fieldShell: {
-    backgroundColor: COLORS.field,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  fieldShellFocused: {
-    backgroundColor: COLORS.fieldFocus,
-    borderColor: "rgba(234, 118, 0, 0.35)",
-  },
-  motivoShell: { minHeight: 110, padding: 12 },
-  shortShell: { paddingHorizontal: 12, paddingVertical: 10 },
-  shortInput: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.ink,
-    paddingVertical: 4,
-  },
-  motivoInput: {
-    flex: 1,
-    minHeight: 90,
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.ink,
-    textAlignVertical: "top",
-  },
-  evidenceActions: { flexDirection: "row", gap: 10 },
-  evidenceBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: COLORS.field,
-    borderRadius: 14,
-    paddingVertical: 12,
-  },
-  evidenceBtnText: { fontSize: 14, fontWeight: "600", color: COLORS.ink },
-  evidenceRow: {
-    marginTop: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  thumb: { width: 36, height: 36, borderRadius: 8 },
-  evidenceName: { flex: 1, fontSize: 13, fontWeight: "500", color: COLORS.muted },
-  submitBtn: {
-    marginTop: 4,
-    backgroundColor: COLORS.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  submitText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 24,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  modalCancel: { fontSize: 16, fontWeight: "600", color: COLORS.muted },
-  modalOk: { fontSize: 16, fontWeight: "700", color: COLORS.accent },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: COLORS.layout },
+    safe: { flex: 1 },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    scroll: { flex: 1 },
+    section: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 18,
+      padding: 16,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: COLORS.muted,
+      marginBottom: 12,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    fieldCaption: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.ink,
+      marginBottom: 8,
+    },
+    helperText: {
+      marginTop: 8,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+      lineHeight: 18,
+    },
+    softShell: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: COLORS.field,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    softIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dateText: { fontSize: 15, fontWeight: "600", color: COLORS.ink },
+    stepper: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 16,
+    },
+    stepBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: COLORS.field,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepValue: {
+      minWidth: 36,
+      textAlign: "center",
+      fontSize: 22,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    warnBox: {
+      marginTop: 12,
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "flex-start",
+      backgroundColor: COLORS.warnBg,
+      borderRadius: 12,
+      padding: 10,
+    },
+    warnText: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.warnText,
+      lineHeight: 18,
+    },
+    fieldShell: {
+      backgroundColor: COLORS.field,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    fieldShellFocused: {
+      backgroundColor: COLORS.fieldFocus,
+      borderColor: "rgba(234, 118, 0, 0.35)",
+    },
+    motivoShell: { minHeight: 110, padding: 12 },
+    shortShell: { paddingHorizontal: 12, paddingVertical: 10 },
+    shortInput: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: COLORS.ink,
+      paddingVertical: 4,
+    },
+    motivoInput: {
+      flex: 1,
+      minHeight: 90,
+      fontSize: 15,
+      fontWeight: "500",
+      color: COLORS.ink,
+      textAlignVertical: "top",
+    },
+    evidenceActions: { flexDirection: "row", gap: 10 },
+    evidenceBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: COLORS.field,
+      borderRadius: 14,
+      paddingVertical: 12,
+    },
+    evidenceBtnText: { fontSize: 14, fontWeight: "600", color: COLORS.ink },
+    evidenceRow: {
+      marginTop: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    thumb: { width: 36, height: 36, borderRadius: 8 },
+    evidenceName: { flex: 1, fontSize: 13, fontWeight: "500", color: COLORS.muted },
+    submitBtn: {
+      marginTop: 4,
+      backgroundColor: COLORS.accent,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    submitText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.35)",
+      justifyContent: "flex-end",
+    },
+    modalCard: {
+      backgroundColor: COLORS.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: 24,
+    },
+    modalActions: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingTop: 8,
+    },
+    modalCancel: { fontSize: 16, fontWeight: "600", color: COLORS.muted },
+    modalOk: { fontSize: 16, fontWeight: "700", color: COLORS.accent },
+  });
+}

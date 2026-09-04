@@ -10,12 +10,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft2 } from "iconsax-react-native";
-import { SOFT } from "../theme/softUi";
-
-const COLORS = {
-  ink: SOFT.ink,
-  muted: SOFT.mutedInk,
-};
+import { useAppAppearance } from "../theme/appearance";
 
 export type HeaderTitleProps = {
   title: string;
@@ -45,10 +40,26 @@ export function HeaderTitle({
   icon,
 }: HeaderTitleProps) {
   const navigation = useNavigation<any>();
+  const { colors, scheme } = useAppAppearance();
   const handleBack = onBack ?? (() => navigation.goBack());
   const isDark = tone === "dark";
   const isMap = tone === "map" || overlayOnMap;
   const lightChrome = !isDark && !isMap;
+  const resolvedTitleColor =
+    titleColor ??
+    (isMap ? colors.ink : isDark ? "#FFFFFF" : colors.ink);
+  const resolvedSubtitleColor = isMap
+    ? "rgba(28, 25, 23, 0.72)"
+    : isDark
+      ? "rgba(255,255,255,0.72)"
+      : colors.mutedInk;
+  const backIconColor = lightChrome
+    ? colors.mutedInk
+    : isMap
+      ? colors.ink
+      : "#FFFFFF";
+  const backBtnBg = lightChrome ? colors.field : undefined;
+  const backBtnPressedBg = scheme === "dark" ? colors.fieldFocus : colors.surface;
 
   const titleSizeStyle = useMemo(() => {
     const len = title.length;
@@ -76,8 +87,15 @@ export function HeaderTitle({
               ? styles.backBtnOverlay
               : isDark
                 ? styles.backBtnDark
-                : styles.backBtnLight,
-            pressed && lightChrome && styles.backBtnLightPressed,
+                : [
+                    styles.backBtnLight,
+                    backBtnBg ? { backgroundColor: backBtnBg } : null,
+                  ],
+            pressed &&
+              lightChrome && [
+                styles.backBtnLightPressed,
+                { backgroundColor: backBtnPressedBg },
+              ],
             pressed && !lightChrome && styles.backBtnPressed,
           ]}
           onPress={handleBack}
@@ -87,7 +105,7 @@ export function HeaderTitle({
         >
           <ArrowLeft2
             size={20}
-            color={lightChrome ? "#57534E" : isMap ? COLORS.ink : "#FFFFFF"}
+            color={backIconColor}
             variant="Linear"
           />
         </Pressable>
@@ -99,13 +117,8 @@ export function HeaderTitle({
             style={[
               styles.title,
               titleSizeStyle,
-              isMap
-                ? styles.titleMap
-                : isDark
-                  ? styles.titleDark
-                  : styles.titleLight,
+              { color: resolvedTitleColor },
               Platform.OS === "android" ? styles.titleAndroid : null,
-              titleColor ? { color: titleColor } : null,
             ]}
             numberOfLines={2}
             {...(isMap
@@ -117,14 +130,7 @@ export function HeaderTitle({
         </View>
         {subtitle ? (
           <Text
-            style={[
-              styles.subtitle,
-              isMap
-                ? styles.subtitleMap
-                : isDark
-                  ? styles.subtitleDark
-                  : styles.subtitleLight,
-            ]}
+            style={[styles.subtitle, { color: resolvedSubtitleColor }]}
             numberOfLines={2}
           >
             {subtitle}
@@ -159,12 +165,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backBtnLight: {
-    backgroundColor: "#F3F1EC",
     borderWidth: 2,
     borderColor: "transparent",
   },
   backBtnLightPressed: {
-    backgroundColor: "#FFFFFF",
     borderColor: "rgba(234, 118, 0, 0.25)",
   },
   backBtnOverlay: {
@@ -202,35 +206,11 @@ const styles = StyleSheet.create({
   titleAndroid: {
     includeFontPadding: false,
   },
-  titleLight: {
-    color: COLORS.ink,
-  },
-  titleDark: {
-    color: "#FFFFFF",
-  },
-  titleMap: {
-    color: "#FFFFFF",
-    textShadowColor: "rgba(28, 25, 23, 0.72)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
-  },
   subtitle: {
     marginTop: 1,
     fontSize: 13,
     fontWeight: "500",
     lineHeight: 18,
-  },
-  subtitleLight: {
-    color: COLORS.muted,
-  },
-  subtitleDark: {
-    color: "rgba(255, 255, 255, 0.82)",
-  },
-  subtitleMap: {
-    color: "#FFFFFF",
-    textShadowColor: "rgba(28, 25, 23, 0.68)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   rightSlot: {
     width: 40,

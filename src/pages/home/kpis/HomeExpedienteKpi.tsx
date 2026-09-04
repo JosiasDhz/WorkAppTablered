@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text } from "react-native";
 import { SoftPressable } from "../../../components/SoftPressable";
-import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
+import { HOME_RADIUS, useHomeColors } from "../homeTheme";
 import type { HomeKpiTone } from "./HomeKpiCard";
 import { HomeKpiProgressRing } from "./HomeKpiProgressRing";
 
@@ -21,18 +21,19 @@ export function HomeExpedienteKpiTitle({
   caption,
   onPress,
 }: Omit<HomeExpedienteKpiProps, "progress" | "percentLabel">) {
+  const homeColors = useHomeColors();
   return (
     <SoftPressable
       onPress={onPress}
       scaleTo={1}
-      style={styles.titleCard}
+      style={[styles.titleCard, { backgroundColor: homeColors.surface }]}
       accessibilityLabel={`Expediente ${status}. ${caption}`}
     >
       <Text style={styles.kicker}>Expediente</Text>
       <Text style={styles.status} numberOfLines={2}>
         {status}
       </Text>
-      <Text style={styles.caption} numberOfLines={2}>
+      <Text style={[styles.caption, { color: homeColors.muted }]} numberOfLines={2}>
         {caption}
       </Text>
     </SoftPressable>
@@ -47,11 +48,12 @@ export function HomeExpedienteKpiRing({
   percentLabel,
   onPress,
 }: HomeExpedienteKpiProps) {
+  const homeColors = useHomeColors();
   return (
     <SoftPressable
       onPress={onPress}
       scaleTo={1}
-      style={styles.ringCard}
+      style={[styles.ringCard, { backgroundColor: homeColors.surface }]}
       accessibilityLabel={`Expediente ${percentLabel}. ${status}. ${caption}`}
     >
       <HomeKpiProgressRing
@@ -71,7 +73,6 @@ const styles = StyleSheet.create({
     marginRight: -10,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: HOME_COLORS.surface,
     borderTopLeftRadius: HOME_RADIUS.section,
     borderBottomLeftRadius: HOME_RADIUS.section,
     alignItems: "center",
@@ -82,7 +83,6 @@ const styles = StyleSheet.create({
     minHeight: 156,
     paddingHorizontal: 8,
     paddingVertical: 12,
-    backgroundColor: HOME_COLORS.surface,
     borderTopRightRadius: HOME_RADIUS.section,
     borderBottomRightRadius: HOME_RADIUS.section,
     alignItems: "center",
@@ -108,6 +108,5 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 18,
     textAlign: "center",
-    color: HOME_COLORS.muted,
   },
 });

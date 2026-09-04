@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { WorkerCheckTypeDto } from "../../../services/attendanceService";
-import { SOFT } from "../../../theme/softUi";
+import { useAttendanceColors } from "./attendanceTheme";
 
 type Props = {
   options: WorkerCheckTypeDto[];
@@ -16,6 +16,7 @@ export function AttendanceCheckTypeSelector({
   onSelect,
   disabled = false,
 }: Props) {
+  const colors = useAttendanceColors();
   if (options.length === 0) return null;
 
   const hasMealOut = options.some((row) => row.code === "COMIDA_SALIDA");
@@ -25,7 +26,7 @@ export function AttendanceCheckTypeSelector({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>
       <View style={styles.row}>
         {options.map((option) => {
           const selected = option.code === selectedCode;
@@ -36,7 +37,14 @@ export function AttendanceCheckTypeSelector({
               onPress={() => onSelect(selected ? null : option.code)}
               style={[
                 styles.chip,
-                selected && styles.chipSelected,
+                {
+                  borderColor: colors.divider,
+                  backgroundColor: colors.surface,
+                },
+                selected && {
+                  borderColor: colors.accent,
+                  backgroundColor: colors.accentSoft,
+                },
                 disabled && styles.chipDisabled,
               ]}
               accessibilityRole="button"
@@ -45,7 +53,8 @@ export function AttendanceCheckTypeSelector({
               <Text
                 style={[
                   styles.chipText,
-                  selected && styles.chipTextSelected,
+                  { color: colors.muted },
+                  selected && { color: colors.accent },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -68,7 +77,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#64748B",
     marginBottom: 8,
     letterSpacing: 0.2,
   },
@@ -82,16 +90,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.45)",
-    backgroundColor: "rgba(255, 255, 255, 0.72)",
     paddingVertical: 8,
     paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
-  },
-  chipSelected: {
-    borderColor: SOFT.accent,
-    backgroundColor: "rgba(234, 118, 0, 0.12)",
   },
   chipDisabled: {
     opacity: 0.55,
@@ -99,10 +101,6 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#475569",
     textAlign: "center",
-  },
-  chipTextSelected: {
-    color: SOFT.accent,
   },
 });

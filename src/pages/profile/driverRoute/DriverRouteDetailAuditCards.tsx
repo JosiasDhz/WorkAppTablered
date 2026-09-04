@@ -14,17 +14,12 @@ import { useTableredFileImageHeaders } from "../../../hooks/useTableredFileImage
 import type { DriverRouteAssignmentDemo } from "../driverDemo/driverRouteAssignmentDemo.types";
 import { destinationsInRouteTravelOrder } from "./driverRouteDestinationsTravelOrder";
 import { driverRouteFileViewUrl, resolveDriverRouteSignatureUri } from "./driverRouteFileViewUrl";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  accent: "#EA7600",
-};
-
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
+function useAuditCardStyles() {
+  const ui = useDriverUi();
+  return useMemo(() => createStyles(ui), [ui]);
+}
 
 type DriverRouteDetailAuditCardsProps = {
   detail: DriverRouteAssignmentDemo;
@@ -56,6 +51,7 @@ function AuditImagePreview(props: {
   wrapStyle?: object;
   resizeMode?: ImageResizeMode;
 }) {
+  const styles = useAuditCardStyles();
   const headers = useTableredFileImageHeaders(props.uri);
   const source = useMemo((): ImageSourcePropType => {
     return headers ? { uri: props.uri, headers } : { uri: props.uri };
@@ -79,6 +75,7 @@ function AuditImagePreview(props: {
 }
 
 function EvidenceThumb({ fileId, label }: { fileId: string; label: string }) {
+  const styles = useAuditCardStyles();
   const uri = driverRouteFileViewUrl(fileId);
   if (!uri) return null;
   return (
@@ -92,6 +89,7 @@ function EvidenceThumb({ fileId, label }: { fileId: string; label: string }) {
 }
 
 function SignaturePreview({ signature, label }: { signature: string; label: string }) {
+  const styles = useAuditCardStyles();
   const uri = resolveDriverRouteSignatureUri(signature);
   if (!uri) return null;
   return (
@@ -106,6 +104,7 @@ function SignaturePreview({ signature, label }: { signature: string; label: stri
 }
 
 function MetricRow(props: { label: string; value: string }) {
+  const styles = useAuditCardStyles();
   return (
     <View style={styles.metricRow}>
       <Text style={styles.metricLabel}>{props.label}</Text>
@@ -115,6 +114,7 @@ function MetricRow(props: { label: string; value: string }) {
 }
 
 function EvidenceStrip({ children }: { children: React.ReactNode }) {
+  const styles = useAuditCardStyles();
   return (
     <ScrollView
       horizontal
@@ -134,6 +134,7 @@ function AuditCard(props: {
   stamp?: string;
   children: React.ReactNode;
 }) {
+  const styles = useAuditCardStyles();
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -159,6 +160,8 @@ function AuditCard(props: {
 export function DriverRouteDetailAuditCards({
   detail,
 }: DriverRouteDetailAuditCardsProps) {
+  const ui = useDriverUi();
+  const styles = useAuditCardStyles();
   const { route } = detail;
   const ordered = useMemo(() => destinationsInRouteTravelOrder(detail), [detail]);
 
@@ -230,8 +233,8 @@ export function DriverRouteDetailAuditCards({
     <View style={styles.wrap}>
       {hasStartAudit ? (
         <AuditCard
-          icon={<Speedometer size={20} color={COLORS.accent} variant="Linear" />}
-          wellBg={ACCENT_SOFT}
+          icon={<Speedometer size={20} color={ui.accent} variant="Linear" />}
+          wellBg={ui.accentSoft}
           title="Salida de ruta"
           stamp={
             route.routeStartedAtCdmx
@@ -259,8 +262,8 @@ export function DriverRouteDetailAuditCards({
       {deliveryEvidenceStops.map((stop) => (
         <AuditCard
           key={stop.key}
-          icon={<TickCircle size={20} color={DONE} variant="Linear" />}
-          wellBg={DONE_SOFT}
+          icon={<TickCircle size={20} color={ui.green} variant="Linear" />}
+          wellBg={ui.greenSoft}
           title={stop.title}
           stamp={
             stop.deliveredAt
@@ -308,8 +311,8 @@ export function DriverRouteDetailAuditCards({
 
       {hasEndAudit ? (
         <AuditCard
-          icon={<GasStation size={20} color={DONE} variant="Linear" />}
-          wellBg={DONE_SOFT}
+          icon={<GasStation size={20} color={ui.green} variant="Linear" />}
+          wellBg={ui.greenSoft}
           title="Cierre de ruta"
           stamp={
             route.routeCompletedAtCdmx
@@ -344,8 +347,8 @@ export function DriverRouteDetailAuditCards({
 
       {deliveredStops.length > 0 ? (
         <AuditCard
-          icon={<TickCircle size={20} color={DONE} variant="Linear" />}
-          wellBg={DONE_SOFT}
+          icon={<TickCircle size={20} color={ui.green} variant="Linear" />}
+          wellBg={ui.greenSoft}
           title="Resumen"
           stamp={`${deliveredStops.length} de ${ordered.length} paradas`}
         >
@@ -362,113 +365,115 @@ export function DriverRouteDetailAuditCards({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    gap: 12,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-  },
-  cardHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  cardStamp: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  metricRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  metricLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  metricValue: {
-    flex: 1,
-    textAlign: "right",
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  addr: {
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: COLORS.muted,
-  },
-  qty: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.accent,
-  },
-  missing: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  thumbRow: {
-    flexGrow: 0,
-  },
-  thumbWrap: {
-    width: 108,
-    marginRight: 10,
-  },
-  thumb: {
-    width: 108,
-    height: 82,
-    borderRadius: 12,
-    backgroundColor: ACCENT_SOFT,
-  },
-  thumbLabel: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  signatureBlock: {
-    gap: 8,
-  },
-  evidenceLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  signaturePreviewWrap: {
-    width: "100%",
-    maxWidth: 280,
-  },
-  signatureImg: {
-    width: "100%",
-    height: 108,
-    borderRadius: 12,
-    backgroundColor: ACCENT_SOFT,
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    wrap: {
+      gap: 12,
+    },
+    card: {
+      backgroundColor: ui.surface,
+      borderRadius: 16,
+      padding: 14,
+      gap: 10,
+    },
+    cardHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: ui.ink,
+    },
+    cardStamp: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    metricRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    metricLabel: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    metricValue: {
+      flex: 1,
+      textAlign: "right",
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    addr: {
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: ui.muted,
+    },
+    qty: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.accent,
+    },
+    missing: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    thumbRow: {
+      flexGrow: 0,
+    },
+    thumbWrap: {
+      width: 108,
+      marginRight: 10,
+    },
+    thumb: {
+      width: 108,
+      height: 82,
+      borderRadius: 12,
+      backgroundColor: ui.accentSoft,
+    },
+    thumbLabel: {
+      marginTop: 4,
+      fontSize: 11,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    signatureBlock: {
+      gap: 8,
+    },
+    evidenceLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.muted,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    signaturePreviewWrap: {
+      width: "100%",
+      maxWidth: 280,
+    },
+    signatureImg: {
+      width: "100%",
+      height: 108,
+      borderRadius: 12,
+      backgroundColor: ui.accentSoft,
+    },
+  });
+}

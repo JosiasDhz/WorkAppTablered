@@ -26,7 +26,10 @@ import {
 import { refreshInAppUnreadCount } from "../../services/inAppUnreadBadge";
 import type { NotificationsStackParamList } from "../../routes/navigators/NotificationsStackParamList";
 import { resolveNotificationAppearance } from "./notificationAppearance";
-import { NOTIFICATION_COLORS, NOTIFICATION_RADIUS } from "./notificationsTheme";
+import {
+  NOTIFICATION_RADIUS,
+  useNotificationColors,
+} from "./notificationsTheme";
 
 const LATE_ENTRY_PENDING = "LATE_ENTRY_AUTHORIZATION_PENDING";
 
@@ -74,6 +77,7 @@ export default function NotificationDetailScreen() {
     useRoute<RouteProp<NotificationsStackParamList, "NotificationDetail">>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const colors = useNotificationColors();
   const notificationId = route.params?.notificationId;
   const previewTitle = route.params?.title;
   const previewBody = route.params?.body;
@@ -184,41 +188,55 @@ export default function NotificationDetailScreen() {
       >
         {loading && !row && !previewTitle ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color={NOTIFICATION_COLORS.accent} />
+            <ActivityIndicator color={colors.accent} />
           </View>
         ) : missing && !previewTitle ? (
           <View style={styles.loadingBox}>
-            <Text style={styles.missingText}>
+            <Text style={[styles.missingText, { color: colors.muted }]}>
               No se pudo cargar este aviso.
             </Text>
           </View>
         ) : (
           <SoftReveal delay={0}>
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
               <View style={[styles.well, { backgroundColor: wash }]}>
                 <Icon size={28} color={tint} variant="Linear" />
               </View>
-              <Text style={styles.title}>{title}</Text>
-              {whenLabel ? <Text style={styles.when}>{whenLabel}</Text> : null}
-              {body ? <Text style={styles.body}>{body}</Text> : null}
+              <Text style={[styles.title, { color: colors.ink }]}>{title}</Text>
+              {whenLabel ? (
+                <Text style={[styles.when, { color: colors.muted }]}>
+                  {whenLabel}
+                </Text>
+              ) : null}
+              {body ? (
+                <Text style={[styles.body, { color: colors.ink }]}>{body}</Text>
+              ) : null}
               {canReviewLateEntry ? (
                 <View style={styles.actions}>
                   <SoftPressable
                     onPress={() => void runLateEntryAction("reject")}
                     disabled={Boolean(acting)}
-                    style={[styles.actionBtn, styles.rejectBtn]}
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: colors.roseSoft },
+                    ]}
                     accessibilityLabel="Rechazar entrada"
                   >
                     {acting === "reject" ? (
-                      <ActivityIndicator color={NOTIFICATION_COLORS.rose} />
+                      <ActivityIndicator color={colors.rose} />
                     ) : (
-                      <Text style={styles.rejectLabel}>Rechazar</Text>
+                      <Text style={[styles.rejectLabel, { color: colors.rose }]}>
+                        Rechazar
+                      </Text>
                     )}
                   </SoftPressable>
                   <SoftPressable
                     onPress={() => void runLateEntryAction("approve")}
                     disabled={Boolean(acting)}
-                    style={[styles.actionBtn, styles.approveBtn]}
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: colors.accent },
+                    ]}
                     accessibilityLabel="Autorizar entrada"
                   >
                     {acting === "approve" ? (
@@ -230,7 +248,7 @@ export default function NotificationDetailScreen() {
                 </View>
               ) : null}
               {resolved ? (
-                <Text style={styles.resolvedLabel}>
+                <Text style={[styles.resolvedLabel, { color: colors.emerald }]}>
                   Decisión registrada. El colaborador ya fue notificado.
                 </Text>
               ) : null}
@@ -261,11 +279,9 @@ const styles = StyleSheet.create({
   missingText: {
     fontSize: 15,
     fontWeight: "500",
-    color: NOTIFICATION_COLORS.muted,
     textAlign: "center",
   },
   card: {
-    backgroundColor: NOTIFICATION_COLORS.surface,
     borderRadius: NOTIFICATION_RADIUS.section,
     paddingHorizontal: 20,
     paddingVertical: 24,
@@ -283,14 +299,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.3,
-    color: NOTIFICATION_COLORS.ink,
     textAlign: "center",
   },
   when: {
     marginTop: 10,
     fontSize: 13,
     fontWeight: "500",
-    color: NOTIFICATION_COLORS.muted,
     textAlign: "center",
     textTransform: "capitalize",
   },
@@ -299,7 +313,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     lineHeight: 24,
-    color: NOTIFICATION_COLORS.ink,
     textAlign: "center",
     alignSelf: "stretch",
   },
@@ -317,16 +330,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 12,
   },
-  rejectBtn: {
-    backgroundColor: NOTIFICATION_COLORS.roseSoft,
-  },
-  approveBtn: {
-    backgroundColor: NOTIFICATION_COLORS.accent,
-  },
   rejectLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: NOTIFICATION_COLORS.rose,
   },
   approveLabel: {
     fontSize: 15,
@@ -337,7 +343,6 @@ const styles = StyleSheet.create({
     marginTop: 18,
     fontSize: 14,
     fontWeight: "600",
-    color: NOTIFICATION_COLORS.emerald,
     textAlign: "center",
   },
 });

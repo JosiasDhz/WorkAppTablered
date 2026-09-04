@@ -23,13 +23,15 @@ export function PageFlipReveal({
   active = true,
   style,
 }: PageFlipRevealProps) {
-  const progress = useRef(new Animated.Value(0)).current;
-  const [settled, setSettled] = useState(false);
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const playedRef = useRef(active);
+  const [settled, setSettled] = useState(active);
 
   useEffect(() => {
-    if (!active) {
-      progress.setValue(0);
-      setSettled(false);
+    if (!active) return;
+    if (playedRef.current) {
+      progress.setValue(1);
+      setSettled(true);
       return;
     }
 
@@ -43,7 +45,9 @@ export function PageFlipReveal({
       useNativeDriver: true,
     });
     flip.start(({ finished }) => {
-      if (finished) setSettled(true);
+      if (!finished) return;
+      playedRef.current = true;
+      setSettled(true);
     });
     return () => flip.stop();
   }, [active, delay, progress]);

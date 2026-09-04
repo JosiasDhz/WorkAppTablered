@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { NotificationRow } from "./NotificationRow";
 import type { NotificationGroup } from "./notificationTypes";
-import { NOTIFICATION_COLORS } from "./notificationsTheme";
+import { useNotificationColors } from "./notificationsTheme";
 
 export const NOTIFICATION_FLIP_STAGGER_MS = 70;
 const MAX_FLIP_DELAY_MS = 700;
@@ -25,10 +25,14 @@ export function NotificationGroupSection({
   revealDelay = 0,
   revealActive = true,
 }: NotificationGroupSectionProps) {
+  const colors = useNotificationColors();
+
   return (
     <React.Fragment>
       <PageFlipReveal delay={clampFlipDelay(revealDelay)} active={revealActive}>
-        <Text style={styles.sectionTitle}>{group.title}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.muted }]}>
+          {group.title}
+        </Text>
       </PageFlipReveal>
       <View style={styles.list}>
         {group.items.map((item, index) => (
@@ -39,10 +43,7 @@ export function NotificationGroupSection({
             )}
             active={revealActive}
           >
-            <NotificationRow
-              item={item}
-              onPress={() => onSelect(item.id)}
-            />
+            <NotificationRow item={item} onPress={() => onSelect(item.id)} />
           </PageFlipReveal>
         ))}
       </View>
@@ -56,7 +57,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 13,
     fontWeight: "600",
-    color: NOTIFICATION_COLORS.muted,
   },
   list: {
     gap: 12,

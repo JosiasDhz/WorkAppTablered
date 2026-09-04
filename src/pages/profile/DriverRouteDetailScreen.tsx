@@ -44,22 +44,8 @@ import {
 } from "./driverRoute/deliveryStopProgress";
 import { DriverRouteGlassDeliveryCard } from "./driverRoute/DriverRouteGlassDeliveryCard";
 import { DriverRouteStatusCard } from "./driverRoute/DriverRouteStatusCard";
+import { useDriverUi, type DriverUi } from "./driverRoute/driverUi";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  accent: "#EA7600",
-};
-
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const MAP_BORDER = "rgba(60, 60, 67, 0.22)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
-const ROSE = "#BE123C";
-const ROSE_SOFT = "#FFF1F2";
-const WARN = "#B45309";
-const WARN_SOFT = "rgba(245, 158, 11, 0.18)";
 const FLIP_STAGGER_MS = 70;
 const MAX_FLIP_DELAY_MS = 700;
 const PICKUP_SWIPE_DOCK_HEIGHT = 88;
@@ -99,13 +85,10 @@ function canShowPickupDock(status: string): boolean {
   );
 }
 
-function statusStyle(status: string): { bg: string; text: string } {
-  if (status === "CANCELADA") return { bg: ROSE_SOFT, text: ROSE };
-  if (status === "COMPLETA") return { bg: DONE_SOFT, text: DONE };
-  if (status === "EN_PROCESO" || status === "LEVANTAMIENTO") {
-    return { bg: ACCENT_SOFT, text: COLORS.accent };
-  }
-  return { bg: ACCENT_SOFT, text: COLORS.accent };
+function statusStyle(status: string, ui: DriverUi): { bg: string; text: string } {
+  if (status === "CANCELADA") return { bg: ui.roseSoft, text: ui.rose };
+  if (status === "COMPLETA") return { bg: ui.greenSoft, text: ui.green };
+  return { bg: ui.accentSoft, text: ui.accent };
 }
 
 function statusSubline(
@@ -154,6 +137,8 @@ function buildDestinationProgressRows(
 }
 
 export default function DriverRouteDetailScreen() {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const isFocused = useIsFocused();
@@ -257,10 +242,10 @@ export default function DriverRouteDetailScreen() {
   ]);
 
   const routeProgressAccent = isCompleta
-    ? DONE
+    ? ui.green
     : isCancelada
-      ? ROSE
-      : COLORS.accent;
+      ? ui.rose
+      : ui.accent;
   const toggleProducts = useCallback((destId: string) => {
     setProductsCollapsedByDestId((prev) => ({
       ...prev,
@@ -289,7 +274,7 @@ export default function DriverRouteDetailScreen() {
             }}
           />
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
+            <ActivityIndicator size="large" color={ui.accent} />
           </View>
         </SafeAreaView>
       </View>
@@ -311,7 +296,7 @@ export default function DriverRouteDetailScreen() {
           />
           <View style={styles.centered}>
             <View style={styles.emptyWell}>
-              <Routing2 size={28} color={COLORS.accent} variant="Linear" />
+              <Routing2 size={28} color={ui.accent} variant="Linear" />
             </View>
             <Text style={styles.emptyTitle}>Sin datos</Text>
             <Text style={styles.emptyText}>
@@ -338,7 +323,7 @@ export default function DriverRouteDetailScreen() {
     ? `${vehicle.model} · ${vehicle.plateNumber}`
     : "";
   const statusLabel = driverRouteStatusLabelEs(route.status);
-  const badge = statusStyle(route.status);
+  const badge = statusStyle(route.status, ui);
   const whenLabel = formatWhen(route.createdAtCdmx);
   const pickupSwipeHint = driverRouteNeedsDriverReceipt(
     flattenDriverRouteConfirmLines(detail.destinations),
@@ -379,7 +364,7 @@ export default function DriverRouteDetailScreen() {
             <View style={styles.heroCard}>
               <View style={styles.heroRow}>
                 <View style={styles.heroIcon}>
-                  <Routing2 size={22} color={COLORS.accent} variant="Linear" />
+                  <Routing2 size={22} color={ui.accent} variant="Linear" />
                 </View>
                 <View style={styles.heroText}>
                   <Text style={styles.heroTitle} numberOfLines={1}>
@@ -434,7 +419,7 @@ export default function DriverRouteDetailScreen() {
                         zoomSlack: 1,
                         softLock: true,
                         animateDraw: false,
-                        strokeColor: DONE,
+                        strokeColor: ui.green,
                       }
                     : {
                         maxZoom: 16,
@@ -444,14 +429,14 @@ export default function DriverRouteDetailScreen() {
                         zoomSlack: 1,
                         softLock: true,
                         animateDraw: true,
-                        strokeColor: COLORS.accent,
+                        strokeColor: ui.accent,
                       }
                 }
               />
               {vehicleLine ? (
                 <View style={styles.mapVehicle} pointerEvents="none">
                   <View style={styles.mapVehicleIcon}>
-                    <Car size={16} color={COLORS.accent} variant="Linear" />
+                    <Car size={16} color={ui.accent} variant="Linear" />
                   </View>
                   <View style={styles.mapVehicleCopy}>
                     <Text style={styles.mapVehicleLabel}>Vehículo</Text>
@@ -467,8 +452,8 @@ export default function DriverRouteDetailScreen() {
           {showCashBanner ? (
             <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
               <View style={styles.cashCard}>
-                <View style={[styles.heroIcon, { backgroundColor: WARN_SOFT }]}>
-                  <MoneyRecive size={22} color={WARN} variant="Linear" />
+                <View style={[styles.heroIcon, { backgroundColor: ui.amberSoft }]}>
+                  <MoneyRecive size={22} color={ui.amber} variant="Linear" />
                 </View>
                 <View style={styles.heroText}>
                   <Text style={styles.cashAmount}>{formatMxn(cashPending)}</Text>
@@ -590,235 +575,238 @@ export default function DriverRouteDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: SCREEN_GUTTER,
-  },
-  scroll: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.ink,
-    textAlign: "center",
-  },
-  emptyWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: ACCENT_SOFT,
-  },
-  retryTxt: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.accent,
-    textAlign: "center",
-  },
-  mapCard: {
-    height: MAP_HEIGHT,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: COLORS.surface,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: MAP_BORDER,
-  },
-  mapVehicle: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  mapVehicleIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mapVehicleCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  mapVehicleLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  mapVehicleValue: {
-    marginTop: 1,
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  heroCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  stepsCard: {
-    marginBottom: 12,
-    marginHorizontal: -SCREEN_GUTTER,
-    alignItems: "center",
-  },
-  heroRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  heroIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  heroTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  heroSub: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: COLORS.muted,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  when: {
-    marginTop: 12,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textTransform: "capitalize",
-  },
-  cashCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cashAmount: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: WARN,
-  },
-  cashHint: {
-    marginTop: 2,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  reportCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    alignItems: "center",
-  },
-  reportTxt: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-  sectionBlock: {
-    width: "100%",
-    marginTop: 8,
-  },
-  sectionBlockFollow: {
-    width: "100%",
-    marginTop: 22,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  list: {
-    gap: 12,
-  },
-  pickupDock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingTop: 10,
-  },
-  dockBtn: {
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: COLORS.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dockBtnTxt: {
-    color: COLORS.surface,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  confettiHost: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 30,
-    elevation: 30,
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: ui.layout,
+    },
+    safe: {
+      flex: 1,
+    },
+    header: {
+      paddingHorizontal: SCREEN_GUTTER,
+    },
+    scroll: {
+      flex: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+      gap: 8,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.ink,
+      textAlign: "center",
+    },
+    emptyWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    retryBtn: {
+      marginTop: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 16,
+      backgroundColor: ui.accentSoft,
+    },
+    retryTxt: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.accent,
+      textAlign: "center",
+    },
+    mapCard: {
+      height: MAP_HEIGHT,
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: ui.surface,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: ui.border,
+    },
+    mapVehicle: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: ui.surface,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    mapVehicleIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    mapVehicleCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    mapVehicleLabel: {
+      fontSize: 11,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    mapVehicleValue: {
+      marginTop: 1,
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    heroCard: {
+      backgroundColor: ui.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+    },
+    stepsCard: {
+      marginBottom: 12,
+      marginHorizontal: -SCREEN_GUTTER,
+      alignItems: "center",
+    },
+    heroRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    heroIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    heroText: {
+      flex: 1,
+      minWidth: 0,
+    },
+    heroTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    heroSub: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: ui.muted,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    when: {
+      marginTop: 12,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+      textTransform: "capitalize",
+    },
+    cashCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      backgroundColor: ui.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+    },
+    cashAmount: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.amber,
+    },
+    cashHint: {
+      marginTop: 2,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    reportCard: {
+      backgroundColor: ui.surface,
+      borderRadius: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      marginBottom: 12,
+      alignItems: "center",
+    },
+    reportTxt: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: ui.accent,
+    },
+    sectionBlock: {
+      width: "100%",
+      marginTop: 8,
+    },
+    sectionBlockFollow: {
+      width: "100%",
+      marginTop: 22,
+    },
+    sectionTitle: {
+      marginLeft: 4,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    list: {
+      gap: 12,
+    },
+    pickupDock: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingTop: 10,
+    },
+    dockBtn: {
+      height: 56,
+      borderRadius: 16,
+      backgroundColor: ui.accent,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dockBtnTxt: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    confettiHost: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 30,
+      elevation: 30,
+    },
+  });
+}

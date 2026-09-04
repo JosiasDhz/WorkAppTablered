@@ -27,6 +27,7 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   listMyPermissionRequests,
@@ -37,19 +38,8 @@ import {
 } from "../../services/workforcePermissionRequestService";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  accent: "#EA7600",
-};
+type Styles = ReturnType<typeof createStyles>;
 
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
-const ROSE = "#BE123C";
-const ROSE_SOFT = "#FFF1F2";
 const FLIP_STAGGER_MS = 70;
 const MAX_FLIP_DELAY_MS = 700;
 const PENDING_STATUSES = new Set([
@@ -69,7 +59,13 @@ function categoryLabel(category: PermissionCategory) {
   );
 }
 
-function CategoryGlyph({ category }: { category: PermissionCategory }) {
+function CategoryGlyph({
+  category,
+  COLORS,
+}: {
+  category: PermissionCategory;
+  COLORS: FormColors;
+}) {
   const props = { size: 20, color: COLORS.accent, variant: "Linear" as const };
   if (category === "SICKNESS") return <Hospital {...props} />;
   if (category === "BEREAVEMENT") return <Heart {...props} />;
@@ -78,14 +74,17 @@ function CategoryGlyph({ category }: { category: PermissionCategory }) {
   return <Calendar1 {...props} />;
 }
 
-function statusTone(status: PermissionRequestDto["status"]) {
+function statusTone(
+  status: PermissionRequestDto["status"],
+  COLORS: FormColors,
+) {
   if (status === "APPROVED") {
-    return { bg: DONE_SOFT, text: DONE };
+    return { bg: COLORS.emeraldSoft, text: COLORS.emerald };
   }
   if (status === "REJECTED") {
-    return { bg: ROSE_SOFT, text: ROSE };
+    return { bg: COLORS.roseSoft, text: COLORS.roseText };
   }
-  return { bg: ACCENT_SOFT, text: COLORS.accent };
+  return { bg: COLORS.accentSoft, text: COLORS.accent };
 }
 
 function evidenceLabel(count: number) {
@@ -104,11 +103,15 @@ function headerSubtitle(items: PermissionRequestDto[], loading: boolean) {
 function PermisoCard({
   item,
   onPress,
+  styles,
+  COLORS,
 }: {
   item: PermissionRequestDto;
   onPress: () => void;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
-  const tone = statusTone(item.status);
+  const tone = statusTone(item.status, COLORS);
   return (
     <SoftPressable
       onPress={onPress}
@@ -117,7 +120,7 @@ function PermisoCard({
     >
       <View style={styles.card}>
         <View style={styles.iconWell}>
-          <CategoryGlyph category={item.category} />
+          <CategoryGlyph category={item.category} COLORS={COLORS} />
         </View>
         <View style={styles.cardCopy}>
           <View style={styles.cardTitleRow}>
@@ -148,6 +151,8 @@ function PermisoCard({
 export default function MisPermisosScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const COLORS = useFormColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -271,6 +276,8 @@ export default function MisPermisosScreen() {
                           <PermisoCard
                             item={item}
                             onPress={() => openDetail(item.id)}
+                            styles={styles}
+                            COLORS={COLORS}
                           />
                         </PageFlipReveal>
                       ))}
@@ -305,6 +312,8 @@ export default function MisPermisosScreen() {
                           <PermisoCard
                             item={item}
                             onPress={() => openDetail(item.id)}
+                            styles={styles}
+                            COLORS={COLORS}
                           />
                         </PageFlipReveal>
                       ))}
@@ -320,135 +329,137 @@ export default function MisPermisosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: SCREEN_GUTTER,
-  },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: ACCENT_SOFT,
-  },
-  scroll: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  sectionBlock: {
-    width: "100%",
-    marginTop: 8,
-  },
-  sectionBlockFollow: {
-    width: "100%",
-    marginTop: 22,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  list: {
-    gap: 12,
-  },
-  card: {
-    minHeight: 78,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  cardMeta: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  cardDesc: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: COLORS.muted,
-  },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    paddingTop: 48,
-    gap: 8,
-  },
-  emptyWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.ink,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+    },
+    safe: {
+      flex: 1,
+    },
+    header: {
+      paddingHorizontal: SCREEN_GUTTER,
+    },
+    addBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: COLORS.accentSoft,
+    },
+    scroll: {
+      flex: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    sectionBlock: {
+      width: "100%",
+      marginTop: 8,
+    },
+    sectionBlockFollow: {
+      width: "100%",
+      marginTop: 22,
+    },
+    sectionTitle: {
+      marginLeft: 4,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    list: {
+      gap: 12,
+    },
+    card: {
+      minHeight: 78,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 16,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    cardMeta: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: COLORS.muted,
+    },
+    cardDesc: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: COLORS.muted,
+    },
+    empty: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 32,
+      paddingTop: 48,
+      gap: 8,
+    },
+    emptyWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: COLORS.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: COLORS.ink,
+      textAlign: "center",
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+  });
+}

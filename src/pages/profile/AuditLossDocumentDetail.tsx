@@ -27,7 +27,8 @@ import {
   type MyLossDocumentItem,
 } from "../../services/inventoryAuditService";
 import { apiBaseUrl } from "../../api/http-common";
-import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
+import { createThemedStyles } from "../../theme/themedStyles";
+import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
 
 type DocKind = "contract" | "delivery";
 
@@ -52,6 +53,8 @@ export default function AuditLossDocumentDetail() {
   const insets = useSafeAreaInsets();
   const allocationId = route.params?.allocationId as string | undefined;
   const token = useSelector((state: RootState) => state.auth.token);
+  const ui = useAuditUi();
+  const styles = useLossDocDetailStyles();
 
   const [item, setItem] = useState<MyLossDocumentItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,11 +170,11 @@ export default function AuditLossDocumentDetail() {
             uri: `${apiBaseUrl}${getMyLossDocumentPdfUrl(allocationId, doc)}`,
             headers: { Authorization: `Bearer ${token}` },
           }}
-          style={{ flex: 1, backgroundColor: AUDIT_UI.field }}
+          style={{ flex: 1, backgroundColor: ui.field }}
           startInLoadingState
           renderLoading={() => (
             <View style={styles.pdfLoading}>
-              <ActivityIndicator size="large" color={AUDIT_UI.accent} />
+              <ActivityIndicator size="large" color={ui.accent} />
             </View>
           )}
         />
@@ -305,7 +308,7 @@ export default function AuditLossDocumentDetail() {
       />
       {loading || !item ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       ) : (
         <ScrollView
@@ -426,7 +429,7 @@ export default function AuditLossDocumentDetail() {
               startInLoadingState
               renderLoading={() => (
                 <View style={styles.pdfLoading}>
-                  <ActivityIndicator size="large" color={AUDIT_UI.accent} />
+                  <ActivityIndicator size="large" color={ui.accent} />
                 </View>
               )}
             />
@@ -441,244 +444,251 @@ export default function AuditLossDocumentDetail() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "transparent" },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  scrollContent: {
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingTop: 4,
-    paddingBottom: 36,
-  },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  muted: { fontSize: 14, fontWeight: "500", color: AUDIT_UI.muted, textAlign: "center" },
-  summary: {
-    ...auditSoftCardStyle(),
-    padding: 14,
-    marginBottom: 14,
-  },
-  summaryTitle: { fontSize: 16, fontWeight: "700", color: AUDIT_UI.ink },
-  summaryMeta: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "500",
-    color: AUDIT_UI.muted,
-  },
-  summaryBtnWrap: {
-    marginTop: 12,
-    width: 130,
-  },
-  summaryBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: AUDIT_UI.green,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  summaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-  stepsBar: {
-    marginBottom: 10,
-    alignSelf: "flex-start",
-    backgroundColor: AUDIT_UI.accentSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  stepsText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: AUDIT_UI.accent,
-    letterSpacing: 0.3,
-  },
-  block: {
-    ...auditSoftCardStyle(),
-    padding: 14,
-    marginBottom: 14,
-  },
-  blockHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-    gap: 8,
-  },
-  blockLabel: { fontSize: 14, fontWeight: "800", color: AUDIT_UI.ink, flex: 1 },
-  pdfBtnWrap: {
-    width: 96,
-  },
-  pdfBtn: {
-    backgroundColor: AUDIT_UI.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  pdfBtnText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  pdfFrame: {
-    height: 420,
-    borderRadius: 14,
-    overflow: "hidden",
-    backgroundColor: AUDIT_UI.field,
-  },
-  pdfPlaceholder: {
-    height: 420,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: AUDIT_UI.field,
-  },
-  pdfLoading: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sigHead: {
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sigLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: AUDIT_UI.ink,
-  },
-  lockedBadge: {
-    backgroundColor: AUDIT_UI.greenSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  lockedBadgeText: {
-    color: AUDIT_UI.green,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-  signatureBox: {
-    marginTop: 6,
-    height: 170,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AUDIT_UI.divider,
-    backgroundColor: AUDIT_UI.surface,
-    overflow: "hidden",
-  },
-  signatureLockedBox: {
-    marginTop: 6,
-    height: 130,
-    borderRadius: 12,
-    backgroundColor: AUDIT_UI.greenSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 6,
-  },
-  signatureLockedImg: {
-    width: "100%",
-    height: "100%",
-  },
-  sigActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-  },
-  sigSlot: { flex: 1 },
-  sigBtn: {
-    paddingVertical: 11,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sigBtnGhost: {
-    backgroundColor: AUDIT_UI.field,
-  },
-  sigBtnGhostText: {
-    color: AUDIT_UI.ink,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  sigBtnSave: {
-    backgroundColor: AUDIT_UI.accent,
-  },
-  sigBtnSaveText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.2,
-  },
-  navRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
-  },
-  navSlot: { flex: 1 },
-  navBtn: {
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: AUDIT_UI.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AUDIT_UI.divider,
-    alignItems: "center",
-  },
-  navBtnPrimary: {
-    backgroundColor: AUDIT_UI.accent,
-    borderColor: AUDIT_UI.accent,
-  },
-  navBtnDisabled: {
-    opacity: 0.45,
-  },
-  navBtnText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: AUDIT_UI.ink,
-    letterSpacing: 0.2,
-  },
-  navBtnTextPrimary: {
-    color: "#FFFFFF",
-  },
-  navBtnTextDisabled: {
-    color: AUDIT_UI.muted,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  pdfWrap: { flex: 1, backgroundColor: AUDIT_UI.surface },
-  pdfTopBar: {
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: AUDIT_UI.divider,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  pdfTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: AUDIT_UI.ink,
-    flex: 1,
-    marginRight: 12,
-  },
-  pdfCloseBtnWrap: {
-    width: 80,
-  },
-  pdfCloseBtn: {
-    borderRadius: 999,
-    backgroundColor: AUDIT_UI.ink,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    alignItems: "center",
-  },
-  pdfCloseText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
-});
+function buildLossDocDetailStyles(ui: AuditUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: "transparent" },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    scrollContent: {
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingTop: 4,
+      paddingBottom: 36,
+    },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+    muted: { fontSize: 14, fontWeight: "500", color: ui.muted, textAlign: "center" },
+    summary: {
+      ...auditSoftCardStyle(ui),
+      padding: 14,
+      marginBottom: 14,
+    },
+    summaryTitle: { fontSize: 16, fontWeight: "700", color: ui.ink },
+    summaryMeta: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    summaryBtnWrap: {
+      marginTop: 12,
+      width: 130,
+    },
+    summaryBtn: {
+      alignSelf: "flex-start",
+      backgroundColor: ui.green,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: 999,
+    },
+    summaryBtnText: {
+      color: ui.onTone,
+      fontSize: 12,
+      fontWeight: "800",
+      letterSpacing: 0.3,
+    },
+    stepsBar: {
+      marginBottom: 10,
+      alignSelf: "flex-start",
+      backgroundColor: ui.accentSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+    },
+    stepsText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: ui.accent,
+      letterSpacing: 0.3,
+    },
+    block: {
+      ...auditSoftCardStyle(ui),
+      padding: 14,
+      marginBottom: 14,
+    },
+    blockHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 10,
+      gap: 8,
+    },
+    blockLabel: { fontSize: 14, fontWeight: "800", color: ui.ink, flex: 1 },
+    pdfBtnWrap: {
+      width: 96,
+    },
+    pdfBtn: {
+      backgroundColor: ui.accent,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      alignItems: "center",
+    },
+    pdfBtnText: {
+      color: "#FFFFFF",
+      fontWeight: "800",
+      fontSize: 11,
+      letterSpacing: 0.3,
+    },
+    pdfFrame: {
+      height: 420,
+      borderRadius: 14,
+      overflow: "hidden",
+      backgroundColor: ui.field,
+    },
+    pdfPlaceholder: {
+      height: 420,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: ui.field,
+    },
+    pdfLoading: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sigHead: {
+      marginTop: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    sigLabel: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.ink,
+    },
+    lockedBadge: {
+      backgroundColor: ui.greenSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 999,
+    },
+    lockedBadgeText: {
+      color: ui.green,
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.3,
+    },
+    signatureBox: {
+      marginTop: 6,
+      height: 170,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: ui.divider,
+      backgroundColor: ui.surface,
+      overflow: "hidden",
+    },
+    signatureLockedBox: {
+      marginTop: 6,
+      height: 130,
+      borderRadius: 12,
+      backgroundColor: ui.greenSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 6,
+    },
+    signatureLockedImg: {
+      width: "100%",
+      height: "100%",
+    },
+    sigActions: {
+      flexDirection: "row",
+      gap: 10,
+      marginTop: 10,
+    },
+    sigSlot: { flex: 1 },
+    sigBtn: {
+      paddingVertical: 11,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sigBtnGhost: {
+      backgroundColor: ui.field,
+    },
+    sigBtnGhostText: {
+      color: ui.ink,
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    sigBtnSave: {
+      backgroundColor: ui.accent,
+    },
+    sigBtnSaveText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      fontWeight: "800",
+      letterSpacing: 0.2,
+    },
+    navRow: {
+      flexDirection: "row",
+      gap: 10,
+      marginBottom: 12,
+    },
+    navSlot: { flex: 1 },
+    navBtn: {
+      paddingVertical: 12,
+      borderRadius: 999,
+      backgroundColor: ui.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: ui.divider,
+      alignItems: "center",
+    },
+    navBtnPrimary: {
+      backgroundColor: ui.accent,
+      borderColor: ui.accent,
+    },
+    navBtnDisabled: {
+      opacity: 0.45,
+    },
+    navBtnText: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: ui.ink,
+      letterSpacing: 0.2,
+    },
+    navBtnTextPrimary: {
+      color: "#FFFFFF",
+    },
+    navBtnTextDisabled: {
+      color: ui.muted,
+    },
+    saveBtnDisabled: { opacity: 0.6 },
+    pdfWrap: { flex: 1, backgroundColor: ui.surface },
+    pdfTopBar: {
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: ui.divider,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    pdfTitle: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: ui.ink,
+      flex: 1,
+      marginRight: 12,
+    },
+    pdfCloseBtnWrap: {
+      width: 80,
+    },
+    pdfCloseBtn: {
+      borderRadius: 999,
+      backgroundColor: ui.ink,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      alignItems: "center",
+    },
+    pdfCloseText: { color: ui.surface, fontWeight: "700", fontSize: 12 },
+  });
+}
+
+const useLossDocDetailStyles = createThemedStyles(
+  useAuditUi,
+  buildLossDocDetailStyles,
+);

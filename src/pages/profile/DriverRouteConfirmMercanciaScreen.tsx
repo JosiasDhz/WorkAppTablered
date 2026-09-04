@@ -38,6 +38,7 @@ import {
 } from "./driverRoute/DriverRouteLineIncidentModal";
 import { DRIVER_ROUTES_FLOW_USE_DEMO } from "./driverDemo/driverRoutesListDemoFlag";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
+import { useDriverUi, type DriverUi } from "./driverRoute/driverUi";
 
 function extractApiErrorMessage(e: unknown): string {
   if (typeof e === "string") return e;
@@ -82,6 +83,8 @@ function reasonLabel(reason: DriverIncidentReason | undefined): string {
 }
 
 export default function DriverRouteConfirmMercanciaScreen() {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } =
@@ -303,7 +306,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
       <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <HeaderTitle title="Confirmar mercancía" subtitle="Cargando ruta…" tone="light" />
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#EA7600" />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       </SafeAreaView>
     );
@@ -355,7 +358,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
                 toca el botón de advertencia para reportar la incidencia.
               </Text>
               {hasDiscrepancy ? (
-                <Text style={[styles.progressSub, { color: "#B45309", marginTop: 8 }]}>
+                <Text style={[styles.progressSub, { color: ui.amber, marginTop: 8 }]}>
                   Hay incidencias: se avisará al almacenista al confirmar.
                 </Text>
               ) : null}
@@ -402,7 +405,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
                       >
                         <Warning2
                           size={18}
-                          color={hasIncident ? "#FFFFFF" : "#C2410C"}
+                          color={hasIncident ? "#FFFFFF" : ui.accentInk}
                           variant="Bold"
                         />
                       </Pressable>
@@ -421,7 +424,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
                           value={raw}
                           onChangeText={(t) => setQty(line.id, t)}
                           placeholder="-"
-                          placeholderTextColor="#94A3B8"
+                          placeholderTextColor={ui.faint}
                           keyboardType="number-pad"
                           inputMode="numeric"
                           maxLength={6}
@@ -449,7 +452,7 @@ export default function DriverRouteConfirmMercanciaScreen() {
                       style={styles.incidentLink}
                       onPress={() => setIncidentLineId(line.id)}
                     >
-                      <Warning2 size={16} color="#C2410C" variant="Bold" />
+                      <Warning2 size={16} color={ui.accentInk} variant="Bold" />
                       <Text style={styles.incidentLinkTxt}>
                         {hasIncident
                           ? `Incidencia: ${reasonLabel(reasonByLineId[line.id])}`
@@ -571,181 +574,183 @@ export default function DriverRouteConfirmMercanciaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  shell: { flex: 1, position: "relative" },
-  flex: { flex: 1 },
-  center: { padding: 24, alignItems: "flex-start" },
-  muted: { fontSize: 15, color: "#64748B" },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-  },
-  retryTxt: { color: "#FFFFFF", fontWeight: "800" },
-  scrollPad: { paddingHorizontal: 16, paddingTop: 8 },
-  progressCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  progressTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
-  progressSub: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 18,
-  },
-  lineCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  lineCardIncident: {
-    borderColor: "#FDBA74",
-    backgroundColor: "#FFFBEB",
-  },
-  lineTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  prodName: { fontSize: 14, fontWeight: "700", color: "#0F172A", lineHeight: 19 },
-  folio: { marginTop: 4, fontSize: 12, fontWeight: "700", color: "#64748B" },
-  addr: { marginTop: 4, fontSize: 12, fontWeight: "600", color: "#94A3B8" },
-  warnBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FDBA74",
-    backgroundColor: "#FFF7ED",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  warnBtnOn: {
-    backgroundColor: "#EA7600",
-    borderColor: "#EA7600",
-  },
-  qtyRow: { marginTop: 12, flexDirection: "row", gap: 12 },
-  qtyCol: { flex: 1 },
-  qtyColInput: { maxWidth: 120 },
-  qtyLbl: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 6,
-  },
-  qtyExpected: { fontSize: 22, fontWeight: "800", color: "#0F172A" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    backgroundColor: "#F8FAFC",
-  },
-  inputWarn: {
-    borderColor: "#F97316",
-    backgroundColor: "#FFF7ED",
-  },
-  inputLocked: {
-    opacity: 0.85,
-  },
-  incidentLink: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FDBA74",
-    backgroundColor: "#FFF7ED",
-  },
-  incidentLinkTxt: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#C2410C",
-  },
-  incidentSummary: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#FED7AA",
-  },
-  incidentSummaryTxt: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#9A3412",
-  },
-  incidentComment: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#C2410C",
-  },
-  warn: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#C2410C",
-  },
-  badgeRow: { marginTop: 10 },
-  badgeConfirmed: { fontSize: 12, fontWeight: "800", color: "#047857" },
-  badgeWarehouse: { fontSize: 12, fontWeight: "800", color: "#64748B" },
-  pendingWrap: {
-    marginTop: 4,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: "#FFF7ED",
-    borderWidth: 1,
-    borderColor: "#FED7AA",
-  },
-  pendingTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#9A3412",
-    marginBottom: 6,
-  },
-  pendingItem: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#C2410C",
-    lineHeight: 18,
-  },
-  dock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  dockBtn: {
-    height: 56,
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  dockBtnDisabled: { opacity: 0.55 },
-  dockBtnTxt: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: ui.layout },
+    shell: { flex: 1, position: "relative" },
+    flex: { flex: 1 },
+    center: { padding: 24, alignItems: "flex-start" },
+    muted: { fontSize: 15, color: ui.muted },
+    retryBtn: {
+      marginTop: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+    },
+    retryTxt: { color: "#FFFFFF", fontWeight: "800" },
+    scrollPad: { paddingHorizontal: 16, paddingTop: 8 },
+    progressCard: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: ui.border,
+    },
+    progressTitle: { fontSize: 16, fontWeight: "800", color: ui.ink },
+    progressSub: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    lineCard: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: ui.border,
+    },
+    lineCardIncident: {
+      borderColor: ui.accentBorder,
+      backgroundColor: ui.amberSoft,
+    },
+    lineTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    prodName: { fontSize: 14, fontWeight: "700", color: ui.ink, lineHeight: 19 },
+    folio: { marginTop: 4, fontSize: 12, fontWeight: "700", color: ui.muted },
+    addr: { marginTop: 4, fontSize: 12, fontWeight: "600", color: ui.faint },
+    warnBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: ui.accentBorder,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    warnBtnOn: {
+      backgroundColor: ui.accent,
+      borderColor: ui.accent,
+    },
+    qtyRow: { marginTop: 12, flexDirection: "row", gap: 12 },
+    qtyCol: { flex: 1 },
+    qtyColInput: { maxWidth: 120 },
+    qtyLbl: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginBottom: 6,
+    },
+    qtyExpected: { fontSize: 22, fontWeight: "800", color: ui.ink },
+    input: {
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 20,
+      fontWeight: "800",
+      color: ui.ink,
+      backgroundColor: ui.field,
+    },
+    inputWarn: {
+      borderColor: ui.accent,
+      backgroundColor: ui.accentSoft,
+    },
+    inputLocked: {
+      opacity: 0.85,
+    },
+    incidentLink: {
+      marginTop: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: ui.accentBorder,
+      backgroundColor: ui.accentSoft,
+    },
+    incidentLinkTxt: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "800",
+      color: ui.accentInk,
+    },
+    incidentSummary: {
+      marginTop: 10,
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: ui.surface,
+      borderWidth: 1,
+      borderColor: ui.accentBorder,
+    },
+    incidentSummaryTxt: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: ui.accentInkStrong,
+    },
+    incidentComment: {
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.accentInk,
+    },
+    warn: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.accentInk,
+    },
+    badgeRow: { marginTop: 10 },
+    badgeConfirmed: { fontSize: 12, fontWeight: "800", color: ui.green },
+    badgeWarehouse: { fontSize: 12, fontWeight: "800", color: ui.muted },
+    pendingWrap: {
+      marginTop: 4,
+      marginBottom: 8,
+      padding: 14,
+      borderRadius: 12,
+      backgroundColor: ui.accentSoft,
+      borderWidth: 1,
+      borderColor: ui.accentBorder,
+    },
+    pendingTitle: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: ui.accentInkStrong,
+      marginBottom: 6,
+    },
+    pendingItem: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.accentInk,
+      lineHeight: 18,
+    },
+    dock: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    dockBtn: {
+      height: 56,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    },
+    dockBtnDisabled: { opacity: 0.55 },
+    dockBtnTxt: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+  });
+}

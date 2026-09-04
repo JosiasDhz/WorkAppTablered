@@ -1,6 +1,6 @@
 import React from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { LOGIN_COLORS } from "./constants";
+import { useLoginColors } from "./constants";
 
 type Props = {
   message: string | null;
@@ -8,14 +8,22 @@ type Props = {
 };
 
 export function LoginErrorBanner({ message, shakeX }: Props) {
+  const colors = useLoginColors();
   if (!message) return null;
 
   return (
     <Animated.View
       style={[styles.wrap, { transform: [{ translateX: shakeX }] }]}
     >
-      <View style={styles.banner}>
-        <Text style={styles.text}>{message}</Text>
+      <View
+        style={[
+          styles.banner,
+          { backgroundColor: colors.errorBg, borderColor: colors.errorBorder },
+        ]}
+      >
+        <Text style={[styles.text, { color: colors.errorText }]}>
+          {message}
+        </Text>
       </View>
     </Animated.View>
   );
@@ -30,14 +38,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#FFF1F2",
     borderWidth: 1,
-    borderColor: "rgba(225, 29, 72, 0.18)",
   },
   text: {
     textAlign: "center",
     fontSize: 13,
     fontWeight: "600",
-    color: "#BE123C",
   },
 });

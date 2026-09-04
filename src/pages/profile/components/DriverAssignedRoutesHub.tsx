@@ -36,21 +36,8 @@ import { partitionDriverHubRoutes } from "../../../domain/driverRouteHubVisibili
 import type { DriverAssignedRouteRecord } from "../../../services/driverRoutesService";
 import { SCREEN_GUTTER } from "../../../theme/layout";
 import type { UseDriverPendingRoutesResult } from "../hooks/useDriverPendingRoutes";
+import { useDriverUi, type DriverUi } from "../driverRoute/driverUi";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  accent: "#EA7600",
-};
-
-const ACCENT_SOFT = "rgba(234, 118, 0, 0.14)";
-const DONE = "#16A34A";
-const DONE_SOFT = "rgba(22, 163, 74, 0.16)";
-const ROSE = "#BE123C";
-const ROSE_SOFT = "#FFF1F2";
-const WARN = "#B45309";
-const WARN_SOFT = "rgba(245, 158, 11, 0.18)";
 const FLIP_STAGGER_MS = 70;
 const MAX_FLIP_DELAY_MS = 700;
 
@@ -100,53 +87,44 @@ function headerSubtitle(input: {
 function routeAppearance(
   item: DriverAssignedRouteRecord,
   model: ReturnType<typeof buildDriverRouteListCardModel>,
+  ui: DriverUi,
 ) {
   if (model.isCancelada) {
     return {
       Icon: CloseCircle,
-      well: ROSE_SOFT,
-      tint: ROSE,
-      badgeBg: ROSE_SOFT,
-      badgeText: ROSE,
+      well: ui.roseSoft,
+      tint: ui.rose,
+      badgeBg: ui.roseSoft,
+      badgeText: ui.rose,
       hint: model.cancellationReason ?? model.summaryTitle,
     };
   }
-  if (model.isCompleta) {
+  if (model.isCompleta || model.driverFullyConfirmed) {
     return {
       Icon: TickCircle,
-      well: DONE_SOFT,
-      tint: DONE,
-      badgeBg: DONE_SOFT,
-      badgeText: DONE,
+      well: ui.greenSoft,
+      tint: ui.green,
+      badgeBg: ui.greenSoft,
+      badgeText: ui.green,
       hint: model.summaryTitle,
     };
   }
   if (model.isEnProceso) {
     return {
       Icon: Routing2,
-      well: ACCENT_SOFT,
-      tint: COLORS.accent,
-      badgeBg: ACCENT_SOFT,
-      badgeText: COLORS.accent,
-      hint: model.summaryTitle,
-    };
-  }
-  if (model.driverFullyConfirmed) {
-    return {
-      Icon: TickCircle,
-      well: DONE_SOFT,
-      tint: DONE,
-      badgeBg: DONE_SOFT,
-      badgeText: DONE,
+      well: ui.accentSoft,
+      tint: ui.accent,
+      badgeBg: ui.accentSoft,
+      badgeText: ui.accent,
       hint: model.summaryTitle,
     };
   }
   return {
     Icon: Box1,
-    well: ACCENT_SOFT,
-    tint: COLORS.accent,
-    badgeBg: ACCENT_SOFT,
-    badgeText: COLORS.accent,
+    well: ui.accentSoft,
+    tint: ui.accent,
+    badgeBg: ui.accentSoft,
+    badgeText: ui.accent,
     hint: driverRouteConfirmationSummaryLabel(item),
   };
 }
@@ -158,8 +136,10 @@ function RouteCard({
   item: DriverAssignedRouteRecord;
   onPress: () => void;
 }) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const model = buildDriverRouteListCardModel(item);
-  const look = routeAppearance(item, model);
+  const look = routeAppearance(item, model, ui);
   const Icon = look.Icon;
   const hasCashPending =
     model.cashPendingHandoverMxn > 0 && !model.cashHandedOver;
@@ -186,8 +166,8 @@ function RouteCard({
               </Text>
             </View>
             {hasCashPending ? (
-              <View style={[styles.badge, { backgroundColor: WARN_SOFT }]}>
-                <Text style={[styles.badgeText, { color: WARN }]}>Caja</Text>
+              <View style={[styles.badge, { backgroundColor: ui.amberSoft }]}>
+                <Text style={[styles.badgeText, { color: ui.amber }]}>Caja</Text>
               </View>
             ) : null}
           </View>
@@ -215,7 +195,7 @@ function RouteCard({
             </Text>
           ) : null}
         </View>
-        <ArrowRight2 size={16} color={COLORS.muted} variant="Linear" />
+        <ArrowRight2 size={16} color={ui.muted} variant="Linear" />
       </View>
     </SoftPressable>
   );
@@ -227,6 +207,8 @@ function HubTabBar(props: {
   hasCashPendingInCompleted: boolean;
   onSelect: (tab: HubTab) => void;
 }) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   return (
     <ScrollView
       horizontal
@@ -277,6 +259,8 @@ export function DriverAssignedRoutesHub({
   onScroll,
 }: DriverAssignedRoutesHubProps) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -402,7 +386,7 @@ export function DriverAssignedRoutesHub({
         ) : null}
         {showCenteredLoader ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
+            <ActivityIndicator size="large" color={ui.accent} />
           </View>
         ) : (
           <ScrollView
@@ -414,7 +398,7 @@ export function DriverAssignedRoutesHub({
               <RefreshControl
                 refreshing={routes.loading && routes.items.length > 0}
                 onRefresh={() => void routes.refresh()}
-                tintColor={COLORS.ink}
+                tintColor={ui.ink}
               />
             }
             contentContainerStyle={{
@@ -428,7 +412,7 @@ export function DriverAssignedRoutesHub({
               <PageFlipReveal delay={0} active={isFocused}>
                 <View style={styles.empty}>
                   <View style={styles.emptyWell}>
-                    <Truck size={28} color={COLORS.accent} variant="Linear" />
+                    <Truck size={28} color={ui.accent} variant="Linear" />
                   </View>
                   <Text style={styles.emptyTitle}>{routes.error}</Text>
                   <SoftPressable
@@ -447,7 +431,7 @@ export function DriverAssignedRoutesHub({
               <PageFlipReveal delay={0} active={isFocused}>
                 <View style={styles.empty}>
                   <View style={styles.emptyWell}>
-                    <Truck size={28} color={COLORS.accent} variant="Linear" />
+                    <Truck size={28} color={ui.accent} variant="Linear" />
                   </View>
                   <Text style={styles.emptyTitle}>Sin rutas asignadas</Text>
                   <Text style={styles.emptyText}>
@@ -462,7 +446,7 @@ export function DriverAssignedRoutesHub({
               <PageFlipReveal delay={0} active={isFocused}>
                 <View style={styles.empty}>
                   <View style={styles.emptyWell}>
-                    <Truck size={28} color={COLORS.accent} variant="Linear" />
+                    <Truck size={28} color={ui.accent} variant="Linear" />
                   </View>
                   <Text style={styles.emptyTitle}>
                     {activeTab === "cancelled"
@@ -527,198 +511,201 @@ export function DriverAssignedRoutesHub({
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: SCREEN_GUTTER,
-  },
-  tabBar: {
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingBottom: 4,
-  },
-  tabRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 4,
-  },
-  tab: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: COLORS.surface,
-  },
-  tabActive: {
-    backgroundColor: ACCENT_SOFT,
-  },
-  tabTxt: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  tabTxtActive: {
-    color: COLORS.accent,
-  },
-  tabCount: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
-    backgroundColor: "rgba(60, 60, 67, 0.08)",
-  },
-  tabCountActive: {
-    backgroundColor: "rgba(234, 118, 0, 0.18)",
-  },
-  tabCountTxt: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.muted,
-  },
-  tabCountTxtActive: {
-    color: COLORS.accent,
-  },
-  alertDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: COLORS.accent,
-  },
-  scroll: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  sectionBlock: {
-    width: "100%",
-    marginTop: 8,
-  },
-  sectionBlockFollow: {
-    width: "100%",
-    marginTop: 22,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  list: {
-    gap: 12,
-  },
-  card: {
-    minHeight: 78,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconWell: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  cardMeta: {
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
-  cardDesc: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-    color: COLORS.muted,
-  },
-  cardDescDanger: {
-    color: ROSE,
-  },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    paddingTop: 48,
-    gap: 8,
-  },
-  emptyWell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: ACCENT_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.ink,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: ACCENT_SOFT,
-  },
-  retryTxt: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: ui.layout,
+    },
+    safe: {
+      flex: 1,
+    },
+    header: {
+      paddingHorizontal: SCREEN_GUTTER,
+    },
+    tabBar: {
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingBottom: 4,
+    },
+    tabRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 4,
+    },
+    tab: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      minHeight: 36,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: ui.surface,
+    },
+    tabActive: {
+      backgroundColor: ui.accentSoft,
+    },
+    tabTxt: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    tabTxtActive: {
+      color: ui.accent,
+    },
+    tabCount: {
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 5,
+      backgroundColor: ui.field,
+    },
+    tabCountActive: {
+      backgroundColor: ui.accentSoft,
+    },
+    tabCountTxt: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+    tabCountTxtActive: {
+      color: ui.accent,
+    },
+    alertDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: ui.accent,
+    },
+    scroll: {
+      flex: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    sectionBlock: {
+      width: "100%",
+      marginTop: 8,
+    },
+    sectionBlockFollow: {
+      width: "100%",
+      marginTop: 22,
+    },
+    sectionTitle: {
+      marginLeft: 4,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    list: {
+      gap: 12,
+    },
+    card: {
+      minHeight: 78,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      backgroundColor: ui.surface,
+      borderRadius: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    iconWell: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 16,
+      fontWeight: "600",
+      color: ui.ink,
+    },
+    badge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    cardMeta: {
+      marginTop: 3,
+      fontSize: 13,
+      fontWeight: "500",
+      color: ui.muted,
+    },
+    cardDesc: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: "500",
+      lineHeight: 18,
+      color: ui.muted,
+    },
+    cardDescDanger: {
+      color: ui.rose,
+    },
+    empty: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 32,
+      paddingTop: 48,
+      gap: 8,
+    },
+    emptyWell: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: ui.ink,
+      textAlign: "center",
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: ui.muted,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    retryBtn: {
+      marginTop: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 16,
+      backgroundColor: ui.accentSoft,
+    },
+    retryTxt: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.accent,
+    },
+  });
+}

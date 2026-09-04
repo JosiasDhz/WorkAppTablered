@@ -1,20 +1,50 @@
-import { SOFT } from "../../../theme/softUi";
+import { useMemo } from "react";
+import { useAppAppearance } from "../../../theme/appearance";
+import { SOFT_LIGHT, type SoftPalette } from "../../../theme/softUi";
 
-export const POINTS_COLORS = {
-  surface: SOFT.surface,
-  ink: "#1C1C1E",
-  heading: "#4E3629",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  tableHeader: SOFT.lime,
-  tableHeaderInk: "#FFFFFF",
-  accent: SOFT.accent,
-  accentSoft: SOFT.accentSoft,
-  positive: SOFT.emerald,
-  positiveSoft: SOFT.emeraldSoft,
-  negative: SOFT.roseText,
-  negativeSoft: SOFT.roseSoft,
-} as const;
+export type PointsColors = {
+  surface: string;
+  ink: string;
+  heading: string;
+  muted: string;
+  divider: string;
+  tableHeader: string;
+  tableHeaderInk: string;
+  accent: string;
+  accentSoft: string;
+  positive: string;
+  positiveSoft: string;
+  negative: string;
+  negativeSoft: string;
+};
+
+export function buildPointsColors(
+  soft: SoftPalette,
+  scheme: "light" | "dark",
+): PointsColors {
+  return {
+    surface: soft.surface,
+    ink: soft.ink,
+    heading: scheme === "dark" ? "#E7E5E4" : "#4E3629",
+    muted: soft.mutedInk,
+    divider: soft.border,
+    tableHeader: soft.lime,
+    tableHeaderInk: "#1C1917",
+    accent: soft.accent,
+    accentSoft: soft.accentSoft,
+    positive: soft.emerald,
+    positiveSoft: soft.emeraldSoft,
+    negative: soft.roseText,
+    negativeSoft: soft.roseSoft,
+  };
+}
+
+export function usePointsColors(): PointsColors {
+  const { colors, scheme } = useAppAppearance();
+  return useMemo(() => buildPointsColors(colors, scheme), [colors, scheme]);
+}
+
+export const POINTS_COLORS = buildPointsColors(SOFT_LIGHT, "light");
 
 export const POINTS_RADIUS = {
   card: 18,

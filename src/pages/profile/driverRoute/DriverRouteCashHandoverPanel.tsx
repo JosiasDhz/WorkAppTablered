@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { MoneyRecive } from "iconsax-react-native";
 import { formatMoneyMxn } from "./deliveryLinesFromDestination";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 type DriverRouteCashHandoverPanelProps = {
   amountMxn: number;
@@ -16,13 +17,15 @@ export function DriverRouteCashHandoverPanel({
   completed,
   onConfirm,
 }: DriverRouteCashHandoverPanelProps) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   if (amountMxn <= 0 && !completed) return null;
 
   return (
     <View style={styles.card}>
       <View style={styles.headRow}>
         <View style={styles.iconWrap}>
-          <MoneyRecive size={20} color="#B45309" variant="Bold" />
+          <MoneyRecive size={20} color={ui.amber} variant="Bold" />
         </View>
         <View style={styles.headCopy}>
           <Text style={styles.title}>Entrega a caja</Text>
@@ -60,87 +63,89 @@ export function DriverRouteCashHandoverPanel({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-  },
-  headRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 12,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFBEB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headCopy: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  subtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 18,
-  },
-  amountBox: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    marginBottom: 12,
-  },
-  amountLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#B45309",
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-  },
-  amountValue: {
-    marginTop: 4,
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#0F172A",
-  },
-  btn: {
-    height: 52,
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.18,
-        shadowRadius: 10,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  btnBusy: {
-    opacity: 0.85,
-  },
-  btnText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+    },
+    headRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      marginBottom: 12,
+    },
+    iconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: ui.amberSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headCopy: {
+      flex: 1,
+    },
+    title: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    subtitle: {
+      marginTop: 4,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    amountBox: {
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: ui.amberSoft,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+      marginBottom: 12,
+    },
+    amountLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.amber,
+      textTransform: "uppercase",
+      letterSpacing: 0.35,
+    },
+    amountValue: {
+      marginTop: 4,
+      fontSize: 28,
+      fontWeight: "900",
+      color: ui.ink,
+    },
+    btn: {
+      height: 52,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.18,
+          shadowRadius: 10,
+        },
+        android: { elevation: 8 },
+      }),
+    },
+    btnBusy: {
+      opacity: 0.85,
+    },
+    btnText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "800",
+    },
+  });
+}

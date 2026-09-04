@@ -41,6 +41,8 @@ import { HeaderTitle } from "../../components/HeaderTitle";
 import { PageFlipReveal } from "../../components/PageFlipReveal";
 import { SoftPressable } from "../../components/SoftPressable";
 import { useTabBarAutoCollapseScroll } from "../../routes/tabBar/TabBarMotionContext";
+import { useAppAppearance } from "../../theme/appearance";
+import { useFormColors, type FormColors } from "../../theme/formColors";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
   createPermissionRequest,
@@ -52,18 +54,7 @@ import {
 import { prepareEvidenceImageForUpload } from "../../utils/prepareEvidenceImageForUpload";
 import { formatWorkforceYmd } from "../../utils/formatWorkforceYmd";
 
-const COLORS = {
-  surface: "#FFFFFF",
-  ink: "#1C1C1E",
-  muted: "#8E8E93",
-  divider: "rgba(60, 60, 67, 0.12)",
-  field: "#F3F1EC",
-  fieldFocus: "#FFFFFF",
-  accent: "#EA7600",
-  accentSoft: "rgba(234, 118, 0, 0.14)",
-  warnBg: "#FFFBEB",
-  warnText: "#B45309",
-};
+type Styles = ReturnType<typeof createStyles>;
 
 const FLIP_STAGGER_MS = 70;
 
@@ -125,10 +116,14 @@ function SoftCheckbox({
   checked,
   label,
   onPress,
+  styles,
+  COLORS,
 }: {
   checked: boolean;
   label: string;
   onPress: () => void;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
   return (
     <Pressable style={styles.checkboxRow} onPress={onPress}>
@@ -145,9 +140,11 @@ function SoftCheckbox({
 function SectionCard({
   title,
   children,
+  styles,
 }: {
   title: string;
   children: React.ReactNode;
+  styles: Styles;
 }) {
   return (
     <View style={styles.sectionBlock}>
@@ -163,12 +160,16 @@ function Stepper({
   min = 1,
   max = 14,
   suffix,
+  styles,
+  COLORS,
 }: {
   value: number;
   onChange: (n: number) => void;
   min?: number;
   max?: number;
   suffix: string;
+  styles: Styles;
+  COLORS: FormColors;
 }) {
   return (
     <View style={styles.stepperRow}>
@@ -212,6 +213,9 @@ function workingDaysUntilDate(target: Date) {
 export default function NuevoPermisoScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const COLORS = useFormColors();
+  const { scheme } = useAppAppearance();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
@@ -490,7 +494,7 @@ export default function NuevoPermisoScreen() {
           showsVerticalScrollIndicator={false}
         >
           <PageFlipReveal delay={0} active={isFocused}>
-            <SectionCard title="Tipo de permiso">
+            <SectionCard title="Tipo de permiso" styles={styles}>
               <SoftPressable
                 onPress={openCategoryPicker}
                 scaleTo={0.99}
@@ -517,7 +521,7 @@ export default function NuevoPermisoScreen() {
             </SectionCard>
           </PageFlipReveal>
 
-          <SectionCard title="Detalles">
+          <SectionCard title="Detalles" styles={styles}>
           <Text style={styles.fieldCaption}>Fecha del permiso</Text>
           <SoftPressable
             onPress={openDatePicker}
@@ -548,7 +552,7 @@ export default function NuevoPermisoScreen() {
                   onBlur={() => setHoursFocused(false)}
                   keyboardType="decimal-pad"
                   placeholder="Máx. 2"
-                  placeholderTextColor="rgba(105, 97, 88, 0.55)"
+                  placeholderTextColor={COLORS.muted}
                   style={styles.fieldInput}
                 />
                 <Text style={styles.inputSuffix}>h</Text>
@@ -565,16 +569,22 @@ export default function NuevoPermisoScreen() {
                 checked={isDengueCovid}
                 onPress={() => setIsDengueCovid((v) => !v)}
                 label="Es dengue o COVID (estudio de laboratorio)"
+                styles={styles}
+                COLORS={COLORS}
               />
               <SoftCheckbox
                 checked={hasAntibioticPrescription}
                 onPress={() => setHasAntibioticPrescription((v) => !v)}
                 label="El certificado receta antibiótico y tiempo de descanso"
+                styles={styles}
+                COLORS={COLORS}
               />
               <SoftCheckbox
                 checked={restDaysSpecified}
                 onPress={() => setRestDaysSpecified((v) => !v)}
                 label="El justificante indica cuántos días de descanso"
+                styles={styles}
+                COLORS={COLORS}
               />
             </>
           ) : null}
@@ -593,6 +603,8 @@ export default function NuevoPermisoScreen() {
                       : 14
                 }
                 suffix="días"
+                styles={styles}
+                COLORS={COLORS}
               />
             </>
           ) : null}
@@ -617,7 +629,7 @@ export default function NuevoPermisoScreen() {
               placeholder={
                 "Ej. Trámite de acta en registro civil. Dejo pendientes las notas de la ruta 4. Me cubre Ana Pérez."
               }
-              placeholderTextColor="rgba(105, 97, 88, 0.55)"
+              placeholderTextColor={COLORS.muted}
               multiline
               numberOfLines={7}
               style={styles.fieldTextArea}
@@ -628,7 +640,7 @@ export default function NuevoPermisoScreen() {
         </SectionCard>
 
           <PageFlipReveal delay={FLIP_STAGGER_MS} active={isFocused}>
-            <SectionCard title="Evidencias">
+            <SectionCard title="Evidencias" styles={styles}>
           <View style={styles.attachRow}>
             <Pressable
               style={({ pressed }) => [styles.attachBtn, pressed && styles.attachBtnPressed]}
@@ -665,7 +677,7 @@ export default function NuevoPermisoScreen() {
                     onPress={() => removeEvidence(item.id)}
                     hitSlop={8}
                   >
-                    <Trash size={18} color="#DC2626" variant="Linear" />
+                    <Trash size={18} color={COLORS.roseText} variant="Linear" />
                   </Pressable>
                 </View>
               ))}
@@ -816,7 +828,7 @@ export default function NuevoPermisoScreen() {
               onChange={(_, selected) => {
                 if (selected) setDatePickerDraft(selected);
               }}
-              themeVariant="light"
+              themeVariant={scheme}
             />
             <Pressable style={styles.pickerConfirm} onPress={confirmDatePicker}>
               <Text style={styles.pickerConfirmText}>Listo</Text>
@@ -829,381 +841,383 @@ export default function NuevoPermisoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  safe: { flex: 1 },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  scroll: { flex: 1 },
-  sectionBlock: {
-    width: "100%",
-    marginBottom: 18,
-  },
-  sectionCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  helperText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 8,
-    lineHeight: 16,
-  },
-  softShell: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: 14,
-    paddingRight: 14,
-    borderRadius: 16,
-    backgroundColor: COLORS.field,
-  },
-  softShellPressed: { opacity: 0.88 },
-  fieldShell: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: COLORS.field,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  fieldShellMultiline: {
-    borderRadius: 16,
-    backgroundColor: COLORS.field,
-    borderWidth: 2,
-    borderColor: "transparent",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  fieldShellFocused: {
-    borderColor: "rgba(234, 118, 0, 0.8)",
-  },
-  fieldInput: {
-    marginLeft: 12,
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.ink,
-    paddingVertical: 0,
-  },
-  fieldTextArea: {
-    flex: 1,
-    minHeight: 128,
-    fontSize: 16,
-    color: COLORS.ink,
-    lineHeight: 22,
-    paddingVertical: 0,
-  },
-  softShellFocused: {
-    backgroundColor: COLORS.fieldFocus,
-    shadowColor: COLORS.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  softShellMultiline: {
-    borderRadius: 16,
-    backgroundColor: COLORS.field,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-  },
-  softIcon: {
-    marginRight: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectBtnContent: { flex: 1, minWidth: 0 },
-  selectTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  selectValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  payChip: {
-    borderRadius: 999,
-    backgroundColor: COLORS.accentSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  payChipText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-  fieldCaption: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-    marginBottom: 8,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.ink,
-  },
-  inputInner: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.ink,
-    paddingVertical: 12,
-  },
-  inputSuffix: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-  stepperRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.field,
-    borderRadius: 16,
-    padding: 6,
-    paddingHorizontal: 8,
-  },
-  stepperBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepperBtnDisabled: { opacity: 0.4 },
-  stepperValueWrap: {
-    alignItems: "center",
-  },
-  stepperValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  stepperSuffix: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 1,
-  },
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 14,
-    paddingVertical: 2,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1.5,
-    borderColor: COLORS.divider,
-  },
-  checkboxLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.ink,
-  },
-  warningBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: COLORS.warnBg,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.warnText,
-    fontWeight: "600",
-    lineHeight: 18,
-  },
-  textarea: {
-    minHeight: 148,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.ink,
-    lineHeight: 22,
-    paddingVertical: 12,
-  },
-  attachRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  attachBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: COLORS.field,
-    borderRadius: 16,
-    paddingVertical: 14,
-  },
-  attachBtnPressed: { opacity: 0.85 },
-  attachBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.accent,
-  },
-  evidenceList: { gap: 8, marginTop: 12 },
-  evidenceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.field,
-    borderRadius: 16,
-    padding: 10,
-    gap: 10,
-  },
-  thumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-  },
-  pdfPreview: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  pdfName: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.ink,
-    fontWeight: "500",
-  },
-  removeBtn: {
-    padding: 8,
-  },
-  submitBtn: {
-    marginTop: 4,
-    marginBottom: 8,
-    backgroundColor: COLORS.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  submitDisabled: { opacity: 0.7 },
-  submitText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  pickerShell: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  pickerDim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(28, 25, 23, 0.4)",
-  },
-  pickerOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(28, 25, 23, 0.4)",
-  },
-  pickerCard: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    maxHeight: "75%",
-  },
-  pickerHandle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: COLORS.field,
-    marginBottom: 12,
-  },
-  pickerTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.ink,
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  groupHeader: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  categoryList: {
-    maxHeight: 420,
-  },
-  categoryOption: {
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 8,
-    backgroundColor: COLORS.field,
-  },
-  categoryOptionSelected: {
-    backgroundColor: COLORS.accentSoft,
-  },
-  categoryOptionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  categoryOptionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  categoryOptionIconSelected: {
-    backgroundColor: COLORS.surface,
-  },
-  categoryOptionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.ink,
-  },
-  categoryOptionLabelSelected: {
-    color: COLORS.ink,
-  },
-  categoryOptionHint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  pickerConfirm: {
-    marginTop: 8,
-    backgroundColor: COLORS.accent,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  pickerConfirmText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-});
+function createStyles(COLORS: FormColors) {
+  return StyleSheet.create({
+    root: { flex: 1 },
+    safe: { flex: 1 },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    scroll: { flex: 1 },
+    sectionBlock: {
+      width: "100%",
+      marginBottom: 18,
+    },
+    sectionCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      padding: 16,
+    },
+    sectionTitle: {
+      marginLeft: 4,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    helperText: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginTop: 8,
+      lineHeight: 16,
+    },
+    softShell: {
+      minHeight: 52,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingLeft: 14,
+      paddingRight: 14,
+      borderRadius: 16,
+      backgroundColor: COLORS.field,
+    },
+    softShellPressed: { opacity: 0.88 },
+    fieldShell: {
+      minHeight: 52,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: COLORS.field,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    fieldShellMultiline: {
+      borderRadius: 16,
+      backgroundColor: COLORS.field,
+      borderWidth: 2,
+      borderColor: "transparent",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    fieldShellFocused: {
+      borderColor: "rgba(234, 118, 0, 0.8)",
+    },
+    fieldInput: {
+      marginLeft: 12,
+      flex: 1,
+      fontSize: 16,
+      color: COLORS.ink,
+      paddingVertical: 0,
+    },
+    fieldTextArea: {
+      flex: 1,
+      minHeight: 128,
+      fontSize: 16,
+      color: COLORS.ink,
+      lineHeight: 22,
+      paddingVertical: 0,
+    },
+    softShellFocused: {
+      backgroundColor: COLORS.fieldFocus,
+      shadowColor: COLORS.accent,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.22,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    softShellMultiline: {
+      borderRadius: 16,
+      backgroundColor: COLORS.field,
+      paddingHorizontal: 14,
+      paddingVertical: 4,
+    },
+    softIcon: {
+      marginRight: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    selectBtnContent: { flex: 1, minWidth: 0 },
+    selectTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    selectValue: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    payChip: {
+      borderRadius: 999,
+      backgroundColor: COLORS.accentSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    payChipText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: COLORS.accent,
+    },
+    fieldCaption: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.muted,
+      marginBottom: 8,
+    },
+    dateText: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.ink,
+    },
+    inputInner: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.ink,
+      paddingVertical: 12,
+    },
+    inputSuffix: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: COLORS.muted,
+    },
+    stepperRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: COLORS.field,
+      borderRadius: 16,
+      padding: 6,
+      paddingHorizontal: 8,
+    },
+    stepperBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: COLORS.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepperBtnDisabled: { opacity: 0.4 },
+    stepperValueWrap: {
+      alignItems: "center",
+    },
+    stepperValue: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: COLORS.ink,
+    },
+    stepperSuffix: {
+      fontSize: 11,
+      color: COLORS.muted,
+      marginTop: 1,
+    },
+    checkboxRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginTop: 14,
+      paddingVertical: 2,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 7,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1.5,
+      borderColor: COLORS.divider,
+    },
+    checkboxLabel: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.ink,
+    },
+    warningBanner: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      marginTop: 16,
+      padding: 12,
+      borderRadius: 16,
+      backgroundColor: COLORS.warnBg,
+    },
+    warningText: {
+      flex: 1,
+      fontSize: 13,
+      color: COLORS.warnText,
+      fontWeight: "600",
+      lineHeight: 18,
+    },
+    textarea: {
+      minHeight: 148,
+      fontSize: 14,
+      fontWeight: "500",
+      color: COLORS.ink,
+      lineHeight: 22,
+      paddingVertical: 12,
+    },
+    attachRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    attachBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: COLORS.field,
+      borderRadius: 16,
+      paddingVertical: 14,
+    },
+    attachBtnPressed: { opacity: 0.85 },
+    attachBtnText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: COLORS.accent,
+    },
+    evidenceList: { gap: 8, marginTop: 12 },
+    evidenceCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.field,
+      borderRadius: 16,
+      padding: 10,
+      gap: 10,
+    },
+    thumb: {
+      width: 52,
+      height: 52,
+      borderRadius: 12,
+    },
+    pdfPreview: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    pdfName: {
+      flex: 1,
+      fontSize: 13,
+      color: COLORS.ink,
+      fontWeight: "500",
+    },
+    removeBtn: {
+      padding: 8,
+    },
+    submitBtn: {
+      marginTop: 4,
+      marginBottom: 8,
+      backgroundColor: COLORS.accent,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    submitDisabled: { opacity: 0.7 },
+    submitText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+    pickerShell: {
+      flex: 1,
+      justifyContent: "flex-end",
+    },
+    pickerDim: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(28, 25, 23, 0.4)",
+    },
+    pickerOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(28, 25, 23, 0.4)",
+    },
+    pickerCard: {
+      backgroundColor: COLORS.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingTop: 8,
+      paddingHorizontal: 16,
+      maxHeight: "75%",
+    },
+    pickerHandle: {
+      alignSelf: "center",
+      width: 40,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: COLORS.field,
+      marginBottom: 12,
+    },
+    pickerTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: COLORS.ink,
+      textAlign: "center",
+      marginBottom: 12,
+    },
+    groupHeader: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: COLORS.muted,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      marginBottom: 8,
+      marginTop: 4,
+    },
+    categoryList: {
+      maxHeight: 420,
+    },
+    categoryOption: {
+      padding: 12,
+      borderRadius: 16,
+      marginBottom: 8,
+      backgroundColor: COLORS.field,
+    },
+    categoryOptionSelected: {
+      backgroundColor: COLORS.accentSoft,
+    },
+    categoryOptionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    categoryOptionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: COLORS.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    categoryOptionIconSelected: {
+      backgroundColor: COLORS.surface,
+    },
+    categoryOptionLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    categoryOptionLabelSelected: {
+      color: COLORS.ink,
+    },
+    categoryOptionHint: {
+      fontSize: 12,
+      color: COLORS.muted,
+      marginTop: 4,
+      lineHeight: 16,
+    },
+    pickerConfirm: {
+      marginTop: 8,
+      backgroundColor: COLORS.accent,
+      borderRadius: 16,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    pickerConfirmText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+  });
+}

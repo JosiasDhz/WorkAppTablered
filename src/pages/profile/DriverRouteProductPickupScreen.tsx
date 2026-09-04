@@ -39,6 +39,7 @@ import {
 } from "./driverRoute/DriverRouteVehicleCheckPhotos";
 import { DriverRouteWorkerCodeModal } from "./driverRoute/DriverRouteWorkerCodeModal";
 import { useSessionWorkerCode } from "../../hooks/useSessionWorkerCode";
+import { useDriverUi, type DriverUi } from "./driverRoute/driverUi";
 
 function extractApiErrorMessage(e: unknown): string {
   if (typeof e === "string") return e;
@@ -55,6 +56,8 @@ function extractApiErrorMessage(e: unknown): string {
 }
 
 export default function DriverRouteProductPickupScreen() {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } =
@@ -183,7 +186,7 @@ export default function DriverRouteProductPickupScreen() {
       <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
         <HeaderTitle title="Verificación del vehículo" subtitle="Cargando ruta…" tone="light" />
         <View style={styles.missing}>
-          <ActivityIndicator size="large" color="#EA7600" />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       </SafeAreaView>
     );
@@ -243,7 +246,7 @@ export default function DriverRouteProductPickupScreen() {
             ) : null}
             {pickupBusy ? (
               <View style={styles.busyRow}>
-                <ActivityIndicator color="#EA7600" />
+                <ActivityIndicator color={ui.accent} />
                 <Text style={styles.busyTxt}>Preparando salida…</Text>
               </View>
             ) : null}
@@ -302,56 +305,58 @@ export default function DriverRouteProductPickupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  shell: { flex: 1, position: "relative" },
-  flex: { flex: 1 },
-  routeDock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 20,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: "transparent",
-    ...Platform.select({ android: { elevation: 24 } }),
-  },
-  scrollPad: { paddingHorizontal: 16, paddingBottom: 40 },
-  missing: { padding: 24 },
-  missingTxt: { fontSize: 15, color: "#64748B" },
-  retryBtn: {
-    marginTop: 16,
-    alignSelf: "flex-start",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-  },
-  retryTxt: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
-  busyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  busyTxt: { fontSize: 13, fontWeight: "700", color: "#64748B" },
-  pendingWrap: {
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: "#FFF7ED",
-    borderWidth: 1,
-    borderColor: "#FED7AA",
-  },
-  pendingTitle: { fontSize: 13, fontWeight: "800", color: "#9A3412", marginBottom: 6 },
-  pendingItem: { fontSize: 13, fontWeight: "600", color: "#C2410C", lineHeight: 18 },
-  linkBtn: { marginTop: 10, alignSelf: "flex-start" },
-  linkBtnTxt: { fontSize: 13, fontWeight: "800", color: "#EA7600" },
-  reviewWrap: {
-    marginTop: 4,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-  },
-  reviewTitle: { fontSize: 13, fontWeight: "800", color: "#065F46", marginBottom: 6 },
-  reviewItem: { fontSize: 13, fontWeight: "600", color: "#047857", lineHeight: 18 },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: ui.layout },
+    shell: { flex: 1, position: "relative" },
+    flex: { flex: 1 },
+    routeDock: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 20,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      backgroundColor: "transparent",
+      ...Platform.select({ android: { elevation: 24 } }),
+    },
+    scrollPad: { paddingHorizontal: 16, paddingBottom: 40 },
+    missing: { padding: 24 },
+    missingTxt: { fontSize: 15, color: ui.muted },
+    retryBtn: {
+      marginTop: 16,
+      alignSelf: "flex-start",
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+    },
+    retryTxt: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+    busyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+    busyTxt: { fontSize: 13, fontWeight: "700", color: ui.muted },
+    pendingWrap: {
+      marginBottom: 12,
+      padding: 14,
+      borderRadius: 12,
+      backgroundColor: ui.accentSoft,
+      borderWidth: 1,
+      borderColor: ui.accentBorder,
+    },
+    pendingTitle: { fontSize: 13, fontWeight: "800", color: ui.accentInkStrong, marginBottom: 6 },
+    pendingItem: { fontSize: 13, fontWeight: "600", color: ui.accentInk, lineHeight: 18 },
+    linkBtn: { marginTop: 10, alignSelf: "flex-start" },
+    linkBtnTxt: { fontSize: 13, fontWeight: "800", color: ui.accent },
+    reviewWrap: {
+      marginTop: 4,
+      marginBottom: 8,
+      padding: 14,
+      borderRadius: 12,
+      backgroundColor: ui.greenSoft,
+      borderWidth: 1,
+      borderColor: ui.greenBorder,
+    },
+    reviewTitle: { fontSize: 13, fontWeight: "800", color: ui.green, marginBottom: 6 },
+    reviewItem: { fontSize: 13, fontWeight: "600", color: ui.green, lineHeight: 18 },
+  });
+}

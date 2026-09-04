@@ -15,16 +15,16 @@ import {
   type BottomTabNavigationEventMap,
   type BottomTabNavigationOptions,
 } from "@react-navigation/bottom-tabs";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   BottomTabs,
   BottomTabsScreen,
 } from "react-native-screens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { View, type NativeSyntheticEvent } from "react-native";
-import { TAB_BAR_CAFE, TAB_BAR_PRIMARY, TAB_BAR_UNFOCUSED } from "./tabBarConstants";
+import { TAB_BAR_CAFE, TAB_BAR_CAFE_DARK, TAB_BAR_PRIMARY, TAB_BAR_UNFOCUSED } from "./tabBarConstants";
 import { playTapFeedback } from "../../feedback/tapFeedback";
-import { SOFT } from "../../theme/softUi";
+import { useAppAppearance } from "../../theme/appearance";
 
 export type IosNativeTabIcon = {
   sf: string;
@@ -95,25 +95,28 @@ const cafeItemSelected = {
   tabBarItemTitleFontWeight: "600" as const,
 };
 
-const cafeAppearance = {
-  tabBarBackgroundColor: TAB_BAR_CAFE,
-  tabBarShadowColor: "transparent",
-  stacked: {
-    normal: cafeItem,
-    selected: cafeItemSelected,
-    focused: cafeItemSelected,
-  },
-  inline: {
-    normal: cafeItem,
-    selected: cafeItemSelected,
-    focused: cafeItemSelected,
-  },
-  compactInline: {
-    normal: cafeItem,
-    selected: cafeItemSelected,
-    focused: cafeItemSelected,
-  },
-};
+function buildCafeAppearance(scheme: "light" | "dark") {
+  return {
+    tabBarBackgroundColor: scheme === "dark" ? TAB_BAR_CAFE_DARK : TAB_BAR_CAFE,
+    tabBarBlurEffect: "none" as const,
+    tabBarShadowColor: "transparent",
+    stacked: {
+      normal: cafeItem,
+      selected: cafeItemSelected,
+      focused: cafeItemSelected,
+    },
+    inline: {
+      normal: cafeItem,
+      selected: cafeItemSelected,
+      focused: cafeItemSelected,
+    },
+    compactInline: {
+      normal: cafeItem,
+      selected: cafeItemSelected,
+      focused: cafeItemSelected,
+    },
+  };
+}
 
 export function createIosNativeTabNavigator(
   icons: Record<string, IosNativeTabIcon>,
@@ -127,6 +130,20 @@ export function createIosNativeTabNavigator(
     screenOptions,
   }: Props) {
     const insets = useSafeAreaInsets();
+    const { colors, scheme } = useAppAppearance();
+    const cafeAppearance = useMemo(
+      () => buildCafeAppearance(scheme),
+      [scheme],
+    );
+    const screenShellStyle = useMemo(
+      () => ({
+        flex: 1,
+        width: "100%" as const,
+        height: "100%" as const,
+        backgroundColor: colors.layout,
+      }),
+      [colors.layout],
+    );
     const tabBarHeight = 49 + insets.bottom;
     const { state, descriptors, navigation, NavigationContent } =
       useNavigationBuilder<
@@ -199,7 +216,7 @@ export function createIosNativeTabNavigator(
                   standardAppearance={cafeAppearance}
                   scrollEdgeAppearance={cafeAppearance}
                 >
-                  <View style={{ flex: 1, backgroundColor: SOFT.layout }}>
+                  <View style={screenShellStyle}>
                     {descriptors[route.key].render()}
                   </View>
                 </BottomTabsScreen>

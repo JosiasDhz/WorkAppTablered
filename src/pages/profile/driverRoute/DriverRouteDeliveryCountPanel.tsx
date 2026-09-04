@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { ArrowRight2, Location } from "iconsax-react-native";
+import { useDriverUi, type DriverUi } from "./driverUi";
 import {
   DriverRouteDeliveryEvidencePhotos,
   isDriverRouteDeliveryEvidenceComplete,
@@ -59,6 +60,8 @@ export function DriverRouteDeliveryCountPanel({
   onContinue,
   onReturnToReady,
 }: DriverRouteDeliveryCountPanelProps) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const paymentRequired = isDeliveryPaymentRequired(payment);
   const allMatched = useMemo(
     () => allDeliveryQuantitiesMatched(lines, deliveredByRecordId),
@@ -129,7 +132,7 @@ export function DriverRouteDeliveryCountPanel({
         {addressLine ? (
           <View style={styles.addressStrip}>
             <View style={styles.addressIcon}>
-              <Location size={16} color="#EA7600" variant="Bold" />
+              <Location size={16} color={ui.accent} variant="Bold" />
             </View>
             <Text style={styles.addressText} numberOfLines={2}>
               {addressLine}
@@ -173,7 +176,7 @@ export function DriverRouteDeliveryCountPanel({
                     value={raw}
                     onChangeText={(t) => onChangeQty(line.recordId, t)}
                     placeholder="0"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={ui.faint}
                     keyboardType="number-pad"
                     inputMode="numeric"
                     maxLength={6}
@@ -209,7 +212,7 @@ export function DriverRouteDeliveryCountPanel({
               value={amountReceivedRaw}
               onChangeText={onChangeAmountReceived}
               placeholder="0.00"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={ui.faint}
               keyboardType="decimal-pad"
               inputMode="decimal"
               maxLength={12}
@@ -299,7 +302,7 @@ export function DriverRouteDeliveryCountPanel({
           </Text>
           <ArrowRight2
             size={20}
-            color={canContinue ? "#FFFFFF" : "#94A3B8"}
+            color={canContinue ? "#FFFFFF" : ui.faint}
             variant="Bold"
           />
         </Pressable>
@@ -318,324 +321,326 @@ export function DriverRouteDeliveryCountPanel({
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 12,
-  },
-  addressStrip: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  addressIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#FFF7ED",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addressText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#334155",
-    lineHeight: 18,
-  },
-  sectionKicker: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#EA7600",
-    textTransform: "uppercase",
-    letterSpacing: 0.45,
-    marginBottom: 8,
-  },
-  lineCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    position: "relative",
-  },
-  lineBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-  },
-  lineBadgeTxt: {
-    fontSize: 11,
-    fontWeight: "900",
-    color: "#64748B",
-  },
-  prodName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-    lineHeight: 19,
-  },
-  prodNameWithBadge: {
-    paddingRight: 28,
-  },
-  folio: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  qtyRow: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "stretch",
-  },
-  qtyCol: {
-    flex: 1,
-  },
-  qtyDivider: {
-    width: 1,
-    backgroundColor: "#E2E8F0",
-    marginHorizontal: 14,
-  },
-  qtyLbl: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 6,
-  },
-  qtyExpected: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    backgroundColor: "#F8FAFC",
-    textAlign: "center",
-  },
-  inputMoney: {
-    textAlign: "left",
-    fontSize: 18,
-  },
-  inputWarn: {
-    borderColor: "#F97316",
-    backgroundColor: "#FFF7ED",
-  },
-  warn: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#C2410C",
-  },
-  paymentCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-  },
-  paymentDueBox: {
-    marginTop: 4,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  paymentDueLbl: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#B45309",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  paymentDueAmt: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#0F172A",
-  },
-  paymentInputLbl: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 6,
-  },
-  changeWrap: {
-    marginTop: 10,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  changeLbl: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#047857",
-  },
-  changeAmt: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#065F46",
-  },
-  progressCard: {
-    marginTop: 4,
-    marginBottom: 4,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  progressHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  progressTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  progressCount: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#EA7600",
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: "#E2E8F0",
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-  },
-  progressStep: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
-  },
-  progressStepLast: {
-    marginBottom: 0,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#CBD5E1",
-  },
-  progressDotDone: {
-    backgroundColor: "#EA7600",
-  },
-  progressStepLabel: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    lineHeight: 18,
-  },
-  progressStepLabelDone: {
-    color: "#0F172A",
-    fontWeight: "700",
-  },
-  footer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-  },
-  nextBtn: {
-    height: 56,
-    borderRadius: 999,
-    backgroundColor: "#EA7600",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.22,
-        shadowRadius: 12,
-      },
-      android: { elevation: 10 },
-    }),
-  },
-  nextBtnDisabled: {
-    backgroundColor: "#E2E8F0",
-    ...Platform.select({
-      ios: {
-        shadowOpacity: 0,
-      },
-      android: { elevation: 0 },
-    }),
-  },
-  nextBtnTxt: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  nextBtnTxtDisabled: {
-    color: "#94A3B8",
-  },
-  returnBtn: {
-    marginTop: 10,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    backgroundColor: "#FEF2F2",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  returnBtnTxt: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#C2410C",
-  },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingBottom: 12,
+    },
+    addressStrip: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: ui.border,
+    },
+    addressIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: ui.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    addressText: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.ink,
+      lineHeight: 18,
+    },
+    sectionKicker: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: ui.accent,
+      textTransform: "uppercase",
+      letterSpacing: 0.45,
+      marginBottom: 8,
+    },
+    lineCard: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: ui.border,
+      position: "relative",
+    },
+    lineBadge: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      minWidth: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: ui.field,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 6,
+    },
+    lineBadgeTxt: {
+      fontSize: 11,
+      fontWeight: "900",
+      color: ui.muted,
+    },
+    prodName: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.ink,
+      lineHeight: 19,
+    },
+    prodNameWithBadge: {
+      paddingRight: 28,
+    },
+    folio: {
+      marginTop: 6,
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.muted,
+    },
+    qtyRow: {
+      marginTop: 12,
+      flexDirection: "row",
+      alignItems: "stretch",
+    },
+    qtyCol: {
+      flex: 1,
+    },
+    qtyDivider: {
+      width: 1,
+      backgroundColor: ui.border,
+      marginHorizontal: 14,
+    },
+    qtyLbl: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginBottom: 6,
+    },
+    qtyExpected: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 20,
+      fontWeight: "800",
+      color: ui.ink,
+      backgroundColor: ui.field,
+      textAlign: "center",
+    },
+    inputMoney: {
+      textAlign: "left",
+      fontSize: 18,
+    },
+    inputWarn: {
+      borderColor: ui.accent,
+      backgroundColor: ui.accentSoft,
+    },
+    warn: {
+      marginTop: 8,
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.accentInk,
+    },
+    paymentCard: {
+      backgroundColor: ui.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+    },
+    paymentDueBox: {
+      marginTop: 4,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: ui.amberSoft,
+      borderWidth: 1,
+      borderColor: ui.amberBorder,
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    paymentDueLbl: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.amber,
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
+    },
+    paymentDueAmt: {
+      fontSize: 24,
+      fontWeight: "900",
+      color: ui.ink,
+    },
+    paymentInputLbl: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: ui.faint,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginBottom: 6,
+    },
+    changeWrap: {
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: ui.greenSoft,
+      borderWidth: 1,
+      borderColor: ui.greenBorder,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    changeLbl: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: ui.green,
+    },
+    changeAmt: {
+      fontSize: 18,
+      fontWeight: "900",
+      color: ui.green,
+    },
+    progressCard: {
+      marginTop: 4,
+      marginBottom: 4,
+      padding: 14,
+      borderRadius: 14,
+      backgroundColor: ui.surface,
+      borderWidth: 1,
+      borderColor: ui.border,
+    },
+    progressHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 10,
+    },
+    progressTitle: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: ui.ink,
+    },
+    progressCount: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: ui.accent,
+    },
+    progressTrack: {
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: ui.border,
+      overflow: "hidden",
+      marginBottom: 12,
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+    },
+    progressStep: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      marginBottom: 8,
+    },
+    progressStepLast: {
+      marginBottom: 0,
+    },
+    progressDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: ui.border,
+    },
+    progressDotDone: {
+      backgroundColor: ui.accent,
+    },
+    progressStepLabel: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.muted,
+      lineHeight: 18,
+    },
+    progressStepLabelDone: {
+      color: ui.ink,
+      fontWeight: "700",
+    },
+    footer: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: ui.border,
+    },
+    nextBtn: {
+      height: 56,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      ...Platform.select({
+        ios: {
+          shadowColor: ui.shadow,
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: 0.22,
+          shadowRadius: 12,
+        },
+        android: { elevation: 10 },
+      }),
+    },
+    nextBtnDisabled: {
+      backgroundColor: ui.border,
+      ...Platform.select({
+        ios: {
+          shadowOpacity: 0,
+        },
+        android: { elevation: 0 },
+      }),
+    },
+    nextBtnTxt: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    nextBtnTxtDisabled: {
+      color: ui.faint,
+    },
+    returnBtn: {
+      marginTop: 10,
+      height: 48,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: ui.roseBorder,
+      backgroundColor: ui.roseSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    returnBtnTxt: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: ui.accentInk,
+    },
+  });
+}

@@ -30,7 +30,8 @@ import {
   type AuditProductLine,
   type InventoryAuditStatus,
 } from "../../services/inventoryAuditService";
-import { AUDIT_UI, auditSoftCardStyle } from "./audit/auditUi";
+import { createThemedStyles } from "../../theme/themedStyles";
+import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -61,6 +62,8 @@ function ProductRow({
   onChangeCount: (text: string) => void;
   disabled?: boolean;
 }) {
+  const ui = useAuditUi();
+  const styles = useFamilyProductStyles();
   const parsed = value.trim() === "" ? null : parseInt(value.trim(), 10);
   const validLocal = parsed !== null && Number.isFinite(parsed) && parsed >= 0;
   const done = line.counted !== null && line.counted !== undefined;
@@ -78,9 +81,9 @@ function ProductRow({
           </Text>
         </View>
         {showDone ? (
-          <TickCircle size={22} color={AUDIT_UI.green} variant="Bold" />
+          <TickCircle size={22} color={ui.green} variant="Bold" />
         ) : (
-          <Timer1 size={22} color={AUDIT_UI.amber} variant="Linear" />
+          <Timer1 size={22} color={ui.amber} variant="Linear" />
         )}
       </View>
       <View style={styles.countRow}>
@@ -90,7 +93,7 @@ function ProductRow({
           value={value}
           onChangeText={(t) => onChangeCount(t.replace(/[^0-9]/g, ""))}
           placeholder="-"
-          placeholderTextColor={AUDIT_UI.muted}
+          placeholderTextColor={ui.muted}
           keyboardType="number-pad"
           editable={!disabled}
           selectTextOnFocus
@@ -103,6 +106,8 @@ function ProductRow({
 export default function InventoryAuditFamilyProducts() {
   const navigation = useNavigation<any>();
   const route = useRoute();
+  const ui = useAuditUi();
+  const styles = useFamilyProductStyles();
   const { auditId, familyId, locationLabel } = route.params as {
     auditId: string;
     familyId: string;
@@ -348,11 +353,11 @@ export default function InventoryAuditFamilyProducts() {
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.searchRow}>
-        <SearchNormal1 size={16} color={AUDIT_UI.muted} variant="Linear" />
+        <SearchNormal1 size={16} color={ui.muted} variant="Linear" />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar por SKU o nombre"
-          placeholderTextColor={AUDIT_UI.muted}
+          placeholderTextColor={ui.muted}
           value={searchText}
           onChangeText={setSearchText}
           autoCapitalize="none"
@@ -367,7 +372,7 @@ export default function InventoryAuditFamilyProducts() {
             scaleTo={0.95}
             accessibilityLabel="Limpiar búsqueda"
           >
-            <CloseCircle size={16} color={AUDIT_UI.muted} variant="Linear" />
+            <CloseCircle size={16} color={ui.muted} variant="Linear" />
           </SoftPressable>
         ) : null}
       </View>
@@ -437,7 +442,7 @@ export default function InventoryAuditFamilyProducts() {
           >
             <View style={styles.btnProgress}>
               {saving ? (
-                <ActivityIndicator color={AUDIT_UI.accent} size="small" />
+                <ActivityIndicator color={ui.accent} size="small" />
               ) : (
                 <Text style={styles.btnProgressText}>Guardar progreso</Text>
               )}
@@ -464,7 +469,7 @@ export default function InventoryAuditFamilyProducts() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={AUDIT_UI.accent} />
+          <ActivityIndicator size="large" color={ui.accent} />
         </View>
       ) : (
         <>
@@ -489,7 +494,7 @@ export default function InventoryAuditFamilyProducts() {
             ListHeaderComponent={listHeader}
             contentContainerStyle={styles.listContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AUDIT_UI.accent} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ui.accent} />
             }
             onEndReached={onEndReached}
             onEndReachedThreshold={0.35}
@@ -508,7 +513,7 @@ export default function InventoryAuditFamilyProducts() {
             ListFooterComponent={
               loadingMore ? (
                 <View style={styles.footerLoading}>
-                  <ActivityIndicator color={AUDIT_UI.accent} />
+                  <ActivityIndicator color={ui.accent} />
                 </View>
               ) : null
             }
@@ -531,195 +536,202 @@ export default function InventoryAuditFamilyProducts() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "transparent" },
-  header: { paddingHorizontal: SCREEN_GUTTER },
-  actionBar: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: SCREEN_GUTTER,
-    paddingVertical: 10,
-    backgroundColor: "transparent",
-  },
-  actionSlot: { flex: 1 },
-  btnProgress: {
-    paddingVertical: 12,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(234, 118, 0, 0.45)",
-    backgroundColor: AUDIT_UI.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-  },
-  btnProgressText: { fontSize: 13, fontWeight: "700", color: AUDIT_UI.accent },
-  btnComplete: {
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: AUDIT_UI.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-  },
-  btnCompleteText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
-  btnDisabled: { opacity: 0.45 },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: { paddingHorizontal: SCREEN_GUTTER, paddingBottom: 100 },
-  listHeader: { paddingTop: 4, paddingBottom: 6 },
-  doneBanner: {
-    backgroundColor: AUDIT_UI.greenSoft,
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 10,
-  },
-  doneBannerText: { fontSize: 12, fontWeight: "600", color: AUDIT_UI.green },
-  auditLockedBanner: {
-    backgroundColor: AUDIT_UI.blueSoft,
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 8,
-  },
-  auditLockedBannerText: { fontSize: 12, fontWeight: "600", color: AUDIT_UI.blue },
-  progressBlock: {
-    ...auditSoftCardStyle(),
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  progressHeadRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  progressMain: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: AUDIT_UI.ink,
-    flex: 1,
-    paddingRight: 8,
-  },
-  progressStrong: { fontWeight: "800", color: AUDIT_UI.ink },
-  progressMuted: { fontWeight: "500", color: AUDIT_UI.muted },
-  progressPctPill: {
-    backgroundColor: AUDIT_UI.accentSoft,
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    minWidth: 42,
-    alignItems: "center",
-  },
-  progressPctText: { fontSize: 11, fontWeight: "800", color: AUDIT_UI.accent },
-  progressTrack: {
-    height: 6,
-    backgroundColor: AUDIT_UI.field,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-  progressFill: { height: "100%", backgroundColor: AUDIT_UI.accent, borderRadius: 999 },
-  totalHint: { fontSize: 12, fontWeight: "500", color: AUDIT_UI.muted, marginBottom: 8 },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: AUDIT_UI.field,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: AUDIT_UI.ink,
-    paddingVertical: 0,
-    minHeight: 20,
-  },
-  searchClear: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  errorBanner: {
-    backgroundColor: AUDIT_UI.roseSoft,
-    borderRadius: 14,
-    padding: 10,
-    marginTop: 4,
-  },
-  errorText: { fontSize: 12, fontWeight: "600", color: AUDIT_UI.rose },
-  productRow: {
-    ...auditSoftCardStyle(),
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 10,
-  },
-  productRowDisabled: { opacity: 0.85 },
-  productRowTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  productTitleBlock: { flex: 1, minWidth: 0 },
-  productSku: {
-    alignSelf: "flex-start",
-    fontSize: 10,
-    fontWeight: "800",
-    color: AUDIT_UI.accent,
-    letterSpacing: 0.4,
-    backgroundColor: AUDIT_UI.accentSoft,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    overflow: "hidden",
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: AUDIT_UI.ink,
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  countRow: { marginTop: 12 },
-  countLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: AUDIT_UI.muted,
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  countInput: {
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 18,
-    fontWeight: "600",
-    color: AUDIT_UI.ink,
-    backgroundColor: AUDIT_UI.field,
-  },
-  inputDisabled: { opacity: 0.7, color: AUDIT_UI.muted },
-  empty: { paddingVertical: 40, alignItems: "center" },
-  emptyText: { color: AUDIT_UI.muted, fontSize: 14, fontWeight: "500" },
-  footerLoading: { paddingVertical: 20 },
-  fabAnchor: {
-    position: "absolute",
-    right: SCREEN_GUTTER,
-    bottom: 28,
-  },
-  fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: AUDIT_UI.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#1A1410",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-});
+function buildFamilyProductStyles(ui: AuditUi) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: "transparent" },
+    header: { paddingHorizontal: SCREEN_GUTTER },
+    actionBar: {
+      flexDirection: "row",
+      gap: 10,
+      paddingHorizontal: SCREEN_GUTTER,
+      paddingVertical: 10,
+      backgroundColor: "transparent",
+    },
+    actionSlot: { flex: 1 },
+    btnProgress: {
+      paddingVertical: 12,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: "rgba(234, 118, 0, 0.45)",
+      backgroundColor: ui.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 44,
+    },
+    btnProgressText: { fontSize: 13, fontWeight: "700", color: ui.accent },
+    btnComplete: {
+      paddingVertical: 12,
+      borderRadius: 999,
+      backgroundColor: ui.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 44,
+    },
+    btnCompleteText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+    btnDisabled: { opacity: 0.45 },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+    listContent: { paddingHorizontal: SCREEN_GUTTER, paddingBottom: 100 },
+    listHeader: { paddingTop: 4, paddingBottom: 6 },
+    doneBanner: {
+      backgroundColor: ui.greenSoft,
+      borderRadius: 14,
+      padding: 10,
+      marginBottom: 10,
+    },
+    doneBannerText: { fontSize: 12, fontWeight: "600", color: ui.green },
+    auditLockedBanner: {
+      backgroundColor: ui.blueSoft,
+      borderRadius: 14,
+      padding: 10,
+      marginBottom: 8,
+    },
+    auditLockedBannerText: { fontSize: 12, fontWeight: "600", color: ui.blue },
+    progressBlock: {
+      ...auditSoftCardStyle(ui),
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 8,
+    },
+    progressHeadRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
+    },
+    progressMain: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.ink,
+      flex: 1,
+      paddingRight: 8,
+    },
+    progressStrong: { fontWeight: "800", color: ui.ink },
+    progressMuted: { fontWeight: "500", color: ui.muted },
+    progressPctPill: {
+      backgroundColor: ui.accentSoft,
+      borderRadius: 999,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      minWidth: 42,
+      alignItems: "center",
+    },
+    progressPctText: { fontSize: 11, fontWeight: "800", color: ui.accent },
+    progressTrack: {
+      height: 6,
+      backgroundColor: ui.field,
+      borderRadius: 999,
+      overflow: "hidden",
+    },
+    progressFill: { height: "100%", backgroundColor: ui.accent, borderRadius: 999 },
+    totalHint: { fontSize: 12, fontWeight: "500", color: ui.muted, marginBottom: 8 },
+    searchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: ui.field,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 10,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
+      color: ui.ink,
+      paddingVertical: 0,
+      minHeight: 20,
+    },
+    searchClear: {
+      width: 24,
+      height: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    errorBanner: {
+      backgroundColor: ui.roseSoft,
+      borderRadius: 14,
+      padding: 10,
+      marginTop: 4,
+    },
+    errorText: { fontSize: 12, fontWeight: "600", color: ui.rose },
+    productRow: {
+      ...auditSoftCardStyle(ui),
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      marginBottom: 10,
+    },
+    productRowDisabled: { opacity: 0.85 },
+    productRowTop: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 10,
+    },
+    productTitleBlock: { flex: 1, minWidth: 0 },
+    productSku: {
+      alignSelf: "flex-start",
+      fontSize: 10,
+      fontWeight: "800",
+      color: ui.accent,
+      letterSpacing: 0.4,
+      backgroundColor: ui.accentSoft,
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      overflow: "hidden",
+    },
+    productName: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.ink,
+      marginTop: 6,
+      lineHeight: 18,
+    },
+    countRow: { marginTop: 12 },
+    countLabel: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: ui.muted,
+      marginBottom: 6,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    countInput: {
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      fontSize: 18,
+      fontWeight: "600",
+      color: ui.ink,
+      backgroundColor: ui.field,
+    },
+    inputDisabled: { opacity: 0.7, color: ui.muted },
+    empty: { paddingVertical: 40, alignItems: "center" },
+    emptyText: { color: ui.muted, fontSize: 14, fontWeight: "500" },
+    footerLoading: { paddingVertical: 20 },
+    fabAnchor: {
+      position: "absolute",
+      right: SCREEN_GUTTER,
+      bottom: 28,
+    },
+    fab: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: ui.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: ui.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.16,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+  });
+}
+
+const useFamilyProductStyles = createThemedStyles(
+  useAuditUi,
+  buildFamilyProductStyles,
+);

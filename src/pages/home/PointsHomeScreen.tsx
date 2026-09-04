@@ -20,7 +20,7 @@ import { usePointsDemo } from "./points/demo/usePointsDemo";
 import { PointsMovementsSection } from "./points/PointsMovementsSection";
 import { SlideDownReveal } from "./points/SlideDownReveal";
 import { WalletFlipCard } from "./points/wallet/WalletFlipCard";
-import { POINTS_COLORS } from "./points/pointsTheme";
+import { usePointsColors } from "./points/pointsTheme";
 import { formatPoints, type PointsLedgerRow } from "./points/pointsTypes";
 
 export default function PointsHomeScreen() {
@@ -28,6 +28,7 @@ export default function PointsHomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const onAutoTabBarScroll = useTabBarAutoCollapseScroll();
+  const pointsColors = usePointsColors();
   const { user, seller } = useSelector((state: RootState) => state.auth);
   const {
     balance,
@@ -78,7 +79,7 @@ export default function PointsHomeScreen() {
         subtitle={roleLabel}
         tone="light"
         style={styles.header}
-        titleColor={POINTS_COLORS.heading}
+        titleColor={pointsColors.heading}
         leadingAccessory={<HeaderAvatar size={52} />}
       />
 

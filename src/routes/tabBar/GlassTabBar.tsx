@@ -12,7 +12,7 @@ import {
   BottomTabBarHeightCallbackContext,
   type BottomTabBarProps,
 } from "@react-navigation/bottom-tabs";
-import { TAB_BAR_LAYOUT, TAB_BAR_SURFACE, tabBarShadow } from "./tabBarConstants";
+import { TAB_BAR_LAYOUT, tabBarShadow, tabBarSurfaceForScheme } from "./tabBarConstants";
 import { TabBarNavButton } from "./TabBarNavButton";
 import { useTabBarMotion } from "./TabBarMotionContext";
 import {
@@ -20,6 +20,7 @@ import {
   CafeProfileOrb,
   CafeTabIcons,
 } from "./tabBarRouteIcons";
+import { useAppAppearance } from "../../theme/appearance";
 
 const PILL_PAD = 6;
 const TAB_COUNT = 3;
@@ -90,6 +91,8 @@ export function GlassTabBar({
 }: BottomTabBarProps) {
   const setTabBarHeight = React.useContext(BottomTabBarHeightCallbackContext);
   const { collapsed } = useTabBarMotion();
+  const { scheme } = useAppAppearance();
+  const pillSurface = tabBarSurfaceForScheme(scheme);
   const tabAnim = useRef(new Animated.Value(1)).current;
   const indicatorX = useRef(new Animated.Value(0)).current;
   const lupa = useRef(new Animated.Value(0)).current;
@@ -363,7 +366,7 @@ export function GlassTabBar({
       >
         <View style={styles.row}>
           <View style={[styles.pillShell, tabBarShadow]}>
-            <View style={styles.pillFill} />
+            <View style={[styles.pillFill, { backgroundColor: pillSurface }]} />
             <View style={styles.pillInner} onLayout={onPillLayout} pointerEvents="none">
               {slotW > 0 ? (
                 <Animated.View
@@ -498,7 +501,6 @@ const styles = StyleSheet.create({
   pillFill: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: TAB_BAR_LAYOUT.profileCircle / 2,
-    backgroundColor: TAB_BAR_SURFACE,
     overflow: "hidden",
   },
   pillInner: {

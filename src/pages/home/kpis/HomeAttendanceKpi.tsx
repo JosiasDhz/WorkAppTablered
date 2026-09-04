@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Coffee, LoginCurve, LogoutCurve, Timer1 } from "iconsax-react-native";
-import { HOME_COLORS } from "../homeTheme";
+import { useHomeColors } from "../homeTheme";
 import { HomeKpiCard, type HomeKpiTone } from "./HomeKpiCard";
 import {
   formatAttendanceClock,
@@ -11,18 +11,6 @@ import type {
   WorkerAttendanceKpi,
   WorkerAttendanceNextCheckCode,
 } from "../../../services/workerKpisService";
-
-const TONE_INK: Record<HomeKpiTone, string> = {
-  ok: HOME_COLORS.positive,
-  pending: HOME_COLORS.warning,
-  neutral: HOME_COLORS.accent,
-};
-
-const TONE_WASH: Record<HomeKpiTone, string> = {
-  ok: HOME_COLORS.positiveSoft,
-  pending: HOME_COLORS.warningSoft,
-  neutral: HOME_COLORS.accentSoft,
-};
 
 const CHECK_STATUS: Record<WorkerAttendanceNextCheckCode, string> = {
   TRABAJO_ENTRADA: "Entrada pendiente",
@@ -112,8 +100,20 @@ export function HomeAttendanceKpi({
   loading,
   onPress,
 }: HomeAttendanceKpiProps) {
+  const homeColors = useHomeColors();
   const view = resolveAttendanceView(attendance, loading);
-  const ink = TONE_INK[view.tone];
+  const ink =
+    view.tone === "ok"
+      ? homeColors.positive
+      : view.tone === "pending"
+        ? homeColors.warning
+        : homeColors.accent;
+  const wash =
+    view.tone === "ok"
+      ? homeColors.positiveSoft
+      : view.tone === "pending"
+        ? homeColors.warningSoft
+        : homeColors.accentSoft;
 
   return (
     <HomeKpiCard
@@ -122,7 +122,7 @@ export function HomeAttendanceKpi({
       tone={view.tone}
       accessibilityLabel={`${view.status}. ${view.expected ?? ""}`}
       graphic={
-        <View style={[styles.mark, { backgroundColor: TONE_WASH[view.tone] }]}>
+        <View style={[styles.mark, { backgroundColor: wash }]}>
           {checkIcon(view.code, ink)}
         </View>
       }

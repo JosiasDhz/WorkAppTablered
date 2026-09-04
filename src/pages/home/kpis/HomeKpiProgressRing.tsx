@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line } from "react-native-svg";
-import { HOME_COLORS } from "../homeTheme";
+import { useHomeColors } from "../homeTheme";
 import type { HomeKpiTone } from "./HomeKpiCard";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -55,6 +55,7 @@ export function HomeKpiProgressRing({
   caption,
   size = 112,
 }: HomeKpiProgressRingProps) {
+  const homeColors = useHomeColors();
   const fill = useRef(new Animated.Value(0)).current;
   const clamped = Math.max(0, Math.min(1, progress));
   const cx = size / 2;
@@ -98,7 +99,7 @@ export function HomeKpiProgressRing({
           cx={cx}
           cy={cx}
           r={ringRadius}
-          stroke={HOME_COLORS.track}
+          stroke={homeColors.track}
           strokeWidth={ringStroke}
           fill="none"
         />
@@ -121,6 +122,7 @@ export function HomeKpiProgressRing({
         <Text
           style={[
             styles.percent,
+            { color: homeColors.ink },
             label.length > 5 ? styles.percentCompact : null,
           ]}
         >
@@ -149,7 +151,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.6,
-    color: HOME_COLORS.ink,
     fontVariant: ["tabular-nums"],
   },
   percentCompact: {

@@ -1,6 +1,13 @@
 import React from "react";
 import { Image, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
-import { LOGIN_COLORS, LOGIN_COPY, LOGO_SIZE, getLoginGreeting } from "./constants";
+import { createThemedStyles } from "../../../theme/themedStyles";
+import {
+  LOGIN_COPY,
+  LOGO_SIZE,
+  getLoginGreeting,
+  useLoginColors,
+  type LoginColors,
+} from "./constants";
 
 type Props = {
   logoSource: ImageSourcePropType;
@@ -8,6 +15,7 @@ type Props = {
 };
 
 export function LoginWelcomeHeader({ logoSource, greeting }: Props) {
+  const styles = useWelcomeStyles();
   const hello = greeting ?? getLoginGreeting();
 
   return (
@@ -29,51 +37,55 @@ export function LoginWelcomeHeader({ logoSource, greeting }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    width: "100%",
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 28,
-  },
-  logo: {
-    width: LOGO_SIZE.width,
-    height: LOGO_SIZE.height,
-    borderRadius: 20,
-  },
-  brandCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  brand: {
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: LOGIN_COLORS.black,
-  },
-  brandSub: {
-    marginTop: 2,
-    fontSize: 14,
-    fontWeight: "600",
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: LOGIN_COLORS.orange,
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-    color: LOGIN_COLORS.black,
-    lineHeight: 34,
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: "500",
-    color: LOGIN_COLORS.warmGrey,
-  },
-});
+function buildWelcomeStyles(colors: LoginColors) {
+  return StyleSheet.create({
+    wrap: {
+      width: "100%",
+    },
+    brandRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      marginBottom: 28,
+    },
+    logo: {
+      width: LOGO_SIZE.width,
+      height: LOGO_SIZE.height,
+      borderRadius: 20,
+    },
+    brandCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    brand: {
+      fontSize: 34,
+      fontWeight: "800",
+      letterSpacing: -0.8,
+      color: colors.black,
+    },
+    brandSub: {
+      marginTop: 2,
+      fontSize: 14,
+      fontWeight: "600",
+      letterSpacing: 1.4,
+      textTransform: "uppercase",
+      color: colors.orange,
+    },
+    greeting: {
+      fontSize: 28,
+      fontWeight: "800",
+      letterSpacing: -0.4,
+      color: colors.black,
+      lineHeight: 34,
+    },
+    subtitle: {
+      marginTop: 8,
+      fontSize: 15,
+      lineHeight: 21,
+      fontWeight: "500",
+      color: colors.warmGrey,
+    },
+  });
+}
+
+const useWelcomeStyles = createThemedStyles(useLoginColors, buildWelcomeStyles);

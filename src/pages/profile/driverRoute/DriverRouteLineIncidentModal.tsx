@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Warning2 } from "iconsax-react-native";
 import type { DriverIncidentReason } from "../../types/driverIncidents";
+import { useDriverUi, type DriverUi } from "./driverUi";
 
 export type LineIncidentDraft = {
   reason: DriverIncidentReason;
@@ -58,6 +59,8 @@ export function DriverRouteLineIncidentModal({
   onSave,
   onClear,
 }: Props) {
+  const ui = useDriverUi();
+  const styles = useMemo(() => createStyles(ui), [ui]);
   const [reason, setReason] = useState<DriverIncidentReason>(
     initial?.reason ?? "danado_recepcion",
   );
@@ -135,7 +138,7 @@ export function DriverRouteLineIncidentModal({
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.head}>
-            <Warning2 size={22} color="#C2410C" variant="Bold" />
+            <Warning2 size={22} color={ui.accentInk} variant="Bold" />
             <Text style={styles.title}>Reportar incidencia</Text>
           </View>
           <Text style={styles.product} numberOfLines={3}>
@@ -179,7 +182,7 @@ export function DriverRouteLineIncidentModal({
             inputMode="numeric"
             maxLength={6}
             placeholder="0"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={ui.faint}
             style={styles.input}
           />
 
@@ -197,7 +200,7 @@ export function DriverRouteLineIncidentModal({
             value={comment}
             onChangeText={setComment}
             placeholder="Ej. llegó abierto / faltó en el traspaso"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={ui.faint}
             style={[styles.input, styles.comment]}
             multiline
           />
@@ -228,107 +231,109 @@ export function DriverRouteLineIncidentModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 28,
-  },
-  head: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { fontSize: 18, fontWeight: "800", color: "#0F172A" },
-  product: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#334155",
-    lineHeight: 19,
-  },
-  meta: { marginTop: 4, fontSize: 12, fontWeight: "700", color: "#64748B" },
-  label: {
-    marginTop: 14,
-    marginBottom: 6,
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#64748B",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  reasonRow: { flexDirection: "row", gap: 8 },
-  reasonChip: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-  },
-  reasonChipOn: {
-    borderColor: "#EA7600",
-    backgroundColor: "#FFF7ED",
-  },
-  reasonTxt: { fontSize: 14, fontWeight: "800", color: "#64748B" },
-  reasonTxtOn: { color: "#C2410C" },
-  hint: { marginTop: 8, fontSize: 12, fontWeight: "600", color: "#94A3B8" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-    backgroundColor: "#F8FAFC",
-  },
-  summaryBox: {
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: "#FFF7ED",
-    borderWidth: 1,
-    borderColor: "#FDBA74",
-  },
-  summaryMain: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#C2410C",
-  },
-  summarySub: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9A3412",
-  },
-  comment: { fontSize: 14, fontWeight: "600", minHeight: 64, textAlignVertical: "top" },
-  error: { marginTop: 10, fontSize: 12, fontWeight: "700", color: "#DC2626" },
-  actions: { marginTop: 18, flexDirection: "row", gap: 10 },
-  secondaryBtn: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  secondaryTxt: { fontSize: 14, fontWeight: "800", color: "#475569" },
-  primaryBtn: {
-    flex: 1.2,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#EA7600",
-  },
-  primaryDisabled: { opacity: 0.5 },
-  primaryTxt: { fontSize: 14, fontWeight: "800", color: "#FFFFFF" },
-});
+function createStyles(ui: DriverUi) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: ui.overlay,
+      justifyContent: "flex-end",
+    },
+    sheet: {
+      backgroundColor: ui.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 18,
+      paddingTop: 18,
+      paddingBottom: 28,
+    },
+    head: { flexDirection: "row", alignItems: "center", gap: 8 },
+    title: { fontSize: 18, fontWeight: "800", color: ui.ink },
+    product: {
+      marginTop: 10,
+      fontSize: 14,
+      fontWeight: "700",
+      color: ui.ink,
+      lineHeight: 19,
+    },
+    meta: { marginTop: 4, fontSize: 12, fontWeight: "700", color: ui.muted },
+    label: {
+      marginTop: 14,
+      marginBottom: 6,
+      fontSize: 12,
+      fontWeight: "800",
+      color: ui.muted,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    reasonRow: { flexDirection: "row", gap: 8 },
+    reasonChip: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: "center",
+      backgroundColor: ui.field,
+    },
+    reasonChipOn: {
+      borderColor: ui.accent,
+      backgroundColor: ui.accentSoft,
+    },
+    reasonTxt: { fontSize: 14, fontWeight: "800", color: ui.muted },
+    reasonTxtOn: { color: ui.accentInk },
+    hint: { marginTop: 8, fontSize: 12, fontWeight: "600", color: ui.faint },
+    input: {
+      borderWidth: 1,
+      borderColor: ui.border,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 18,
+      fontWeight: "800",
+      color: ui.ink,
+      backgroundColor: ui.field,
+    },
+    summaryBox: {
+      marginTop: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: ui.accentSoft,
+      borderWidth: 1,
+      borderColor: ui.accentBorder,
+    },
+    summaryMain: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: ui.accentInk,
+    },
+    summarySub: {
+      marginTop: 2,
+      fontSize: 12,
+      fontWeight: "600",
+      color: ui.accentInkStrong,
+    },
+    comment: { fontSize: 14, fontWeight: "600", minHeight: 64, textAlignVertical: "top" },
+    error: { marginTop: 10, fontSize: 12, fontWeight: "700", color: ui.rose },
+    actions: { marginTop: 18, flexDirection: "row", gap: 10 },
+    secondaryBtn: {
+      flex: 1,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: ui.border,
+      paddingVertical: 14,
+      alignItems: "center",
+      backgroundColor: ui.surface,
+    },
+    secondaryTxt: { fontSize: 14, fontWeight: "800", color: ui.muted },
+    primaryBtn: {
+      flex: 1.2,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: "center",
+      backgroundColor: ui.accent,
+    },
+    primaryDisabled: { opacity: 0.5 },
+    primaryTxt: { fontSize: 14, fontWeight: "800", color: "#FFFFFF" },
+  });
+}

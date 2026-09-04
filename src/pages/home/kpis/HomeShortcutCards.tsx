@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Calendar1, CalendarTick, ClipboardTick } from "iconsax-react-native";
 import { SoftPressable, SoftReveal } from "../../../components/SoftPressable";
 import { useHomeRevealActive } from "../HomeRevealActiveContext";
-import { HOME_COLORS, HOME_RADIUS } from "../homeTheme";
+import { HOME_RADIUS, useHomeColors } from "../homeTheme";
 
 const SHORTCUTS = [
   { label: "Permisos", screen: "MisPermisos", Icon: ClipboardTick },
@@ -24,6 +24,7 @@ function openProfileScreen(navigation: any, screen: string) {
 export function HomeShortcutCards() {
   const navigation = useNavigation<any>();
   const revealActive = useHomeRevealActive();
+  const homeColors = useHomeColors();
 
   return (
     <View style={styles.row}>
@@ -33,17 +34,24 @@ export function HomeShortcutCards() {
           delay={240 + index * 70}
           active={revealActive}
           style={styles.cardReveal}
-        > 
+        >
           <SoftPressable
             onPress={() => openProfileScreen(navigation, screen)}
             scaleTo={0.98}
-            style={styles.card}
+            style={[styles.card, { backgroundColor: homeColors.surface }]}
             accessibilityLabel={label}
           >
-            <View style={styles.iconSlot}>
-              <Icon size={20} color={HOME_COLORS.accent} variant="Linear" />
+            <View
+              style={[
+                styles.iconSlot,
+                { backgroundColor: homeColors.accentSoft },
+              ]}
+            >
+              <Icon size={20} color={homeColors.accent} variant="Linear" />
             </View>
-            <Text style={styles.label}>{label}</Text>
+            <Text style={[styles.label, { color: homeColors.ink }]}>
+              {label}
+            </Text>
           </SoftPressable>
         </SoftReveal>
       ))}
@@ -65,7 +73,6 @@ const styles = StyleSheet.create({
     minHeight: 96,
     paddingVertical: 16,
     paddingHorizontal: 12,
-    backgroundColor: HOME_COLORS.surface,
     borderRadius: HOME_RADIUS.section,
     alignItems: "center",
     justifyContent: "center",
@@ -74,7 +81,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: HOME_COLORS.accentSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -82,6 +88,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     fontWeight: "700",
-    color: HOME_COLORS.ink,
   },
 });
