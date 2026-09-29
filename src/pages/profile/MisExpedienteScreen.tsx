@@ -58,7 +58,17 @@ function docCaption(doc: ExpedienteDocumentSummaryItemDto) {
   if (doc.fileCount === 0) {
     return doc.isRequired ? "Falta subir" : "Puedes subirlo después";
   }
-  return fileCountLabel(doc.fileCount);
+  const count = fileCountLabel(doc.fileCount);
+  if (doc.requiresExpirationDate) {
+    if (doc.expirationDate) {
+      const parts = doc.expirationDate.slice(0, 10).split("-");
+      if (parts.length === 3) {
+        return `${count} · Vigencia ${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return `${count} · Sin vigencia`;
+  }
+  return count;
 }
 
 function headerSubtitle(data: SellerExpedienteDto | null, loading: boolean) {

@@ -4,6 +4,8 @@ export type ExpedienteDocumentSummaryItemDto = {
   documentTypeId: string;
   documentTypeName: string;
   isRequired: boolean;
+  requiresExpirationDate: boolean;
+  expirationDate: string | null;
   sellerDocumentId: string | null;
   fileCount: number;
   uploadedAt: string | null;
@@ -97,15 +99,37 @@ export async function uploadExpedienteEvidenceFile(asset: {
   return data;
 }
 
-export async function addMyDocumentFile(documentTypeId: string, fileId: string) {
+export async function addMyDocumentFile(
+  documentTypeId: string,
+  fileId: string,
+  expirationDate?: string | null,
+) {
+  const body: { fileId: string; expirationDate?: string } = { fileId };
+  if (expirationDate) body.expirationDate = expirationDate;
   const { data } = await http.post<ExpedienteDocumentDetailDto>(
     `${prefix}/my/documents/${documentTypeId}/files`,
-    { fileId },
+    body,
     { timeout: 45000 },
   );
   return data;
 }
 
-export async function upsertMyDocument(documentTypeId: string, fileId: string) {
-  return addMyDocumentFile(documentTypeId, fileId);
+export async function updateMyDocumentExpiration(
+  documentTypeId: string,
+  expirationDate: string,
+) {
+  const { data } = await http.patch<ExpedienteDocumentDetailDto>(
+    `${prefix}/my/documents/${documentTypeId}/expiration`,
+    { expirationDate },
+    { timeout: 45000 },
+  );
+  return data;
+}
+
+export async function upsertMyDocument(
+  documentTypeId: string,
+  fileId: string,
+  expirationDate?: string | null,
+) {
+  return addMyDocumentFile(documentTypeId, fileId, expirationDate);
 }

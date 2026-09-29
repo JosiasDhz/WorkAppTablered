@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,17 +16,20 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import { AttachSquare, DocumentText, Gallery, Trash } from "iconsax-react-native";
+import { AttachSquare, Calendar1, DocumentText, Gallery, Trash } from "iconsax-react-native";
 import { WebView } from "react-native-webview";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { TapImagePreview } from "../../components/TapImagePreview";
+import { useAppAppearance } from "../../theme/appearance";
 import { useFormColors, type FormColors } from "../../theme/formColors";
 import { apiBaseUrl } from "../../api/http-common";
 import {
   addMyDocumentFile,
   getMyExpedienteDocument,
+  updateMyDocumentExpiration,
   uploadExpedienteEvidenceFile,
   type ExpedienteDocumentDetailDto,
   type ExpedienteFileRefDto,
@@ -43,6 +47,33 @@ type PendingFile = {
   mimeType: string;
   isPdf: boolean;
 };
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function localYmd(d: Date) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function parseYmd(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+  date.setHours(0, 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatYmdDisplay(ymd: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!match) return ymd;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
 
 function fileCountLabel(count: number) {
   if (count === 0) return "0 archivos";
@@ -98,6 +129,11 @@ function normalizeDetail(
     ...raw,
     documentTypeName: raw.documentTypeName ?? fallbackName,
     isRequired: raw.isRequired ?? fallbackRequired,
+    requiresExpirationDate: raw.requiresExpirationDate === true,
+    expirationDate:
+      typeof raw.expirationDate === "string" && raw.expirationDate.trim()
+        ? raw.expirationDate.trim().slice(0, 10)
+        : null,
     files,
     fileCount: files.length,
   };
@@ -113,6 +149,7 @@ export default function MisExpedienteDocumentoScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const COLORS = useFormColors();
+  const { scheme } = useAppAppearance();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -125,7 +162,11 @@ export default function MisExpedienteDocumentoScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [savingExpiration, setSavingExpiration] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [expirationDate, setExpirationDate] = useState("");
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [datePickerDraft, setDatePickerDraft] = useState(new Date());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfTitle, setPdfTitle] = useState("");
@@ -135,7 +176,9 @@ export default function MisExpedienteDocumentoScreen() {
 
   const applyDetail = useCallback(
     (raw: ExpedienteDocumentDetailDto) => {
-      setDetail(normalizeDetail(raw, documentTypeName, isRequired));
+      const normalized = normalizeDetail(raw, documentTypeName, isRequired);
+      setDetail(normalized);
+      setExpirationDate(normalized.expirationDate ?? "");
     },
     [documentTypeName, isRequired],
   );
@@ -286,6 +329,14 @@ export default function MisExpedienteDocumentoScreen() {
 
   const submitPending = async () => {
     if (pendingFiles.length === 0) return;
+    const requiresExpiration = detail?.requiresExpirationDate === true;
+    if (requiresExpiration && !expirationDate.trim()) {
+      Alert.alert(
+        "Fecha requerida",
+        "Indica la fecha de vigencia del documento.",
+      );
+      return;
+    }
     const count = pendingFiles.length;
     const batch = [...pendingFiles];
     setSubmitting(true);
@@ -298,12 +349,17 @@ export default function MisExpedienteDocumentoScreen() {
           name: item.name,
           mimeType: item.mimeType,
         });
-        latest = await addMyDocumentFile(documentTypeId, uploaded.id);
+        latest = await addMyDocumentFile(
+          documentTypeId,
+          uploaded.id,
+          requiresExpiration ? expirationDate.trim() : null,
+        );
       }
       let savedCount = 0;
       if (latest) {
         applyDetail(latest);
-        savedCount = normalizeDetail(latest, documentTypeName, isRequired).files.length;
+        savedCount = normalizeDetail(latest, documentTypeName, isRequired).files
+          .length;
       }
       setPendingFiles([]);
       Alert.alert(
@@ -322,9 +378,53 @@ export default function MisExpedienteDocumentoScreen() {
     }
   };
 
+  const openDatePicker = () => {
+    setDatePickerDraft(parseYmd(expirationDate) ?? new Date());
+    setDatePickerOpen(true);
+  };
+
+  const closeDatePicker = () => setDatePickerOpen(false);
+
+  const confirmDatePicker = () => {
+    setExpirationDate(localYmd(datePickerDraft));
+    setDatePickerOpen(false);
+  };
+
+  const onAndroidDateChange = (_: unknown, selected?: Date) => {
+    setDatePickerOpen(false);
+    if (selected) setExpirationDate(localYmd(selected));
+  };
+
+  const saveExpirationOnly = async () => {
+    if (!expirationDate.trim()) {
+      Alert.alert(
+        "Fecha requerida",
+        "Indica la fecha de vigencia del documento.",
+      );
+      return;
+    }
+    setSavingExpiration(true);
+    try {
+      const updated = await updateMyDocumentExpiration(
+        documentTypeId,
+        expirationDate.trim(),
+      );
+      applyDetail(updated);
+      Alert.alert("Listo", "Vigencia guardada.");
+    } catch (err: unknown) {
+      Alert.alert("Error", toErrorMessage(err));
+    } finally {
+      setSavingExpiration(false);
+    }
+  };
+
   const files = detail?.files ?? [];
   const savedCount = files.length;
   const pendingCount = pendingFiles.length;
+  const requiresExpiration = detail?.requiresExpirationDate === true;
+  const savedExpiration = detail?.expirationDate ?? "";
+  const expirationDirty =
+    requiresExpiration && expirationDate.trim() !== savedExpiration;
 
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top")}>
@@ -356,6 +456,52 @@ export default function MisExpedienteDocumentoScreen() {
         >
           {isRequired ? (
             <Text style={styles.requiredHint}>Documento obligatorio</Text>
+          ) : null}
+
+          {requiresExpiration ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Fecha de vigencia</Text>
+              <Text style={styles.sectionHint}>
+                Este documento requiere una fecha de vigencia.
+              </Text>
+              <Pressable
+                style={[
+                  styles.dateField,
+                  (submitting || savingExpiration) && styles.dropZoneDisabled,
+                ]}
+                disabled={submitting || savingExpiration}
+                onPress={openDatePicker}
+              >
+                <Calendar1 size={20} color={COLORS.accent} variant="Linear" />
+                <Text
+                  style={[
+                    styles.dateFieldText,
+                    !expirationDate && styles.dateFieldPlaceholder,
+                  ]}
+                >
+                  {expirationDate
+                    ? formatYmdDisplay(expirationDate)
+                    : "Selecciona la vigencia"}
+                </Text>
+              </Pressable>
+              {expirationDirty && pendingCount === 0 ? (
+                <Pressable
+                  style={[
+                    styles.submitBtn,
+                    styles.expirationSaveBtn,
+                    savingExpiration && styles.submitBtnDisabled,
+                  ]}
+                  disabled={savingExpiration || submitting}
+                  onPress={() => void saveExpirationOnly()}
+                >
+                  {savingExpiration ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Guardar vigencia</Text>
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
 
           <Pressable
@@ -537,6 +683,49 @@ export default function MisExpedienteDocumentoScreen() {
           ) : null}
         </View>
       </Modal>
+
+      {Platform.OS === "android" && datePickerOpen ? (
+        <DateTimePicker
+          value={datePickerDraft}
+          mode="date"
+          display="default"
+          locale="es-MX"
+          onChange={onAndroidDateChange}
+        />
+      ) : null}
+
+      <Modal
+        visible={datePickerOpen && Platform.OS === "ios"}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDatePicker}
+      >
+        <View style={styles.pickerOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDatePicker} />
+          <View
+            style={[
+              styles.pickerCard,
+              { paddingBottom: Math.max(insets.bottom, 16) + 8 },
+            ]}
+          >
+            <View style={styles.pickerHandle} />
+            <Text style={styles.pickerTitle}>Fecha de vigencia</Text>
+            <DateTimePicker
+              value={datePickerDraft}
+              mode="date"
+              display="spinner"
+              locale="es-MX"
+              onChange={(_, selected) => {
+                if (selected) setDatePickerDraft(selected);
+              }}
+              themeVariant={scheme}
+            />
+            <Pressable style={styles.pickerConfirm} onPress={confirmDatePicker}>
+              <Text style={styles.pickerConfirmText}>Listo</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -556,6 +745,70 @@ function createStyles(COLORS: FormColors) {
       fontWeight: "700",
       color: COLORS.accent,
       marginBottom: 12,
+    },
+    dateField: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: COLORS.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+    },
+    dateFieldText: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "600",
+      color: COLORS.ink,
+    },
+    dateFieldPlaceholder: {
+      color: COLORS.muted,
+      fontWeight: "500",
+    },
+    expirationSaveBtn: {
+      marginTop: 12,
+    },
+    pickerOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(15,23,42,0.45)",
+      justifyContent: "flex-end",
+    },
+    pickerCard: {
+      backgroundColor: COLORS.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    pickerHandle: {
+      alignSelf: "center",
+      width: 40,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: COLORS.divider,
+      marginBottom: 10,
+    },
+    pickerTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: COLORS.ink,
+      textAlign: "center",
+      marginBottom: 8,
+    },
+    pickerConfirm: {
+      marginTop: 8,
+      borderRadius: 14,
+      backgroundColor: COLORS.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 14,
+    },
+    pickerConfirmText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
     },
     section: {
       marginBottom: 20,
