@@ -28,7 +28,7 @@ export type WorkerAttendanceKpi = {
 
 export type WorkerRoleHomeKpiTone = "ok" | "pending" | "neutral";
 
-export type WorkerRoleHomeKpiAction = "inventory" | "routes" | "none";
+export type WorkerRoleHomeKpiAction = "inventory" | "routes" | "audits" | "none";
 
 export type WorkerRoleHomeChartKind =
   | "bars"

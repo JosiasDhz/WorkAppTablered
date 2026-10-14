@@ -22,7 +22,7 @@ export type RootStackParamList = {
   InventoryAuditDetail: undefined;
   InventoryAuditFamilyProducts: undefined;
   InventoryAuditLossDocuments: undefined;
-  InventoryAuditLossDocumentDetail: undefined;
+  InventoryAuditLossDocumentDetail: { allocationId: string } | undefined;
   DriverRouteDetail: { routeId: string };
   DriverRouteConfirmMercancia: { routeId: string };
   DriverRouteProductPickup: { routeId: string };

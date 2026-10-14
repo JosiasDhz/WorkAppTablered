@@ -16,7 +16,9 @@ import { SoftPressable } from "../../components/SoftPressable";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { SCREEN_GUTTER } from "../../theme/layout";
 import {
+  ArrowDown2,
   ArrowUp,
+  Calendar,
   CloseCircle,
   SearchNormal1,
   TickCircle,
@@ -26,12 +28,17 @@ import {
   getFamilyAuditProducts,
   patchFamilyAuditCounts,
   auditFamilyDisplayLabel,
+  type AuditCountLinePayload,
   type AuditDetailFamily,
   type AuditProductLine,
   type InventoryAuditStatus,
 } from "../../services/inventoryAuditService";
 import { createThemedStyles } from "../../theme/themedStyles";
 import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
+import { ProductionYearPickerSheet } from "./audit/ProductionYearPickerSheet";
+import { describeStockMovements } from "./audit/auditStockMovements";
+import { AuditProductThumb } from "./audit/AuditProductThumb";
+import { useAuditCountAutosave, type AutoSaveState } from "./audit/useAuditCountAutosave";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -51,16 +58,133 @@ function toCountInputValue(counted: number | null | undefined): string {
   return counted <= 0 ? "" : String(counted);
 }
 
+function ProductionYearField({
+  savedYear,
+  pendingYear,
+  disabled,
+  onPress,
+}: {
+  savedYear: number | null;
+  pendingYear: number | null;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const ui = useAuditUi();
+  const styles = useFamilyProductStyles();
+
+  if (savedYear !== null) {
+    return (
+      <View style={styles.yearRow}>
+        <Text style={styles.countLabel}>Año de producción</Text>
+        <View style={styles.yearSaved}>
+          <Calendar size={16} color={ui.green} variant="Bold" />
+          <Text style={styles.yearSavedText}>{savedYear}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.yearRow}>
+      <Text style={styles.countLabel}>Año de producción (opcional)</Text>
+      <SoftPressable
+        onPress={onPress}
+        disabled={disabled}
+        scaleTo={0.98}
+        accessibilityLabel="Seleccionar año de producción"
+      >
+        <View style={[styles.yearPicker, disabled && styles.inputDisabled]}>
+          <Calendar
+            size={16}
+            color={pendingYear !== null ? ui.accent : ui.muted}
+            variant={pendingYear !== null ? "Bold" : "Linear"}
+          />
+          <Text
+            style={[styles.yearPickerText, pendingYear === null && styles.yearPickerPlaceholder]}
+          >
+            {pendingYear ?? "Seleccionar año"}
+          </Text>
+          <ArrowDown2 size={16} color={ui.muted} variant="Linear" />
+        </View>
+      </SoftPressable>
+    </View>
+  );
+}
+
+const AUTOSAVE_LABEL: Record<AutoSaveState, string | null> = {
+  idle: null,
+  pending: "Sin guardar",
+  saving: "Guardando…",
+  saved: "Guardado",
+  error: "Error · Reintentar",
+};
+
+function AutoSaveStatus({ state, onRetry }: { state: AutoSaveState; onRetry: () => void }) {
+  const ui = useAuditUi();
+  const styles = useFamilyProductStyles();
+  const label = AUTOSAVE_LABEL[state];
+  if (!label) return null;
+
+  const color = state === "error" ? ui.rose : state === "saved" ? ui.green : ui.muted;
+  const content = (
+    <View style={styles.autoSaveRow}>
+      {state === "saving" ? <ActivityIndicator size="small" color={ui.muted} /> : null}
+      {state === "saved" ? <TickCircle size={14} color={ui.green} variant="Bold" /> : null}
+      <Text style={[styles.autoSaveText, { color }]}>{label}</Text>
+    </View>
+  );
+
+  if (state !== "error") return content;
+  return (
+    <SoftPressable onPress={onRetry} scaleTo={0.96} accessibilityLabel="Reintentar guardado">
+      {content}
+    </SoftPressable>
+  );
+}
+
+function StockMovementsNote({
+  movements,
+}: {
+  movements: AuditProductLine["stockMovements"];
+}) {
+  const styles = useFamilyProductStyles();
+  const { present, away } = describeStockMovements(movements);
+  if (present.length === 0 && away.length === 0) return null;
+
+  return (
+    <View style={styles.movementBox}>
+      {present.length > 0 ? (
+        <Text style={styles.movementText}>
+          <Text style={styles.movementPresentLabel}>En almacén, cuéntalas: </Text>
+          {present.join(" · ")}
+        </Text>
+      ) : null}
+      {away.length > 0 ? (
+        <Text style={[styles.movementText, present.length > 0 && styles.movementTextSpaced]}>
+          <Text style={styles.movementAwayLabel}>Fuera del almacén: </Text>
+          {away.join(" · ")}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function ProductRow({
   line,
   value,
   onChangeCount,
   disabled,
+  requiresProductionYear,
+  pendingYear,
+  onPickYear,
 }: {
   line: AuditProductLine;
   value: string;
   onChangeCount: (text: string) => void;
   disabled?: boolean;
+  requiresProductionYear: boolean;
+  pendingYear: number | null;
+  onPickYear: () => void;
 }) {
   const ui = useAuditUi();
   const styles = useFamilyProductStyles();
@@ -72,6 +196,7 @@ function ProductRow({
   return (
     <View style={[styles.productRow, disabled && styles.productRowDisabled]}>
       <View style={styles.productRowTop}>
+        <AuditProductThumb fileId={line.product.imageFileId} />
         <View style={styles.productTitleBlock}>
           <Text style={styles.productSku} numberOfLines={1}>
             {line.product.sku}
@@ -86,6 +211,7 @@ function ProductRow({
           <Timer1 size={22} color={ui.amber} variant="Linear" />
         )}
       </View>
+      <StockMovementsNote movements={line.stockMovements} />
       <View style={styles.countRow}>
         <Text style={styles.countLabel}>Cantidad contada</Text>
         <TextInput
@@ -99,6 +225,14 @@ function ProductRow({
           selectTextOnFocus
         />
       </View>
+      {requiresProductionYear ? (
+        <ProductionYearField
+          savedYear={line.product.productionYear ?? null}
+          pendingYear={pendingYear}
+          disabled={disabled}
+          onPress={onPickYear}
+        />
+      ) : null}
     </View>
   );
 }
@@ -122,11 +256,13 @@ export default function InventoryAuditFamilyProducts() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [countsById, setCountsById] = useState<Record<string, string>>({});
+  const [yearsById, setYearsById] = useState<Record<string, number>>({});
+  const [yearPickerLine, setYearPickerLine] = useState<AuditProductLine | null>(null);
   const [auditStatus, setAuditStatus] = useState<InventoryAuditStatus | null>(null);
 
   const offsetRef = useRef(0);
@@ -140,6 +276,7 @@ export default function InventoryAuditFamilyProducts() {
     auditStatus === "completed" ||
     auditStatus === "submitted";
   const inputsLocked = familyComplete || auditReadOnly;
+  const requiresProductionYear = family?.requiresProductionYear === true;
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchText.trim()), SEARCH_DEBOUNCE_MS);
@@ -148,8 +285,9 @@ export default function InventoryAuditFamilyProducts() {
 
   useEffect(() => {
     setCountsById({});
+    setYearsById({});
     setAuditStatus(null);
-  }, [auditId, familyId, debouncedSearch]);
+  }, [auditId, familyId]);
 
   useEffect(() => {
     setCountsById((prev) => {
@@ -211,46 +349,31 @@ export default function InventoryAuditFamilyProducts() {
     };
   }, [fetchPage]);
 
-  const buildPayload = useCallback(() => {
-    const payload: { id: string; counted: number }[] = [];
-    for (const l of lines) {
-      const raw = countsById[l.id] ?? "";
-      const trimmed = raw.trim();
-      if (trimmed === "") continue;
-      const n = parseInt(trimmed, 10);
-      if (!Number.isFinite(n) || n < 0) continue;
-      payload.push({ id: l.id, counted: n });
-    }
-    return payload;
-  }, [lines, countsById]);
-
-  const mergeSavedLines = useCallback((payload: { id: string; counted: number }[]) => {
+  const mergeSavedLines = useCallback((payload: AuditCountLinePayload[]) => {
+    const savedById = new Map(payload.map((p) => [p.id, p]));
     setLines((prev) =>
       prev.map((l) => {
-        const p = payload.find((x) => x.id === l.id);
+        const p = savedById.get(l.id);
         if (!p) return l;
-        const sys = l.systemStock ?? 0;
-        return { ...l, counted: p.counted, difference: p.counted - sys };
+        const next = { ...l };
+        if (p.counted !== undefined) next.counted = p.counted;
+        if (p.productionYear !== undefined) {
+          next.product = { ...l.product, productionYear: p.productionYear };
+        }
+        return next;
       }),
     );
-    setCountsById((prev) => {
+    setYearsById((prev) => {
       const next = { ...prev };
       for (const p of payload) {
-        next[p.id] = toCountInputValue(p.counted);
+        if (p.productionYear !== undefined && next[p.id] === p.productionYear) delete next[p.id];
       }
       return next;
     });
   }, []);
 
-  const handleSaveProgress = useCallback(async () => {
-    if (inputsLocked || saving) return;
-    const payload = buildPayload();
-    if (payload.length === 0) {
-      Alert.alert("Sin cantidades", "Captura al menos una cantidad contada para guardar.");
-      return;
-    }
-    setSaving(true);
-    try {
+  const saveCounts = useCallback(
+    async (payload: AuditCountLinePayload[]) => {
       const res = await patchFamilyAuditCounts(auditId, familyId, {
         lines: payload,
         completeFamily: false,
@@ -258,50 +381,89 @@ export default function InventoryAuditFamilyProducts() {
       setFamily(res.family);
       setAuditStatus(res.audit.status as InventoryAuditStatus);
       mergeSavedLines(payload);
-      Alert.alert("Listo", "Progreso guardado.");
-    } catch (e: unknown) {
-      Alert.alert("Error", formatApiError(e));
-    } finally {
-      setSaving(false);
-    }
-  }, [
-    auditId,
-    familyId,
-    buildPayload,
-    mergeSavedLines,
-    inputsLocked,
-    saving,
-  ]);
+    },
+    [auditId, familyId, mergeSavedLines],
+  );
+
+  const autosave = useAuditCountAutosave({ save: saveCounts, enabled: !inputsLocked });
+  const { updateLine, flush, hasPending, discard } = autosave;
+
+  const handleCountChange = useCallback(
+    (lineId: string, text: string) => {
+      setCountsById((prev) => ({ ...prev, [lineId]: text }));
+      const n = text === "" ? NaN : parseInt(text, 10);
+      updateLine(lineId, { counted: Number.isFinite(n) && n >= 0 ? n : undefined });
+    },
+    [updateLine],
+  );
+
+  const handleYearChange = useCallback(
+    (lineId: string, year: number | undefined) => {
+      setYearsById((prev) => {
+        const next = { ...prev };
+        if (year === undefined) delete next[lineId];
+        else next[lineId] = year;
+        return next;
+      });
+      updateLine(lineId, { productionYear: year });
+    },
+    [updateLine],
+  );
+
+  useEffect(
+    () =>
+      navigation.addListener("beforeRemove", (e: any) => {
+        if (!hasPending()) return;
+        e.preventDefault();
+        void flush().then((ok) => {
+          if (ok) {
+            navigation.dispatch(e.data.action);
+            return;
+          }
+          Alert.alert(
+            "Hay conteos sin guardar",
+            "No pudimos guardar tus últimos cambios. Revisa tu conexión.",
+            [
+              { text: "Quedarme", style: "cancel" },
+              {
+                text: "Salir sin guardar",
+                style: "destructive",
+                onPress: () => {
+                  discard();
+                  navigation.dispatch(e.data.action);
+                },
+              },
+            ],
+          );
+        });
+      }),
+    [navigation, flush, hasPending, discard],
+  );
 
   const handleSaveFamily = useCallback(async () => {
-    if (inputsLocked || saving) return;
-    const payload = buildPayload();
-    setSaving(true);
+    if (inputsLocked || completing) return;
+    setCompleting(true);
     try {
+      const saved = await flush();
+      if (!saved) {
+        Alert.alert("No se pudo guardar", "Revisa tu conexión e inténtalo de nuevo.");
+        return;
+      }
       const res = await patchFamilyAuditCounts(auditId, familyId, {
-        lines: payload,
+        lines: [],
         completeFamily: true,
       });
       setFamily(res.family);
       setAuditStatus(res.audit.status as InventoryAuditStatus);
-      if (payload.length > 0) mergeSavedLines(payload);
       Alert.alert("Ubicación completada", "El conteo de esta ubicación quedó cerrado.", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (e: unknown) {
       Alert.alert("No se pudo completar", formatApiError(e));
     } finally {
-      setSaving(false);
+      setCompleting(false);
     }
-  }, [
-    auditId,
-    familyId,
-    buildPayload,
-    mergeSavedLines,
-    inputsLocked,
-    saving,
-    navigation,
-  ]);
+  }, [auditId, familyId, flush, inputsLocked, completing, navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -397,6 +559,9 @@ export default function InventoryAuditFamilyProducts() {
                 <Text style={styles.progressMuted}>/{family.totalProducts}</Text>
                 <Text style={styles.progressMuted}> productos</Text>
               </Text>
+              {inputsLocked ? null : (
+                <AutoSaveStatus state={autosave.state} onRetry={() => void flush()} />
+              )}
               <View style={styles.progressPctPill}>
                 <Text style={styles.progressPctText}>{pct}%</Text>
               </View>
@@ -432,40 +597,24 @@ export default function InventoryAuditFamilyProducts() {
         }}
       />
 
-      <View style={styles.actionBar}>
-        <View style={styles.actionSlot}>
+      {inputsLocked ? null : (
+        <View style={styles.actionBar}>
           <SoftPressable
-            onPress={handleSaveProgress}
-            disabled={saving || inputsLocked}
+            onPress={handleSaveFamily}
+            disabled={completing || !canCompleteFamily}
             scaleTo={0.98}
-            style={(saving || inputsLocked) ? styles.btnDisabled : undefined}
+            style={completing || !canCompleteFamily ? styles.btnDisabled : undefined}
           >
-            <View style={styles.btnProgress}>
-              {saving ? (
-                <ActivityIndicator color={ui.accent} size="small" />
+            <View style={styles.btnComplete}>
+              {completing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.btnProgressText}>Guardar progreso</Text>
+                <Text style={styles.btnCompleteText}>Terminar y cerrar ubicación</Text>
               )}
             </View>
           </SoftPressable>
         </View>
-        <View style={styles.actionSlot}>
-          <SoftPressable
-            onPress={handleSaveFamily}
-            disabled={saving || inputsLocked || !canCompleteFamily}
-            scaleTo={0.98}
-            style={
-              saving || inputsLocked || !canCompleteFamily
-                ? styles.btnDisabled
-                : undefined
-            }
-          >
-            <View style={styles.btnComplete}>
-              <Text style={styles.btnCompleteText}>Guardar ubicación</Text>
-            </View>
-          </SoftPressable>
-        </View>
-      </View>
+      )}
 
       {loading ? (
         <View style={styles.centered}>
@@ -477,18 +626,16 @@ export default function InventoryAuditFamilyProducts() {
             ref={listRef}
             data={lines}
             keyExtractor={(item) => item.id}
-            extraData={[countsById, family, inputsLocked]}
+            extraData={[countsById, yearsById, family, inputsLocked]}
             renderItem={({ item }) => (
               <ProductRow
                 line={item}
                 value={countsById[item.id] ?? ""}
-                onChangeCount={(text) =>
-                  setCountsById((p) => ({
-                    ...p,
-                    [item.id]: text,
-                  }))
-                }
+                onChangeCount={(text) => handleCountChange(item.id, text)}
                 disabled={inputsLocked}
+                requiresProductionYear={requiresProductionYear}
+                pendingYear={yearsById[item.id] ?? null}
+                onPickYear={() => setYearPickerLine(item)}
               />
             )}
             ListHeaderComponent={listHeader}
@@ -532,6 +679,20 @@ export default function InventoryAuditFamilyProducts() {
           ) : null}
         </>
       )}
+      <ProductionYearPickerSheet
+        visible={yearPickerLine !== null}
+        productName={yearPickerLine?.product.name}
+        value={yearPickerLine ? yearsById[yearPickerLine.id] ?? null : null}
+        onSelect={(year) => {
+          if (yearPickerLine) handleYearChange(yearPickerLine.id, year);
+          setYearPickerLine(null);
+        }}
+        onClear={() => {
+          if (yearPickerLine) handleYearChange(yearPickerLine.id, undefined);
+          setYearPickerLine(null);
+        }}
+        onClose={() => setYearPickerLine(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -541,24 +702,12 @@ function buildFamilyProductStyles(ui: AuditUi) {
     safe: { flex: 1, backgroundColor: "transparent" },
     header: { paddingHorizontal: SCREEN_GUTTER },
     actionBar: {
-      flexDirection: "row",
-      gap: 10,
       paddingHorizontal: SCREEN_GUTTER,
       paddingVertical: 10,
       backgroundColor: "transparent",
     },
-    actionSlot: { flex: 1 },
-    btnProgress: {
-      paddingVertical: 12,
-      borderRadius: 999,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: "rgba(234, 118, 0, 0.45)",
-      backgroundColor: ui.surface,
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 44,
-    },
-    btnProgressText: { fontSize: 13, fontWeight: "700", color: ui.accent },
+    autoSaveRow: { flexDirection: "row", alignItems: "center", gap: 4, marginRight: 8 },
+    autoSaveText: { fontSize: 11, fontWeight: "700" },
     btnComplete: {
       paddingVertical: 12,
       borderRadius: 999,
@@ -688,6 +837,17 @@ function buildFamilyProductStyles(ui: AuditUi) {
       marginTop: 6,
       lineHeight: 18,
     },
+    movementBox: {
+      marginTop: 10,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      backgroundColor: ui.amberSoft,
+    },
+    movementText: { fontSize: 12, fontWeight: "500", color: ui.ink, lineHeight: 17 },
+    movementTextSpaced: { marginTop: 4 },
+    movementPresentLabel: { fontWeight: "800", color: ui.amber },
+    movementAwayLabel: { fontWeight: "800", color: ui.muted },
     countRow: { marginTop: 12 },
     countLabel: {
       fontSize: 10,
@@ -707,6 +867,29 @@ function buildFamilyProductStyles(ui: AuditUi) {
       backgroundColor: ui.field,
     },
     inputDisabled: { opacity: 0.7, color: ui.muted },
+    yearRow: { marginTop: 12 },
+    yearPicker: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      backgroundColor: ui.field,
+    },
+    yearPickerText: { flex: 1, fontSize: 16, fontWeight: "600", color: ui.ink },
+    yearPickerPlaceholder: { color: ui.muted, fontWeight: "500" },
+    yearSaved: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 6,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: ui.greenSoft,
+    },
+    yearSavedText: { fontSize: 14, fontWeight: "700", color: ui.green },
     empty: { paddingVertical: 40, alignItems: "center" },
     emptyText: { color: ui.muted, fontSize: 14, fontWeight: "500" },
     footerLoading: { paddingVertical: 20 },

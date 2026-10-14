@@ -33,6 +33,7 @@ const FLIP_STAGGER_MS = 55;
 const FINALIZED_AUDIT_STATUSES = new Set<MyInventoryAudit["status"]>([
   "finalized",
   "pending_responsibility",
+  "cancelled",
 ]);
 
 type AuditTab = "pending" | "in_progress" | "finalized";
@@ -64,6 +65,14 @@ function finalizedDateText(audit: MyInventoryAudit) {
     });
   }
   return formatInventoryAuditCalendarDateMX(audit.scheduledEndDate);
+}
+
+function formatShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function auditTitle(audit: MyInventoryAudit) {
@@ -176,7 +185,10 @@ function AuditListCard({
 }) {
   const ui = useAuditUi();
   const styles = useAuditStyles();
-  const meta = tabMeta(tab, ui);
+  const cancelled = audit.status === "cancelled";
+  const meta = cancelled
+    ? { label: "Cancelada", color: ui.rose, soft: ui.roseSoft }
+    : tabMeta(tab, ui);
   const families = audit.families ?? [];
   const familiesTotal = families.length;
   const familiesDone = families.filter((f) => f.status === "completed").length;
@@ -209,7 +221,13 @@ function AuditListCard({
               {familiesTotal > 1 ? ` · +${familiesTotal - 1} ubicaciones` : ""}
             </Text>
           ) : null}
-          {tab === "finalized" ? (
+          {cancelled ? (
+            <Text style={[styles.cardMeta, { color: ui.rose }]}>
+              {audit.cancelledAt
+                ? `Cancelada el ${formatShortDate(audit.cancelledAt)}`
+                : "Cancelada"}
+            </Text>
+          ) : tab === "finalized" ? (
             <Text style={[styles.cardMeta, { color: ui.green }]}>
               Finalizada el {finalizedDateText(audit)}
             </Text>
@@ -232,7 +250,7 @@ function AuditListCard({
                 <Text style={styles.progressLabel}>Avance</Text>
                 <Text style={styles.progressValue}>{productsPct}%</Text>
               </View>
-              <ProgressBar progress={productsPct} color={meta.color} />
+              <ProgressBar progress={productsPct} color={cancelled ? ui.muted : meta.color} />
             </View>
           ) : null}
         </View>

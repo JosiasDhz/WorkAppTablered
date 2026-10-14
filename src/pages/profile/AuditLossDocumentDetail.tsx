@@ -14,6 +14,14 @@ import Toast from "react-native-toast-message";
 import SignatureScreen from "react-native-signature-canvas";
 import { WebView } from "react-native-webview";
 import { useSelector } from "react-redux";
+import {
+  ArrowRight2,
+  DocumentText,
+  Edit2,
+  Maximize4,
+  Refresh2,
+  TickCircle,
+} from "iconsax-react-native";
 import { HeaderTitle } from "../../components/HeaderTitle";
 import { SoftPressable } from "../../components/SoftPressable";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
@@ -33,11 +41,11 @@ import { auditSoftCardStyle, useAuditUi, type AuditUi } from "./audit/auditUi";
 type DocKind = "contract" | "delivery";
 
 const DOC_LABEL: Record<DocKind, string> = {
-  contract: "ACTA DE INVENTARIO",
-  delivery: "ACTA DE ENTREGA",
+  contract: "Acta de inventario",
+  delivery: "Acta de entrega",
 };
 
-const signatureWebStyle = `.m-signature-pad--footer {display: none; margin: 0;} .m-signature-pad {box-shadow: none; border: none;}`;
+const signatureWebStyle = `.m-signature-pad--footer {display: none; margin: 0;} .m-signature-pad {box-shadow: none; border: none;} body,html {background: transparent;}`;
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -45,6 +53,13 @@ function formatMoney(n: number) {
     currency: "MXN",
     minimumFractionDigits: 2,
   }).format(n);
+}
+
+function isDocSigned(item: MyLossDocumentItem | null, doc: DocKind): boolean {
+  if (!item) return false;
+  return doc === "contract"
+    ? !!item.contractSignatureText
+    : !!item.paymentFormSignatureText;
 }
 
 export default function AuditLossDocumentDetail() {
@@ -66,6 +81,7 @@ export default function AuditLossDocumentDetail() {
   const [pdfDoc, setPdfDoc] = useState<DocKind | null>(null);
   const contractSigRef = useRef<any>(null);
   const paymentSigRef = useRef<any>(null);
+  const initialStepApplied = useRef(false);
 
   const load = useCallback(async () => {
     if (!allocationId) {
@@ -99,10 +115,20 @@ export default function AuditLossDocumentDetail() {
   }, [item]);
 
   useEffect(() => {
+    if (initialStepApplied.current || !item || steps.length === 0) return;
+    initialStepApplied.current = true;
+    const firstPending = steps.findIndex((doc) => !isDocSigned(item, doc));
+    setStepIndex(firstPending >= 0 ? firstPending : 0);
+  }, [item, steps]);
+
+  useEffect(() => {
     if (stepIndex > Math.max(0, steps.length - 1)) {
       setStepIndex(0);
     }
   }, [steps.length, stepIndex]);
+
+  const signedCount = steps.filter((doc) => isDocSigned(item, doc)).length;
+  const allSigned = steps.length > 0 && signedCount === steps.length;
 
   const handleSaveOne = async (doc: DocKind) => {
     if (!allocationId) return;
@@ -123,7 +149,21 @@ export default function AuditLossDocumentDetail() {
           : { paymentFormSignatureText: sigValue };
       const updated = await patchMyLossDocumentSignatures(allocationId, payload);
       setItem(updated);
-      Toast.show({ type: "success", text1: "Firma guardada." });
+      const nextPending = steps.findIndex((d) => !isDocSigned(updated, d));
+      if (nextPending >= 0) {
+        setStepIndex(nextPending);
+        Toast.show({
+          type: "success",
+          text1: "Firma guardada",
+          text2: `Sigue con el ${DOC_LABEL[steps[nextPending]].toLowerCase()}.`,
+        });
+      } else {
+        Toast.show({
+          type: "success",
+          text1: "¡Listo!",
+          text2: "Ya firmaste todas tus actas.",
+        });
+      }
     } catch {
       Toast.show({ type: "error", text1: "No se pudo guardar." });
     } finally {
@@ -182,19 +222,102 @@ export default function AuditLossDocumentDetail() {
     );
   };
 
-  const isDocLocked = (doc: DocKind): boolean => {
-    if (!item) return false;
-    return doc === "contract"
-      ? !!item.contractSignatureText
-      : !!item.paymentFormSignatureText;
+  const renderSummary = (current: MyLossDocumentItem) => {
+    const progress = steps.length > 0 ? signedCount / steps.length : 0;
+    return (
+      <View style={styles.summary}>
+        <Text style={styles.summaryEyebrow}>MONTO A DESCONTAR</Text>
+        <Text style={styles.summaryAmount}>{formatMoney(current.amount)}</Text>
+        <View style={styles.chipRow}>
+          <View style={[styles.chip, { backgroundColor: ui.accentSoft }]}>
+            <Text style={[styles.chipText, { color: ui.accent }]}>
+              {current.percentage}% de la pérdida
+            </Text>
+          </View>
+          <View style={[styles.chip, { backgroundColor: ui.field }]}>
+            <Text style={[styles.chipText, { color: ui.muted }]} numberOfLines={1}>
+              {current.audit.warehouse?.name ?? "Sin almacén"}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.summaryFamily} numberOfLines={2}>
+          {auditFamilyDisplayLabel(current.family)}
+        </Text>
+
+        {steps.length > 0 ? (
+          <View style={styles.summaryFooter}>
+            <View style={styles.progressBlock}>
+              <Text style={styles.progressText}>
+                {signedCount} de {steps.length}{" "}
+                {steps.length === 1 ? "acta firmada" : "actas firmadas"}
+              </Text>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${Math.round(progress * 100)}%`,
+                      backgroundColor: allSigned ? ui.green : ui.accent,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <SoftPressable
+              onPress={handleOpenAudit}
+              scaleTo={0.97}
+              style={styles.auditLinkWrap}
+            >
+              <View style={styles.auditLink}>
+                <Text style={styles.auditLinkText}>Ver auditoría</Text>
+                <ArrowRight2 size={14} color={ui.accent} variant="Linear" />
+              </View>
+            </SoftPressable>
+          </View>
+        ) : null}
+      </View>
+    );
   };
+
+  const renderTabs = () => (
+    <View style={styles.tabs}>
+      {steps.map((doc, index) => {
+        const active = index === stepIndex;
+        const signed = isDocSigned(item, doc);
+        return (
+          <View key={doc} style={styles.tabSlot}>
+            <SoftPressable onPress={() => setStepIndex(index)} scaleTo={0.98}>
+              <View style={[styles.tab, active && styles.tabActive]}>
+                {signed ? (
+                  <TickCircle size={16} color={ui.green} variant="Bold" />
+                ) : (
+                  <View
+                    style={[
+                      styles.tabDot,
+                      { backgroundColor: active ? ui.accent : ui.muted },
+                    ]}
+                  />
+                )}
+                <Text
+                  style={[styles.tabText, active && styles.tabTextActive]}
+                  numberOfLines={1}
+                >
+                  {DOC_LABEL[doc]}
+                </Text>
+              </View>
+            </SoftPressable>
+          </View>
+        );
+      })}
+    </View>
+  );
 
   const renderActaContent = (doc: DocKind) => {
     const isContract = doc === "contract";
     const sigValue = isContract ? contractSig : paymentSig;
     const setSigValue = isContract ? setContractSig : setPaymentSig;
     const sigRef = isContract ? contractSigRef : paymentSigRef;
-    const locked = isDocLocked(doc);
+    const locked = isDocSigned(item, doc);
 
     const handleClearSig = () => {
       sigRef.current?.clearSignature?.();
@@ -204,28 +327,47 @@ export default function AuditLossDocumentDetail() {
     return (
       <View style={styles.block}>
         <View style={styles.blockHead}>
-          <Text style={styles.blockLabel}>{DOC_LABEL[doc]}</Text>
+          <View style={[styles.docIcon, { backgroundColor: ui.accentSoft }]}>
+            <DocumentText size={18} color={ui.accent} variant="Linear" />
+          </View>
+          <View style={styles.blockHeadCopy}>
+            <Text style={styles.blockLabel}>{DOC_LABEL[doc]}</Text>
+            <View
+              style={[
+                styles.statusChip,
+                { backgroundColor: locked ? ui.greenSoft : ui.amberSoft },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusChipText,
+                  { color: locked ? ui.green : ui.amber },
+                ]}
+              >
+                {locked ? "Firmada" : "Pendiente de firma"}
+              </Text>
+            </View>
+          </View>
           <SoftPressable
-            style={styles.pdfBtnWrap}
             onPress={() => setPdfDoc(doc)}
-            scaleTo={0.97}
+            scaleTo={0.95}
+            style={styles.expandBtnWrap}
+            accessibilityLabel={`Ver ${DOC_LABEL[doc]} en pantalla completa`}
           >
-            <View style={styles.pdfBtn}>
-              <Text style={styles.pdfBtnText}>Abrir PDF</Text>
+            <View style={styles.expandBtn}>
+              <Maximize4 size={18} color={ui.ink} variant="Linear" />
             </View>
           </SoftPressable>
         </View>
 
         {renderInlinePdf(doc)}
 
-        <View style={styles.sigHead}>
-          <Text style={styles.sigLabel}>
-            {locked ? "Firma registrada" : "Firma después de revisar"}
-          </Text>
-          {locked ? (
-            <View style={styles.lockedBadge}>
-              <Text style={styles.lockedBadgeText}>Firmado</Text>
-            </View>
+        <View style={styles.sigSection}>
+          <Text style={styles.sigLabel}>Tu firma</Text>
+          {!locked ? (
+            <Text style={styles.sigHint}>
+              Revisa el acta y firma dentro del recuadro.
+            </Text>
           ) : null}
         </View>
 
@@ -240,6 +382,10 @@ export default function AuditLossDocumentDetail() {
             ) : (
               <Text style={styles.muted}>Firma guardada</Text>
             )}
+            <View style={styles.lockedStamp}>
+              <TickCircle size={14} color={ui.green} variant="Bold" />
+              <Text style={styles.lockedStampText}>Firmado</Text>
+            </View>
           </View>
         ) : (
           <>
@@ -260,11 +406,28 @@ export default function AuditLossDocumentDetail() {
                 confirmText="Aceptar"
                 autoClear={false}
               />
+              <View pointerEvents="none" style={styles.signatureGuide}>
+                {!sigValue ? (
+                  <View style={styles.signaturePlaceholder}>
+                    <Edit2 size={16} color={ui.muted} variant="Linear" />
+                    <Text style={styles.signaturePlaceholderText}>Firma aquí</Text>
+                  </View>
+                ) : null}
+                <View style={styles.signatureBaselineRow}>
+                  <Text style={styles.signatureCross}>✕</Text>
+                  <View style={styles.signatureBaseline} />
+                </View>
+              </View>
             </View>
             <View style={styles.sigActions}>
-              <View style={styles.sigSlot}>
-                <SoftPressable onPress={handleClearSig} scaleTo={0.98}>
+              <View style={styles.sigSlotGhost}>
+                <SoftPressable
+                  onPress={handleClearSig}
+                  scaleTo={0.98}
+                  accessibilityLabel="Limpiar firma"
+                >
                   <View style={[styles.sigBtn, styles.sigBtnGhost]}>
+                    <Refresh2 size={16} color={ui.ink} variant="Linear" />
                     <Text style={styles.sigBtnGhostText}>Limpiar</Text>
                   </View>
                 </SoftPressable>
@@ -272,11 +435,16 @@ export default function AuditLossDocumentDetail() {
               <View style={styles.sigSlot}>
                 <SoftPressable
                   onPress={() => handleSaveOne(doc)}
-                  disabled={saving}
+                  disabled={saving || !sigValue}
                   scaleTo={0.98}
-                  style={saving ? styles.saveBtnDisabled : undefined}
+                  style={saving || !sigValue ? styles.saveBtnDisabled : undefined}
                 >
                   <View style={[styles.sigBtn, styles.sigBtnSave]}>
+                    {saving ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <TickCircle size={16} color="#FFFFFF" variant="Linear" />
+                    )}
                     <Text style={styles.sigBtnSaveText}>
                       {saving ? "Guardando..." : "Guardar firma"}
                     </Text>
@@ -291,15 +459,12 @@ export default function AuditLossDocumentDetail() {
   };
 
   const currentDoc = steps[stepIndex];
-  const totalSteps = steps.length;
-  const canPrev = stepIndex > 0;
-  const canNext = stepIndex < totalSteps - 1;
 
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
       <HeaderTitle
-        title="Documentos"
-        subtitle="Revisa y firma"
+        title="Firmar actas"
+        subtitle={allSigned ? "Todo firmado" : "Revisa y firma"}
         tone="light"
         style={styles.header}
         onBack={() => {
@@ -317,77 +482,24 @@ export default function AuditLossDocumentDetail() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.summary}>
-            <Text style={styles.summaryTitle}>
-              {auditFamilyDisplayLabel(item.family)}
-            </Text>
-            <Text style={styles.summaryMeta}>
-              {item.audit.warehouse?.name ?? "Sin almacén"} · {item.percentage}% · {formatMoney(item.amount)}
-            </Text>
-            <SoftPressable onPress={handleOpenAudit} scaleTo={0.97} style={styles.summaryBtnWrap}>
-              <View style={styles.summaryBtn}>
-                <Text style={styles.summaryBtnText}>Ver auditoría</Text>
-              </View>
-            </SoftPressable>
-          </View>
+          {renderSummary(item)}
 
-          {totalSteps === 0 ? (
+          {allSigned ? (
+            <View style={styles.doneBanner}>
+              <TickCircle size={20} color={ui.green} variant="Bold" />
+              <Text style={styles.doneBannerText}>
+                Ya firmaste {steps.length === 1 ? "tu acta" : "todas tus actas"}. No tienes
+                nada pendiente aquí.
+              </Text>
+            </View>
+          ) : null}
+
+          {steps.length === 0 ? (
             <Text style={styles.muted}>No hay documentos generados para esta asignación.</Text>
           ) : (
             <>
-              {totalSteps > 1 ? (
-                <View style={styles.stepsBar}>
-                  <Text style={styles.stepsText}>
-                    Documento {stepIndex + 1} de {totalSteps}
-                  </Text>
-                </View>
-              ) : null}
-
+              {steps.length > 1 ? renderTabs() : null}
               {currentDoc ? renderActaContent(currentDoc) : null}
-
-              {totalSteps > 1 ? (
-                <View style={styles.navRow}>
-                  <View style={styles.navSlot}>
-                    <SoftPressable
-                      onPress={() => canPrev && setStepIndex((i) => i - 1)}
-                      disabled={!canPrev}
-                      scaleTo={0.98}
-                      style={!canPrev ? styles.navBtnDisabled : undefined}
-                    >
-                      <View style={styles.navBtn}>
-                        <Text
-                          style={[
-                            styles.navBtnText,
-                            !canPrev && styles.navBtnTextDisabled,
-                          ]}
-                        >
-                          ‹ Anterior
-                        </Text>
-                      </View>
-                    </SoftPressable>
-                  </View>
-                  <View style={styles.navSlot}>
-                    <SoftPressable
-                      onPress={() => canNext && setStepIndex((i) => i + 1)}
-                      disabled={!canNext}
-                      scaleTo={0.98}
-                      style={!canNext ? styles.navBtnDisabled : undefined}
-                    >
-                      <View style={[styles.navBtn, styles.navBtnPrimary]}>
-                        <Text
-                          style={[
-                            styles.navBtnText,
-                            styles.navBtnTextPrimary,
-                            !canNext && styles.navBtnTextDisabled,
-                          ]}
-                        >
-                          Siguiente ›
-                        </Text>
-                      </View>
-                    </SoftPressable>
-                  </View>
-                </View>
-              ) : null}
             </>
           )}
         </ScrollView>
@@ -452,89 +564,161 @@ function buildLossDocDetailStyles(ui: AuditUi) {
       paddingHorizontal: SCREEN_GUTTER,
       paddingTop: 4,
       paddingBottom: 36,
+      gap: 14,
     },
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
     muted: { fontSize: 14, fontWeight: "500", color: ui.muted, textAlign: "center" },
     summary: {
       ...auditSoftCardStyle(ui),
-      padding: 14,
-      marginBottom: 14,
+      padding: 16,
     },
-    summaryTitle: { fontSize: 16, fontWeight: "700", color: ui.ink },
-    summaryMeta: {
-      marginTop: 6,
-      fontSize: 13,
-      fontWeight: "500",
-      color: ui.muted,
-    },
-    summaryBtnWrap: {
-      marginTop: 12,
-      width: 130,
-    },
-    summaryBtn: {
-      alignSelf: "flex-start",
-      backgroundColor: ui.green,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      borderRadius: 999,
-    },
-    summaryBtnText: {
-      color: ui.onTone,
-      fontSize: 12,
-      fontWeight: "800",
-      letterSpacing: 0.3,
-    },
-    stepsBar: {
-      marginBottom: 10,
-      alignSelf: "flex-start",
-      backgroundColor: ui.accentSoft,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 999,
-    },
-    stepsText: {
+    summaryEyebrow: {
       fontSize: 11,
       fontWeight: "800",
-      color: ui.accent,
-      letterSpacing: 0.3,
+      color: ui.muted,
+      letterSpacing: 0.6,
     },
+    summaryAmount: {
+      marginTop: 4,
+      fontSize: 30,
+      fontWeight: "800",
+      color: ui.ink,
+      letterSpacing: -0.5,
+      fontVariant: ["tabular-nums"],
+    },
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginTop: 10,
+    },
+    chip: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+      maxWidth: "100%",
+    },
+    chipText: { fontSize: 12, fontWeight: "700" },
+    summaryFamily: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: ui.ink,
+      lineHeight: 18,
+    },
+    summaryFooter: {
+      marginTop: 14,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: ui.divider,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    progressBlock: { flex: 1, gap: 6 },
+    progressText: { fontSize: 12, fontWeight: "700", color: ui.ink },
+    progressTrack: {
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: ui.field,
+      overflow: "hidden",
+    },
+    progressFill: { height: "100%", borderRadius: 999 },
+    auditLinkWrap: { width: "auto" },
+    auditLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+    },
+    auditLinkText: { fontSize: 13, fontWeight: "700", color: ui.accent },
+    doneBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: ui.greenSoft,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    doneBannerText: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "700",
+      color: ui.green,
+      lineHeight: 18,
+    },
+    tabs: {
+      flexDirection: "row",
+      gap: 4,
+      padding: 4,
+      borderRadius: 14,
+      backgroundColor: ui.field,
+    },
+    tabSlot: { flex: 1 },
+    tab: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      borderRadius: 11,
+    },
+    tabActive: {
+      backgroundColor: ui.surface,
+      shadowColor: ui.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    tabDot: { width: 7, height: 7, borderRadius: 4 },
+    tabText: { fontSize: 13, fontWeight: "600", color: ui.muted },
+    tabTextActive: { color: ui.ink, fontWeight: "800" },
     block: {
       ...auditSoftCardStyle(ui),
       padding: 14,
-      marginBottom: 14,
     },
     blockHead: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 10,
-      gap: 8,
+      marginBottom: 12,
+      gap: 10,
     },
-    blockLabel: { fontSize: 14, fontWeight: "800", color: ui.ink, flex: 1 },
-    pdfBtnWrap: {
-      width: 96,
-    },
-    pdfBtn: {
-      backgroundColor: ui.accent,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
+    docIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       alignItems: "center",
+      justifyContent: "center",
     },
-    pdfBtnText: {
-      color: "#FFFFFF",
-      fontWeight: "800",
-      fontSize: 11,
-      letterSpacing: 0.3,
+    blockHeadCopy: { flex: 1, gap: 4, alignItems: "flex-start" },
+    blockLabel: { fontSize: 15, fontWeight: "800", color: ui.ink },
+    statusChip: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 999,
+    },
+    statusChipText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
+    expandBtnWrap: { width: 40 },
+    expandBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: ui.field,
+      alignItems: "center",
+      justifyContent: "center",
     },
     pdfFrame: {
-      height: 420,
+      height: 380,
       borderRadius: 14,
       overflow: "hidden",
       backgroundColor: ui.field,
     },
     pdfPlaceholder: {
-      height: 420,
+      height: 380,
       borderRadius: 14,
       alignItems: "center",
       justifyContent: "center",
@@ -549,59 +733,94 @@ function buildLossDocDetailStyles(ui: AuditUi) {
       alignItems: "center",
       justifyContent: "center",
     },
-    sigHead: {
-      marginTop: 14,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    sigLabel: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: ui.ink,
-    },
-    lockedBadge: {
-      backgroundColor: ui.greenSoft,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-      borderRadius: 999,
-    },
-    lockedBadgeText: {
-      color: ui.green,
-      fontSize: 10,
-      fontWeight: "800",
-      letterSpacing: 0.3,
-    },
+    sigSection: { marginTop: 16, gap: 2 },
+    sigLabel: { fontSize: 14, fontWeight: "800", color: ui.ink },
+    sigHint: { fontSize: 12, fontWeight: "500", color: ui.muted },
     signatureBox: {
-      marginTop: 6,
-      height: 170,
-      borderRadius: 12,
-      borderWidth: StyleSheet.hairlineWidth,
+      marginTop: 8,
+      height: 190,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
       borderColor: ui.divider,
       backgroundColor: ui.surface,
       overflow: "hidden",
     },
+    signatureGuide: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "space-between",
+      paddingHorizontal: 18,
+      paddingTop: 14,
+      paddingBottom: 30,
+    },
+    signaturePlaceholder: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "center",
+      marginTop: 40,
+    },
+    signaturePlaceholderText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: ui.muted,
+    },
+    signatureBaselineRow: {
+      marginTop: "auto",
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 8,
+    },
+    signatureCross: { fontSize: 14, fontWeight: "700", color: ui.muted },
+    signatureBaseline: {
+      flex: 1,
+      height: 1,
+      marginBottom: 4,
+      backgroundColor: ui.divider,
+    },
     signatureLockedBox: {
-      marginTop: 6,
-      height: 130,
-      borderRadius: 12,
-      backgroundColor: ui.greenSoft,
+      marginTop: 8,
+      height: 150,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: ui.greenSoft,
+      backgroundColor: ui.surface,
       alignItems: "center",
       justifyContent: "center",
-      padding: 6,
+      padding: 10,
     },
     signatureLockedImg: {
       width: "100%",
       height: "100%",
     },
+    lockedStamp: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: ui.greenSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 999,
+    },
+    lockedStampText: {
+      color: ui.green,
+      fontSize: 11,
+      fontWeight: "800",
+    },
     sigActions: {
       flexDirection: "row",
       gap: 10,
-      marginTop: 10,
+      marginTop: 12,
     },
-    sigSlot: { flex: 1 },
+    sigSlotGhost: { flex: 1 },
+    sigSlot: { flex: 2 },
     sigBtn: {
-      paddingVertical: 11,
+      flexDirection: "row",
+      gap: 6,
+      minHeight: 48,
       borderRadius: 999,
       alignItems: "center",
       justifyContent: "center",
@@ -611,7 +830,7 @@ function buildLossDocDetailStyles(ui: AuditUi) {
     },
     sigBtnGhostText: {
       color: ui.ink,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "700",
     },
     sigBtnSave: {
@@ -619,44 +838,11 @@ function buildLossDocDetailStyles(ui: AuditUi) {
     },
     sigBtnSaveText: {
       color: "#FFFFFF",
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "800",
       letterSpacing: 0.2,
     },
-    navRow: {
-      flexDirection: "row",
-      gap: 10,
-      marginBottom: 12,
-    },
-    navSlot: { flex: 1 },
-    navBtn: {
-      paddingVertical: 12,
-      borderRadius: 999,
-      backgroundColor: ui.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: ui.divider,
-      alignItems: "center",
-    },
-    navBtnPrimary: {
-      backgroundColor: ui.accent,
-      borderColor: ui.accent,
-    },
-    navBtnDisabled: {
-      opacity: 0.45,
-    },
-    navBtnText: {
-      fontSize: 13,
-      fontWeight: "800",
-      color: ui.ink,
-      letterSpacing: 0.2,
-    },
-    navBtnTextPrimary: {
-      color: "#FFFFFF",
-    },
-    navBtnTextDisabled: {
-      color: ui.muted,
-    },
-    saveBtnDisabled: { opacity: 0.6 },
+    saveBtnDisabled: { opacity: 0.5 },
     pdfWrap: { flex: 1, backgroundColor: ui.surface },
     pdfTopBar: {
       paddingHorizontal: SCREEN_GUTTER,

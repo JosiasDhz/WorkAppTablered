@@ -4,12 +4,10 @@ import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { SoftReveal } from "../../../components/SoftPressable";
 import { isWorkerDriver } from "../../../auth/isWorkerDriver";
-import { isWorkerSupervisor } from "../../../auth/isWorkerSupervisor";
 import { RootState } from "../../../redux/store/store";
 import { useDriverPendingRoutes } from "../../profile/hooks/useDriverPendingRoutes";
 import { useHomeRevealActive } from "../HomeRevealActiveContext";
 import { buildDriverRoleHomeKpi } from "./buildDriverRoleHomeKpi";
-import { buildEmptySupervisorRoleHomeKpi } from "./buildSupervisorRoleHomeKpi";
 import {
   HomeExpedienteKpiRing,
   HomeExpedienteKpiTitle,
@@ -29,10 +27,9 @@ function expedienteCaption(uploaded: number, total: number): string {
 export function HomeStatusKpis() {
   const navigation = useNavigation<any>();
   const revealActive = useHomeRevealActive();
-  const { user, seller } = useSelector((state: RootState) => state.auth);
+  const { user } = useSelector((state: RootState) => state.auth);
   const { data, loading } = useWorkerHomeKpis();
   const isDriver = isWorkerDriver(user);
-  const isSupervisor = isWorkerSupervisor(user, seller);
   const needLocalDriverKpi = isDriver && !loading && !data?.roleKpi;
   const driverRoutes = useDriverPendingRoutes(needLocalDriverKpi);
 
@@ -42,16 +39,11 @@ export function HomeStatusKpis() {
       if (driverRoutes.loading && driverRoutes.items.length === 0) return null;
       return buildDriverRoleHomeKpi(driverRoutes.items);
     }
-    if (isSupervisor && !loading) {
-      return buildEmptySupervisorRoleHomeKpi();
-    }
     return null;
   }, [
     data?.roleKpi,
     driverRoutes.items,
     driverRoutes.loading,
-    isSupervisor,
-    loading,
     needLocalDriverKpi,
   ]);
 
@@ -83,13 +75,18 @@ export function HomeStatusKpis() {
       navigation.navigate("DriverRoutesHub");
       return;
     }
-    if (action !== "inventory") return;
+    if (action !== "inventory" && action !== "audits") return;
     let current = navigation;
     while (current?.getParent?.()) {
       current = current.getParent();
     }
-    current.navigate("Inventory");
+    current.navigate(action === "audits" ? "InventoryAudit" : "Inventory");
   };
+
+  const roleKpiPressable =
+    roleKpi?.action === "inventory" ||
+    roleKpi?.action === "routes" ||
+    roleKpi?.action === "audits";
 
   const expediente = useMemo(() => {
     if (loading) {
@@ -135,11 +132,7 @@ export function HomeStatusKpis() {
         <SoftReveal delay={40} active={revealActive}>
           <HomeRoleKpi
             kpi={roleKpi}
-            onPress={
-              roleKpi.action === "inventory" || roleKpi.action === "routes"
-                ? openRoleKpi
-                : undefined
-            }
+            onPress={roleKpiPressable ? openRoleKpi : undefined}
           />
         </SoftReveal>
       ) : null}
@@ -157,11 +150,7 @@ export function HomeStatusKpis() {
             commission={commission}
             roleKpi={sideRoleKpi}
             onPressCommission={openCommissions}
-            onPressRole={
-              roleKpi?.action === "inventory" || roleKpi?.action === "routes"
-                ? openRoleKpi
-                : undefined
-            }
+            onPressRole={roleKpiPressable ? openRoleKpi : undefined}
           />
         </SoftReveal>
       </View>

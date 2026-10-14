@@ -10,7 +10,8 @@ export type InventoryAuditStatus =
   | "pending_responsibility"
   | "finalized"
   | "completed"
-  | "submitted";
+  | "submitted"
+  | "cancelled";
 
 export interface AuditInventoryLocation {
   id: string;
@@ -55,6 +56,8 @@ export interface MyInventoryAudit {
   countedProducts: number;
   createdAt: string;
   comments?: string | null;
+  cancellationReason?: string | null;
+  cancelledAt?: string | null;
   warehouse?: { id: string; name: string } | null;
   worker?: {
     id: string;
@@ -97,6 +100,7 @@ export interface AuditDetailFamily {
   status: string;
   totalProducts: number;
   countedProducts: number;
+  requiresProductionYear?: boolean;
   departament?: { id: string; name: string };
   brand?: { id: string; name: string } | null;
   inventoryLocation?: AuditInventoryLocation | null;
@@ -117,13 +121,44 @@ export async function startMyAudit(auditId: string): Promise<MyAuditDetail> {
   return res.data;
 }
 
+export type AuditStockMovementKey =
+  | "soldPendingDelivery"
+  | "transferPendingSend"
+  | "transferArrivedPendingReception"
+  | "saleReturnPendingEntry"
+  | "outPendingDeduction"
+  | "warrantyWithSupplier"
+  | "inRoute"
+  | "transferInTransit"
+  | "reserved"
+  | "unpaidSale"
+  | "layaway"
+  | "saleTransfer"
+  | "warranty"
+  | "exhibition";
+
+export type AuditStockMovements = Partial<Record<AuditStockMovementKey, number>>;
+
 export interface AuditProductLine {
   id: string;
   systemStock: number | null;
   counted: number | null;
   difference: number | null;
   notes: string | null;
-  product: { id: string; sku: string; name: string };
+  stockMovements?: AuditStockMovements | null;
+  product: {
+    id: string;
+    sku: string;
+    name: string;
+    productionYear?: number | null;
+    imageFileId?: string | null;
+  };
+}
+
+export interface AuditCountLinePayload {
+  id: string;
+  counted?: number;
+  productionYear?: number;
 }
 
 export interface FamilyProductsPageResponse {
@@ -155,7 +190,7 @@ export async function getFamilyAuditProducts(
 export async function patchFamilyAuditCounts(
   auditId: string,
   familyId: string,
-  body: { lines: { id: string; counted: number }[]; completeFamily?: boolean },
+  body: { lines: AuditCountLinePayload[]; completeFamily?: boolean },
 ): Promise<{ family: AuditDetailFamily; audit: { id: string; status: string } }> {
   const res = await http.patch(
     `${prefix}/${auditId}/families/${familyId}/counts`,
@@ -242,12 +277,39 @@ export interface MyLossDocumentItem {
   paymentFormDocumentText: string | null;
 }
 
-export interface MyLossDocumentsResponse {
-  data: MyLossDocumentItem[];
+export type LossDocumentSignatureFilter = "pending" | "signed";
+
+export interface MyLossDocumentsParams {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  signature?: LossDocumentSignatureFilter;
 }
 
-export async function getMyLossDocuments(): Promise<MyLossDocumentsResponse> {
-  const res = await http.get(`${prefix}/my-loss-documents`);
+export interface MyLossDocumentListItem {
+  allocationId: string;
+  audit: MyLossDocumentAudit;
+  family: MyLossDocumentFamily;
+  percentage: number;
+  amount: number;
+  generateContract: boolean;
+  generatePaymentForm: boolean;
+  contractSigned: boolean;
+  paymentFormSigned: boolean;
+}
+
+export interface MyLossDocumentsResponse {
+  data: MyLossDocumentListItem[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  counts?: Record<LossDocumentSignatureFilter, number>;
+}
+
+export async function getMyLossDocuments(
+  params: MyLossDocumentsParams = {},
+): Promise<MyLossDocumentsResponse> {
+  const res = await http.get(`${prefix}/my-loss-documents`, { params });
   return res.data;
 }
 

@@ -15,6 +15,7 @@ import {
   useRoute,
 } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
+import { useSelector } from "react-redux";
 import {
   ArrowRight2,
   Box,
@@ -30,6 +31,7 @@ import { SoftPressable } from "../../components/SoftPressable";
 import { SlideToStartAudit } from "../../components/SlideToStartAudit";
 import { headerSafeEdges } from "../../routes/headerSafeEdges";
 import { SCREEN_GUTTER } from "../../theme/layout";
+import type { RootState } from "../../redux/store/store";
 import {
   getAuditCostReport,
   getMyAuditSummary,
@@ -98,10 +100,21 @@ function auditStatusMeta(status: string, ui: AuditUi) {
   if (status === "pending_review" || status === "pending_responsibility" || status === "submitted") {
     return { label: "En revisión", color: ui.blue, soft: ui.blueSoft };
   }
+  if (status === "cancelled") {
+    return { label: "Cancelada", color: ui.rose, soft: ui.roseSoft };
+  }
   return { label: status, color: ui.muted, soft: ui.field };
 }
 
-function familyStatusMeta(status: string, locked: boolean, ui: AuditUi) {
+function familyStatusMeta(
+  status: string,
+  locked: boolean,
+  cancelled: boolean,
+  ui: AuditUi,
+) {
+  if (cancelled && status !== "completed") {
+    return { label: "Cancelada", color: ui.rose, soft: ui.roseSoft };
+  }
   if (locked) {
     return { label: "Bloqueada", color: ui.muted, soft: ui.field };
   }
@@ -155,11 +168,15 @@ function FamilyCard({
   family,
   index,
   locked,
+  cancelled = false,
+  readOnly = false,
   onPress,
 }: {
   family: AuditDetailFamily;
   index: number;
   locked: boolean;
+  cancelled?: boolean;
+  readOnly?: boolean;
   onPress: () => void;
 }) {
   const ui = useAuditUi();
@@ -169,7 +186,8 @@ function FamilyCard({
       ? Math.round((family.countedProducts / family.totalProducts) * 100)
       : 0;
   const done = family.status === "completed";
-  const meta = familyStatusMeta(family.status, locked, ui);
+  const meta = familyStatusMeta(family.status, locked, cancelled, ui);
+  const progressColor = cancelled && !done ? ui.muted : meta.color;
   const dept = family.departament?.name ?? "Ubicación";
   const label = auditFamilyDisplayLabel(family);
 
@@ -201,19 +219,21 @@ function FamilyCard({
             {family.countedProducts}/{family.totalProducts} productos
           </Text>
         </View>
-        {locked ? null : <ArrowRight2 size={16} color={ui.muted} variant="Linear" />}
+        {locked || readOnly ? null : (
+          <ArrowRight2 size={16} color={ui.muted} variant="Linear" />
+        )}
       </View>
       <View style={styles.familyProgress}>
         <View style={styles.progressHeader}>
           <Text style={styles.progressLabel}>Avance</Text>
-          <Text style={[styles.progressValue, { color: meta.color }]}>{pct}%</Text>
+          <Text style={[styles.progressValue, { color: progressColor }]}>{pct}%</Text>
         </View>
-        <ProgressBar progress={pct} color={meta.color} />
+        <ProgressBar progress={pct} color={progressColor} />
       </View>
     </View>
   );
 
-  if (locked) {
+  if (locked || readOnly) {
     return body;
   }
 
@@ -232,6 +252,9 @@ export default function InventoryAuditDetail() {
   const ui = useAuditUi();
   const styles = useAuditDetailStyles();
   const { auditId } = route.params as { auditId: string };
+  const currentUserId = useSelector(
+    (state: RootState) => state.auth.user?.id as string | undefined,
+  );
 
   const [detail, setDetail] = useState<MyAuditDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -282,7 +305,10 @@ export default function InventoryAuditDetail() {
     setRefreshing(false);
   }, [load]);
 
+  const isAssignedAuditor =
+    !!detail?.worker?.user?.id && detail.worker.user.id === currentUserId;
   const familiesLocked = detail ? detail.status === "pending" : false;
+  const auditCancelled = detail?.status === "cancelled";
   const auditReadOnly =
     detail &&
     (detail.status === "pending_review" ||
@@ -296,7 +322,7 @@ export default function InventoryAuditDetail() {
     : "during";
 
   const goFamily = (f: AuditDetailFamily) => {
-    if (familiesLocked) return;
+    if (familiesLocked || auditCancelled || !isAssignedAuditor) return;
     navigation.navigate("InventoryAuditFamilyProducts", {
       auditId,
       familyId: f.id,
@@ -323,7 +349,8 @@ export default function InventoryAuditDetail() {
     }
   }, [auditId]);
 
-  const showStartDock = !!detail && familiesLocked && scheduleWindow === "during";
+  const showStartDock =
+    !!detail && isAssignedAuditor && familiesLocked && scheduleWindow === "during";
 
   const families = detail?.families ?? [];
   const familiesDone = useMemo(
@@ -346,9 +373,13 @@ export default function InventoryAuditDetail() {
     ? `${formatInventoryAuditCalendarDateMX(detail.scheduledStartDate)} → ${formatInventoryAuditCalendarDateMX(detail.scheduledEndDate)}`
     : "";
 
-  const headerSubtitle = familiesLocked
-    ? "Desliza para iniciar y desbloquear ubicaciones"
-    : "Elige una ubicación para continuar el conteo";
+  const headerSubtitle = auditCancelled
+    ? "Auditoría cancelada"
+    : !isAssignedAuditor
+    ? "Resumen de la auditoría"
+    : familiesLocked
+      ? "Desliza para iniciar y desbloquear ubicaciones"
+      : "Elige una ubicación para continuar el conteo";
 
   return (
     <SafeAreaView style={styles.safe} edges={headerSafeEdges("top", "left", "right")}>
@@ -437,14 +468,14 @@ export default function InventoryAuditDetail() {
                   value={familiesDone}
                   total={families.length}
                   progress={familiesPct}
-                  color={ui.green}
+                  color={auditCancelled ? ui.muted : ui.green}
                 />
                 <StatTile
                   label="Productos"
                   value={detail.countedProducts}
                   total={detail.totalProducts}
                   progress={productsPct}
-                  color={ui.accent}
+                  color={auditCancelled ? ui.muted : ui.accent}
                 />
               </View>
             </PageFlipReveal>
@@ -463,6 +494,23 @@ export default function InventoryAuditDetail() {
                         : scheduleWindow === "after"
                           ? "El periodo programado ya terminó."
                           : "Desliza abajo para iniciar la auditoría."}
+                    </Text>
+                  </View>
+                </View>
+              </PageFlipReveal>
+            ) : null}
+
+            {auditCancelled ? (
+              <PageFlipReveal delay={FLIP_STAGGER_MS * 2} active={isFocused}>
+                <View style={styles.lockBanner}>
+                  <View style={[styles.iconWell, { backgroundColor: ui.roseSoft }]}>
+                    <Lock size={18} color={ui.rose} variant="Linear" />
+                  </View>
+                  <View style={styles.lockCopy}>
+                    <Text style={styles.lockTitle}>Auditoría cancelada</Text>
+                    <Text style={styles.lockSub}>
+                      {detail.cancellationReason?.trim() ||
+                        "Ya no es necesario continuar con el conteo."}
                     </Text>
                   </View>
                 </View>
@@ -490,7 +538,9 @@ export default function InventoryAuditDetail() {
                     <FamilyCard
                       family={f}
                       index={index}
-                      locked={familiesLocked}
+                      locked={familiesLocked || auditCancelled}
+                      cancelled={auditCancelled}
+                      readOnly={!isAssignedAuditor}
                       onPress={() => goFamily(f)}
                     />
                   </PageFlipReveal>

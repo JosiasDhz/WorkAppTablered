@@ -6,6 +6,7 @@ import {
   CloseCircle,
   Coin,
   Danger,
+  Edit2,
   Health,
   MessageText,
   MoneyRecive,
@@ -157,6 +158,16 @@ const APPEARANCE_BY_TYPE: Record<string, NotificationAppearance> = {
     Icon: TicketDiscount,
     tint: NOTIFICATION_COLORS.muted,
     wash: NOTIFICATION_COLORS.neutralSoft,
+  },
+  INVENTORY_AUDIT_SIGNATURE_RESET: {
+    Icon: Edit2,
+    tint: NOTIFICATION_COLORS.warning,
+    wash: NOTIFICATION_COLORS.warningSoft,
+  },
+  INVENTORY_AUDIT_CANCELLED: {
+    Icon: CloseCircle,
+    tint: NOTIFICATION_COLORS.rose,
+    wash: NOTIFICATION_COLORS.roseSoft,
   },
   ECOMMERCE_ORDER_DONE: {
     Icon: TruckFast,

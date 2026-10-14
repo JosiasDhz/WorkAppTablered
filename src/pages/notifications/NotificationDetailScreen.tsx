@@ -32,6 +32,19 @@ import {
 } from "./notificationsTheme";
 
 const LATE_ENTRY_PENDING = "LATE_ENTRY_AUTHORIZATION_PENDING";
+const AUDIT_SIGNATURE_RESET = "INVENTORY_AUDIT_SIGNATURE_RESET";
+const AUDIT_CANCELLED = "INVENTORY_AUDIT_CANCELLED";
+
+function readAllocationId(payload: Record<string, unknown>): string {
+  return typeof payload.allocationId === "string"
+    ? payload.allocationId.trim()
+    : "";
+}
+
+function readCancelledAuditId(payload: Record<string, unknown>): string {
+  if (payload.canOpenAudit !== true) return "";
+  return typeof payload.auditId === "string" ? payload.auditId.trim() : "";
+}
 
 function formatDetailDate(iso: string): string {
   if (!iso) return "";
@@ -129,6 +142,10 @@ export default function NotificationDetailScreen() {
   const lateEntry = readLateEntryPayload(row?.payload ?? {});
   const canReviewLateEntry =
     type === LATE_ENTRY_PENDING && Boolean(lateEntry.sellerId) && !resolved;
+  const resetAllocationId =
+    type === AUDIT_SIGNATURE_RESET ? readAllocationId(row?.payload ?? {}) : "";
+  const cancelledAuditId =
+    type === AUDIT_CANCELLED ? readCancelledAuditId(row?.payload ?? {}) : "";
 
   const runLateEntryAction = async (action: "approve" | "reject") => {
     if (!lateEntry.sellerId || acting) return;
@@ -244,6 +261,42 @@ export default function NotificationDetailScreen() {
                     ) : (
                       <Text style={styles.approveLabel}>Autorizar</Text>
                     )}
+                  </SoftPressable>
+                </View>
+              ) : null}
+              {resetAllocationId ? (
+                <View style={styles.actions}>
+                  <SoftPressable
+                    onPress={() =>
+                      navigation.navigate("InventoryAuditLossDocumentDetail", {
+                        allocationId: resetAllocationId,
+                      })
+                    }
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: colors.accent },
+                    ]}
+                    accessibilityLabel="Firmar acta ahora"
+                  >
+                    <Text style={styles.approveLabel}>Firmar ahora</Text>
+                  </SoftPressable>
+                </View>
+              ) : null}
+              {cancelledAuditId ? (
+                <View style={styles.actions}>
+                  <SoftPressable
+                    onPress={() =>
+                      navigation.navigate("InventoryAuditDetail", {
+                        auditId: cancelledAuditId,
+                      })
+                    }
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: colors.accent },
+                    ]}
+                    accessibilityLabel="Ver auditoría cancelada"
+                  >
+                    <Text style={styles.approveLabel}>Ver auditoría</Text>
                   </SoftPressable>
                 </View>
               ) : null}
