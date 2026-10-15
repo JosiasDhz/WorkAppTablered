@@ -4,6 +4,7 @@ import SplashScreenView from "./src/utils/SplashScreenView";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "react-redux";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 import store from "./src/redux/store/store";
 import AppNavigator from "./src/routes/TabNavigator";
 import { installGlobalTapFeedback } from "./src/feedback/installGlobalTapFeedback";
@@ -29,6 +30,7 @@ function AppShell() {
     <View style={{ flex: 1, backgroundColor: colors.layout }}>
       {isShowSplash ? <SplashScreenView /> : <AppNavigator />}
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <Toast />
     </View>
   );
 }

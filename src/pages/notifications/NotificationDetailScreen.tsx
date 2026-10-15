@@ -27,11 +27,17 @@ import { refreshInAppUnreadCount } from "../../services/inAppUnreadBadge";
 import type { NotificationsStackParamList } from "../../routes/navigators/NotificationsStackParamList";
 import { resolveNotificationAppearance } from "./notificationAppearance";
 import {
+  CoverageReviewActions,
+  readCoverageDecision,
+  readCoverageId,
+} from "./CoverageReviewActions";
+import {
   NOTIFICATION_RADIUS,
   useNotificationColors,
 } from "./notificationsTheme";
 
 const LATE_ENTRY_PENDING = "LATE_ENTRY_AUTHORIZATION_PENDING";
+const COVERAGE_PENDING = "PERMISSION_COVERAGE_PENDING";
 const AUDIT_SIGNATURE_RESET = "INVENTORY_AUDIT_SIGNATURE_RESET";
 const AUDIT_CANCELLED = "INVENTORY_AUDIT_CANCELLED";
 
@@ -71,6 +77,21 @@ function readLateEntryPayload(payload: Record<string, unknown>) {
   };
 }
 
+type LateEntryDecision = "approved" | "rejected";
+
+function readLateEntryDecision(
+  payload: Record<string, unknown>,
+): LateEntryDecision | null {
+  return payload.decision === "approved" || payload.decision === "rejected"
+    ? payload.decision
+    : null;
+}
+
+const LATE_ENTRY_DECISION_LABEL: Record<LateEntryDecision, string> = {
+  approved: "Entrada autorizada. El colaborador ya fue notificado.",
+  rejected: "Entrada rechazada. El colaborador ya fue notificado.",
+};
+
 function apiErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
     const data = error as Record<string, unknown>;
@@ -100,7 +121,9 @@ export default function NotificationDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const [acting, setActing] = useState<"approve" | "reject" | null>(null);
-  const [resolved, setResolved] = useState(false);
+  const [localDecision, setLocalDecision] = useState<LateEntryDecision | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     if (!notificationId) {
@@ -140,12 +163,21 @@ export default function NotificationDetailScreen() {
   const { Icon, tint, wash } = resolveNotificationAppearance(type);
   const whenLabel = formatDetailDate(row?.createdAt ?? "");
   const lateEntry = readLateEntryPayload(row?.payload ?? {});
+  const lateEntryDecision =
+    type === LATE_ENTRY_PENDING
+      ? localDecision ?? readLateEntryDecision(row?.payload ?? {})
+      : null;
   const canReviewLateEntry =
-    type === LATE_ENTRY_PENDING && Boolean(lateEntry.sellerId) && !resolved;
+    type === LATE_ENTRY_PENDING &&
+    Boolean(row) &&
+    Boolean(lateEntry.sellerId) &&
+    !lateEntryDecision;
   const resetAllocationId =
     type === AUDIT_SIGNATURE_RESET ? readAllocationId(row?.payload ?? {}) : "";
   const cancelledAuditId =
     type === AUDIT_CANCELLED ? readCancelledAuditId(row?.payload ?? {}) : "";
+  const coverageId =
+    type === COVERAGE_PENDING && row ? readCoverageId(row.payload ?? {}) : "";
 
   const runLateEntryAction = async (action: "approve" | "reject") => {
     if (!lateEntry.sellerId || acting) return;
@@ -172,7 +204,7 @@ export default function NotificationDetailScreen() {
           text2: "Se avisó al colaborador.",
         });
       }
-      setResolved(true);
+      setLocalDecision(action === "approve" ? "approved" : "rejected");
       void refreshInAppUnreadCount();
     } catch (error) {
       Toast.show({
@@ -264,6 +296,13 @@ export default function NotificationDetailScreen() {
                   </SoftPressable>
                 </View>
               ) : null}
+              {coverageId ? (
+                <CoverageReviewActions
+                  key={coverageId}
+                  coverageId={coverageId}
+                  initialDecision={readCoverageDecision(row?.payload ?? {})}
+                />
+              ) : null}
               {resetAllocationId ? (
                 <View style={styles.actions}>
                   <SoftPressable
@@ -300,9 +339,19 @@ export default function NotificationDetailScreen() {
                   </SoftPressable>
                 </View>
               ) : null}
-              {resolved ? (
-                <Text style={[styles.resolvedLabel, { color: colors.emerald }]}>
-                  Decisión registrada. El colaborador ya fue notificado.
+              {lateEntryDecision ? (
+                <Text
+                  style={[
+                    styles.resolvedLabel,
+                    {
+                      color:
+                        lateEntryDecision === "approved"
+                          ? colors.emerald
+                          : colors.rose,
+                    },
+                  ]}
+                >
+                  {LATE_ENTRY_DECISION_LABEL[lateEntryDecision]}
                 </Text>
               ) : null}
             </View>
