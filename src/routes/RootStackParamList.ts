@@ -30,4 +30,5 @@ export type RootStackParamList = {
   DriverRouteReportIncident: { routeId: string };
   DriverCollections: undefined;
   Login: undefined;
+  AttendanceGate: undefined;
 };

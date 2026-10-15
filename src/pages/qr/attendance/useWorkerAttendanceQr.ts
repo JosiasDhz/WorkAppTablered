@@ -6,11 +6,21 @@ import {
   type WorkerCheckTypeDto,
   type WorkerTodayCheckContext,
 } from "../../../services/attendanceService";
+import { REALTIME_EVENTS } from "../../../services/realtime/realtimeClient";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "../../../services/realtime/useRealtime";
+
+const ATTENDANCE_REALTIME_EVENTS = [
+  REALTIME_EVENTS.attendanceCheckRegistered,
+  REALTIME_EVENTS.attendanceAccessChanged,
+] as const;
 
 const CONTEXT_POLL_MS = 5_000;
 const CONTEXT_POLL_IDLE_MS = 30_000;
 const SUCCESS_FLASH_MS = 2400;
-const QR_WINDOW_MS = 30_000;
+const QR_WINDOW_MS = 10_000;
 const MIN_TRUSTED_WINDOW_MS = 2_000;
 const MAX_TRUSTED_WINDOW_MS = 120_000;
 const MIN_ROTATE_INTERVAL_MS = 2_000;
@@ -56,6 +66,7 @@ export type UseWorkerAttendanceQrOptions = {
 export function useWorkerAttendanceQr({
   active = true,
 }: UseWorkerAttendanceQrOptions = {}): WorkerQrTimeSlice {
+  const realtimeConnected = useRealtimeConnected();
   const [context, setContext] = useState<WorkerTodayCheckContext | null>(null);
   const [contextLoading, setContextLoading] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
@@ -259,9 +270,24 @@ export function useWorkerAttendanceQr({
     void syncContextQuiet();
   }, [active, refreshContext, syncContextQuiet]);
 
+  useRealtimeEvent(
+    ATTENDANCE_REALTIME_EVENTS,
+    () => {
+      if (rotatingAfterSuccessRef.current) return;
+      void syncContextQuiet();
+    },
+    active,
+  );
+
+  useEffect(() => {
+    if (!active) return;
+    if (realtimeConnected) void syncContextQuiet();
+  }, [active, realtimeConnected, syncContextQuiet]);
+
   useEffect(() => {
     if (!active) return;
     if (checkSuccess) return;
+    if (realtimeConnected) return;
 
     const intervalMs =
       context?.mode === "complete" ? CONTEXT_POLL_IDLE_MS : CONTEXT_POLL_MS;
@@ -281,7 +307,7 @@ export function useWorkerAttendanceQr({
       void tick();
     }, intervalMs);
     return () => clearInterval(id);
-  }, [active, checkSuccess, context?.mode, syncContextQuiet]);
+  }, [active, checkSuccess, context?.mode, realtimeConnected, syncContextQuiet]);
 
   useEffect(() => {
     return () => clearSuccessTimer();
@@ -348,28 +374,21 @@ export function useWorkerAttendanceQr({
     if (Date.now() - lastRotateAtRef.current < MIN_ROTATE_INTERVAL_MS) return;
     refreshAfterExpiryRef.current = true;
     void (async () => {
-      try {
-        const data = await fetchWorkerTodayCheckContext();
-        ingestContext(data);
-        const nextSelection =
-          selectedRef.current &&
-          data.selectableTypes.some((row) => row.code === selectedRef.current)
-            ? selectedRef.current
-            : null;
+      const nextSelection =
+        selectedRef.current &&
+        context?.selectableTypes.some((row) => row.code === selectedRef.current)
+          ? selectedRef.current
+          : null;
+      if (nextSelection !== selectedRef.current) {
         setSelectedCheckTypeCode(nextSelection);
-        const ok = await loadQr(nextSelection);
-        if (!ok) refreshAfterExpiryRef.current = false;
-      } catch {
-        refreshAfterExpiryRef.current = false;
-        setNonce("");
-        setDeadlineMs(null);
-        setIssuedAtMs(null);
       }
+      const ok = await loadQr(nextSelection);
+      if (!ok) refreshAfterExpiryRef.current = false;
     })();
-  }, [active, now, deadlineMs, checkSuccess, ingestContext, loadQr]);
+  }, [active, now, deadlineMs, checkSuccess, context, loadQr]);
 
   const secondsLeft = useMemo(() => {
-    if (deadlineMs == null) return 30;
+    if (deadlineMs == null) return Math.ceil(QR_WINDOW_MS / 1000);
     const msLeft = Math.max(0, deadlineMs - now);
     return Math.max(1, Math.ceil(msLeft / 1000));
   }, [deadlineMs, now]);

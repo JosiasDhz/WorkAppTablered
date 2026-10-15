@@ -1,5 +1,6 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { signalAttendanceAccessBlockedIfNeeded } from "../auth/attendanceAccess";
 export const apiBaseUrl = "http://192.168.0.227:9005";
 // export const apiBaseUrl = "https://table-redapi.karimnot.dev";
 // export const apiBaseUrl = "https://api.tableredoaxaca.com";
@@ -43,6 +44,7 @@ http.interceptors.response.use(
   (response) => response,
   function (error) {
     if (error.response) {
+      signalAttendanceAccessBlockedIfNeeded(error.response.data);
       return Promise.reject(error.response.data);
     }
     return Promise.reject({
@@ -77,6 +79,7 @@ httpFormDataClient.interceptors.response.use(
   (response) => response,
   function (error) {
     if (error.response) {
+      signalAttendanceAccessBlockedIfNeeded(error.response.data);
       return Promise.reject(error.response.data);
     }
     return Promise.reject({

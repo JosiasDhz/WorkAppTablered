@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import * as Haptics from "expo-haptics";
 
-const ENDING_SECONDS = 5;
+const ENDING_SECONDS = 3;
 const HAPTIC_INTERVAL_MS = 500;
 
 export function isExpiringSoon(secondsLeft: number): boolean {

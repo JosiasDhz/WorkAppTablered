@@ -2,6 +2,7 @@ import type { AppDispatch } from "../../../redux/store/store";
 import type { LoginSessionDependencies, MockLoginApiResponse } from "./types";
 import { applyAuthPayloadToClient } from "../../../auth/applyAuthPayload";
 import { markHomeWelcomePending } from "../../home/homeWelcomePending";
+import { applyAttendanceAccess } from "../../../auth/attendanceAccess";
 
 export async function persistLoginSession(
   loginResponse: MockLoginApiResponse,
@@ -13,6 +14,7 @@ export async function persistLoginSession(
   }
 
   markHomeWelcomePending();
+  applyAttendanceAccess(dispatch, loginResponse.attendanceAccess);
   await applyAuthPayloadToClient(
     { token: loginResponse.token, user: loginResponse.user },
     dispatch,

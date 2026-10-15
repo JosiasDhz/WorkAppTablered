@@ -1,5 +1,6 @@
 import type { AppDispatch } from "../redux/store/store";
 import { applyAuthPayloadToClient } from "../auth/applyAuthPayload";
+import { applyAttendanceAccess } from "../auth/attendanceAccess";
 import { saveInStorage } from "../utils";
 import { getFile } from "./s3Service";
 import { fetchAuthValidate } from "./authService";
@@ -14,6 +15,7 @@ export async function refreshAuthSession(dispatch: AppDispatch): Promise<void> {
   if (!data?.token || !data?.user) {
     throw new Error("Sesion invalida");
   }
+  applyAttendanceAccess(dispatch, data.attendanceAccess);
   await applyAuthPayloadToClient(
     { token: data.token, user: data.user },
     dispatch,

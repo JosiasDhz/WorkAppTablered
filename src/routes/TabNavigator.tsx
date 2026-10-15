@@ -5,6 +5,9 @@ import QRCodeNavigator from "./navigators/QRCodeNavigator";
 import ProfileNavigator from "./navigators/ProfileNavigator";
 import UserProfileNavigator from "./navigators/UserProfileNavigator";
 import Login from "../pages/auth/Login";
+import AttendanceGateScreen from "../pages/attendanceGate/AttendanceGateScreen";
+import { useAttendanceAccessSync } from "../auth/useAttendanceAccessSync";
+import { useRealtimeSession } from "../services/realtime/useRealtime";
 import { RootState } from "../redux/store/store";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -160,8 +163,13 @@ const TabNavigator = () => {
 const AppNavigator = () => {
   const dispatch = useDispatch();
   const { token } = useSelector((state: RootState) => state.auth);
+  const attendanceBlocked = useSelector(
+    (state: RootState) => state.attendanceAccess.blocked,
+  );
   const [loading, setLoading] = React.useState(true);
   const { colors, scheme } = useAppAppearance();
+  useRealtimeSession();
+  useAttendanceAccessSync();
   useOpenNotificationFromPush(Boolean(token) && !loading);
 
   const navTheme = React.useMemo(
@@ -214,7 +222,13 @@ const AppNavigator = () => {
           contentStyle: { flex: 1, backgroundColor: colors.layout },
         }}
       >
-        {token ? (
+        {token && attendanceBlocked ? (
+          <Stack.Screen
+            name="AttendanceGate"
+            component={AttendanceGateScreen}
+            options={{ headerShown: false }}
+          />
+        ) : token ? (
           <React.Fragment>
             <Stack.Screen
             name="Tabs"

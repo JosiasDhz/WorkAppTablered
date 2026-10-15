@@ -1,4 +1,5 @@
 import type { Animated } from "react-native";
+import type { AttendanceAccessPayload } from "../../../auth/attendanceAccess";
 
 /** Un segmento de animación de entrada (opacidad + desplazamiento vertical). */
 export type LoginRowAnimation = {
@@ -13,6 +14,7 @@ export type MockLoginApiResponse = {
     avatar: null | Record<string, unknown>;
   };
   accessList: unknown[];
+  attendanceAccess?: AttendanceAccessPayload;
 };
 
 export interface LoginSessionDependencies {
