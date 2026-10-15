@@ -157,11 +157,14 @@ export default function PermisoDetalleScreen() {
             </View>
             {item.status === "PENDING" ||
             item.status === "PENDING_RH" ||
-            item.status === "PENDING_SUPERVISOR" ? (
+            item.status === "PENDING_SUPERVISOR" ||
+            item.status === "PENDING_COVERAGE" ? (
               <Text style={styles.pendingNote}>
-                {item.status === "PENDING_SUPERVISOR"
-                  ? "Tu solicitud está con el jefe inmediato."
-                  : "Tu solicitud está en preautorización de RH."}
+                {item.status === "PENDING_COVERAGE"
+                  ? "Tu jefe ya la autorizó; falta confirmar quién cubre tu puesto."
+                  : item.status === "PENDING_SUPERVISOR"
+                    ? "Tu solicitud está con el jefe inmediato."
+                    : "Tu solicitud está en preautorización de RH."}
               </Text>
             ) : null}
           </View>

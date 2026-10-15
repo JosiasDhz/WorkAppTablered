@@ -39,6 +39,21 @@ const APPEARANCE_BY_TYPE: Record<string, NotificationAppearance> = {
     tint: NOTIFICATION_COLORS.emerald,
     wash: NOTIFICATION_COLORS.emeraldSoft,
   },
+  PERMISSION_COVERAGE_PENDING: {
+    Icon: Clock,
+    tint: NOTIFICATION_COLORS.warning,
+    wash: NOTIFICATION_COLORS.warningSoft,
+  },
+  PERMISSION_COVERAGE_REJECTED: {
+    Icon: CloseCircle,
+    tint: NOTIFICATION_COLORS.rose,
+    wash: NOTIFICATION_COLORS.roseSoft,
+  },
+  PERMISSION_COVERAGE_ASSIGNED: {
+    Icon: ClipboardTick,
+    tint: NOTIFICATION_COLORS.emerald,
+    wash: NOTIFICATION_COLORS.emeraldSoft,
+  },
   FALTA_REGISTRADA: {
     Icon: CloseCircle,
     tint: NOTIFICATION_COLORS.rose,

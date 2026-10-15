@@ -46,6 +46,7 @@ const PENDING_STATUSES = new Set([
   "PENDING",
   "PENDING_RH",
   "PENDING_SUPERVISOR",
+  "PENDING_COVERAGE",
 ]);
 
 function clampFlipDelay(delay: number) {

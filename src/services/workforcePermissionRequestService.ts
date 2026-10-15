@@ -4,6 +4,7 @@ export type PermissionRequestStatus =
   | "PENDING"
   | "PENDING_RH"
   | "PENDING_SUPERVISOR"
+  | "PENDING_COVERAGE"
   | "APPROVED"
   | "REJECTED";
 
@@ -177,7 +178,19 @@ export function permissionStatusLabel(status: PermissionRequestStatus): string {
   if (status === "REJECTED") return "Rechazado";
   if (status === "PENDING_RH") return "Preautorización RH";
   if (status === "PENDING_SUPERVISOR") return "Pendiente de jefe";
+  if (status === "PENDING_COVERAGE") return "Pendiente de cobertura";
   return "Pendiente";
+}
+
+export async function reviewPermissionCoverage(
+  coverageId: string,
+  payload: { decision: "APPROVED" | "REJECTED"; reason?: string },
+) {
+  const { data } = await http.patch<PermissionRequestDto>(
+    `/workforce-permission-requests/coverages/${coverageId}/review`,
+    payload,
+  );
+  return data;
 }
 
 export const PERMISSION_CATEGORY_OPTIONS: Array<{
